@@ -13,42 +13,23 @@ GARP works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom
 
 ## Setup
 
-### 1. Clone the shared GARP repo
+### 1. Create or join a shared GARP repo
+
+**New repo** -- use the init script:
 
 ```bash
-git clone git@github.com:your-org/garp-team.git ~/garp-team
+./scripts/garp-init.sh new ~/garp-team "My Team" alice/Alice bob/Bob
 ```
 
-### 2. Initialize repo structure
+This creates the directory structure, `config.json`, and seeds an `ask` skill contract. The script will offer to push to a remote.
 
-If this is a new repo, create the required directories and config:
+**Existing repo** -- clone it:
 
 ```bash
-cd ~/garp-team
-mkdir -p requests/pending requests/active requests/completed responses skills
-touch requests/pending/.gitkeep requests/active/.gitkeep requests/completed/.gitkeep responses/.gitkeep skills/.gitkeep
+./scripts/garp-init.sh join git@github.com:your-org/garp-team.git ~/garp-team
 ```
 
-Create `config.json` in the repo root:
-
-```json
-{
-  "team_name": "Your Team",
-  "version": 1,
-  "members": [
-    { "user_id": "alice", "display_name": "Alice" },
-    { "user_id": "bob", "display_name": "Bob" }
-  ]
-}
-```
-
-Commit and push:
-
-```bash
-git add -A && git commit -m "Initialize GARP repo structure" && git push
-```
-
-### 3. Build the MCP server
+### 2. Build the MCP server
 
 ```bash
 cd ~/garp
@@ -58,7 +39,7 @@ bun run build
 
 This produces `dist/index.js`.
 
-### 4. Register as an MCP server
+### 3. Register as an MCP server
 
 Add GARP to your MCP host's configuration. The exact location depends on your host:
 
@@ -127,8 +108,8 @@ garp-team/
     completed/             # Responded requests (moved by garp_respond)
   responses/               # Response data keyed by request ID
   skills/
-    sanity-check/
-      SKILL.md             # Contract for the sanity-check request type
+    ask/
+      SKILL.md             # Contract for the "ask a question" request type
 ```
 
 Request lifecycle: `pending/` -> `completed/` via `git mv`, with a response written to `responses/`.
