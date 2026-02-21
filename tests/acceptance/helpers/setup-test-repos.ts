@@ -89,7 +89,7 @@ export function createTestRepos(): TestRepoContext {
   const bobRepo = join(basePath, "bob");
 
   // Create bare remote
-  execSync(`git init --bare "${remotePath}"`, { stdio: "pipe" });
+  execSync(`git init --bare --initial-branch=main "${remotePath}"`, { stdio: "pipe" });
 
   // Clone for Alice and initialize structure
   execSync(`git clone "${remotePath}" "${aliceRepo}"`, { stdio: "pipe" });
