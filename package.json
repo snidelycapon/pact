@@ -1,0 +1,32 @@
+{
+  "name": "garp",
+  "version": "0.1.0",
+  "description": "Git-based Agent Request Protocol — async MCP server for human+agent coordination",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "bun run build.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:acceptance": "vitest run tests/acceptance",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "simple-git": "^3.32.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.8",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/"
+  ]
+}

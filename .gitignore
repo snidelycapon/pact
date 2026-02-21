@@ -1,0 +1,10 @@
+node_modules/
+dist/
+docs/
+*.tsbuildinfo
+coverage/
+.eslintcache
+.DS_Store
+.env
+.env.local
+bun.lock

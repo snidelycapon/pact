@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "garp": {
+      "command": "node",
+      "args": ["/absolute/path/to/garp/dist/index.js"],
+      "env": {
+        "GARP_REPO": "/absolute/path/to/local/garp-repo-clone",
+        "GARP_USER": "your-user-id"
+      }
+    }
+  }
+}
