@@ -1,9 +1,9 @@
-# Opportunity Solution Tree — Async Multi-Agent GARP
+# Opportunity Solution Tree — Async Multi-Agent PACT
 
 ## Discovery Phase: 2 COMPLETE + POST-MVP RE-DISCOVERY (Updated for Git Transport Architecture)
 
 **Date**: 2026-02-21
-**Product**: Agent-native async GARP server ("agent-first email inbox")
+**Product**: Agent-native async PACT server ("agent-first email inbox")
 **Primary domain**: Tech support coordination (validated from daily work experience)
 **Transport**: Git repository (Tier 1) + optional brain service (Tier 2)
 
@@ -35,7 +35,7 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 
 **Opportunities within**:
 - O1a: Agent-composed context bundles (agent extracts structured context from current session)
-- O1b: Schema-defined request types (standard fields via skill contracts in repo)
+- O1b: Schema-defined request types (standard fields via pacts in repo)
 - O1c: Automatic metadata enrichment (Tier 2 brain service fills in missing context)
 
 ---
@@ -56,7 +56,7 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 
 **Opportunities within**:
 - O2a: Pre-constructed prompts for request types (agent starts with full context from JSON file)
-- O2b: Skill contracts hosted in GARP repo (receiver's agent loads skill + request together)
+- O2b: Pacts hosted in PACT repo (receiver's agent loads pact + request together)
 - O2c: Response schema guidance (agent knows what format the response needs to be in)
 
 ---
@@ -87,7 +87,7 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 
 ### O4: Enable Flexible Orchestration Patterns (Score: 8/15)
 
-**Evidence**: "A templated skill contract between clients could be defined as a back and forth ping-ponging conversation. It could be a 'ring' around the group passing each users' context through until it makes it back to the originator."
+**Evidence**: "A templated pact between clients could be defined as a back and forth ping-ponging conversation. It could be a 'ring' around the group passing each users' context through until it makes it back to the originator."
 
 **Job step**: Different types of coordination need different flow patterns.
 
@@ -127,20 +127,20 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 
 ---
 
-### O6: Distribute Skills Automatically (Score: 10/15 -- NEW)
+### O6: Distribute Pacts Automatically (Score: 10/15 -- NEW)
 
-**Evidence**: User described skill contracts as needing to be "versioned & synced with each other as part of 'connecting' as a team on that workspace"
+**Evidence**: User described pacts as needing to be "versioned & synced with each other as part of 'connecting' as a team on that workspace"
 
-**Job step**: When a new request type is created or a skill is updated, every team member needs the latest version without manual installation.
+**Job step**: When a new request type is created or a pact is updated, every team member needs the latest version without manual installation.
 
-**Current behavior**: No coordination system exists. In Craft Agents, skills are manually installed per workspace.
+**Current behavior**: No coordination system exists. In Craft Agents, pacts are manually installed per workspace.
 
-**Why this is new**: The git transport architecture solves this for free. Skills live in the GARP repo. `git pull` syncs them. This was previously listed as a "Phase 2: skill versioning and sync" problem. With git, it is a Tier 1 freebie.
+**Why this is new**: The git transport architecture solves this for free. Pacts live in the PACT repo. `git pull` syncs them. This was previously listed as a "Phase 2: pact versioning and sync" problem. With git, it is a Tier 1 freebie.
 
 **Scoring**:
 - Importance: 4/5 (essential for multi-person consistency)
 - Satisfaction with current solution: 1/5 (no current solution)
-- Frequency: 3/5 (every time skills change, every new team member onboard)
+- Frequency: 3/5 (every time pacts change, every new team member onboard)
 - **Feasibility bonus**: +2 (git provides this for free)
 - Total: 10/15
 
@@ -153,7 +153,7 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 | 1 | O1: Eliminate manual context assembly | 12 | YES | Highest pain, daily occurrence, core value prop |
 | 2 | O2: Agent-native coordination | 11 | YES | This IS the product differentiation |
 | 3 | O3: Centralize audit and state | 11 | YES (free) | Git provides this at zero implementation cost |
-| 4 | O6: Distribute skills automatically | 10 | YES (free) | Git provides this at zero implementation cost |
+| 4 | O6: Distribute pacts automatically | 10 | YES (free) | Git provides this at zero implementation cost |
 | 5 | O4: Flexible orchestration patterns | 8 | PARTIAL | Ping-pong only for MVP |
 | 6 | O5: Institutional memory | 7 | NO | Explicitly deferred; needs Tier 2/3 |
 
@@ -166,23 +166,23 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 ### In Scope (MVP / Tier 1)
 
 **The Minimal Complete Loop**:
-1. **Client A** composes a request via `garp_request` (agent writes JSON, MCP server commits + pushes)
+1. **Client A** composes a request via `pact_request` (agent writes JSON, MCP server commits + pushes)
 2. **Shared git repo** stores the request as a file in `requests/pending/`
-3. **Client B** runs `garp_inbox` (MCP server pulls, scans pending for their requests)
-4. **Client B** initiates agent session with context + skill loaded from repo
-5. **Client B** responds via `garp_respond` (writes response, moves request to completed, commits + pushes)
-6. **Client A** runs `garp_status` (MCP server pulls, reads response)
+3. **Client B** runs `pact_inbox` (MCP server pulls, scans pending for their requests)
+4. **Client B** initiates agent session with context + pact loaded from repo
+5. **Client B** responds via `pact_respond` (writes response, moves request to completed, commits + pushes)
+6. **Client A** runs `pact_status` (MCP server pulls, reads response)
 
 **What this requires building**:
 - Local MCP server (~500 lines) wrapping git operations into 4 tools
 - Repository structure conventions (documented as README in the repo)
-- One skill contract pair (sanity-check sender + receiver, hosted in repo)
+- One pact pair (sanity-check sender + receiver, hosted in repo)
 - Craft Agents source configuration
 - Basic envelope validation in MCP server
 
 **What this gets for free from git**:
 - Sync, audit trail, authentication, versioning, conflict detection
-- Skill distribution (git pull)
+- Pact distribution (git pull)
 - Hosting (GitHub/GitLab private repo)
 - Offline-first capability
 
@@ -200,7 +200,7 @@ Enable human+agent teams to coordinate async work through structured, context-ri
 
 ### 1. Shared Git Repository (the "server")
 
-The GARP repo IS the server. Its structure IS the protocol.
+The PACT repo IS the server. Its structure IS the protocol.
 
 ### 2. Local MCP Server (the "client")
 
@@ -210,13 +210,13 @@ A stdio MCP server running on each machine. 4 tools. Wraps git operations.
 
 Rigid envelope + flexible context_bundle. Code Mode pattern.
 
-### 4. Skill Contracts (hosted in repo)
+### 4. Pacts (hosted in repo)
 
-Sender + receiver skills per request type. Synced via git pull.
+Sender + receiver pacts per request type. Synced via git pull.
 
 ### 5. Notification
 
-MVP: polling via git pull in `garp_inbox`. Phase 2: brain service sends push notifications.
+MVP: polling via git pull in `pact_inbox`. Phase 2: brain service sends push notifications.
 
 ---
 
@@ -226,7 +226,7 @@ MVP: polling via git pull in `garp_inbox`. Phase 2: brain service sends push not
 
 | # | Assumption | Why Risky | How to Test |
 |---|-----------|-----------|-------------|
-| R1 | Skill contracts produce consistent agent behavior | SKILL.md might be too imprecise | 5+ round-trips, measure schema compliance |
+| R1 | Pacts produce consistent agent behavior | PACT.md might be too imprecise | 5+ round-trips, measure schema compliance |
 | R2 | Agent-composed bundles are better than manual | Agents might miss what matters | A/B compare: structured request vs markdown handoff |
 | R3 | Git pull/push cycle is fast enough | >10s latency might feel broken | Measure operation times over 2 weeks |
 | R4 | Repo structure conventions are learnable | New users might not understand the protocol | Second user onboarding test |
@@ -239,7 +239,7 @@ MVP: polling via git pull in `garp_inbox`. Phase 2: brain service sends push not
 | R6 | MCP stdio transport works for this | Craft Agents has mature stdio MCP support |
 | R7 | GitHub private repo as hosting | Free, reliable, familiar to target users |
 | R8 | Git identity as user identity | Target users are developers who already have git configured |
-| R9 | Skills in repo solve distribution | Standard git pull; no novel mechanism |
+| R9 | Pacts in repo solve distribution | Standard git pull; no novel mechanism |
 
 ---
 
@@ -256,7 +256,7 @@ MVP: polling via git pull in `garp_inbox`. Phase 2: brain service sends push not
 
 ### G2 Decision: PASS
 
-The git transport architecture strengthened the opportunity map. Two previously deferred capabilities (audit trail, skill distribution) moved to "free at MVP." The solution shape is simpler, the build is smaller, and the protocol is more elegant.
+The git transport architecture strengthened the opportunity map. Two previously deferred capabilities (audit trail, pact distribution) moved to "free at MVP." The solution shape is simpler, the build is smaller, and the protocol is more elegant.
 
 ---
 
@@ -269,7 +269,7 @@ The git transport architecture strengthened the opportunity map. Two previously 
 | 1 | O1: Eliminate manual context assembly | 12/15 | INFRASTRUCTURE DELIVERED, VALUE UNTESTED | The protocol supports rich context bundles. Real usage has been minimal context only. The tech support handoff scenario (the primary validation) has not been exercised. |
 | 2 | O2: Agent-native coordination | 11/15 | VALIDATED | Agents compose and consume requests natively. No copy-paste between tools. |
 | 3 | O3: Centralize audit and state | 11/15 | VALIDATED (FREE) | git log provides full audit trail. Directory lifecycle works as designed. |
-| 4 | O6: Distribute skills automatically | 10/15 | VALIDATED (FREE) | garp-init.sh seeds skills from examples/. git pull syncs. |
+| 4 | O6: Distribute pacts automatically | 10/15 | VALIDATED (FREE) | pact-init.sh seeds pacts from examples/. git pull syncs. |
 | 5 | O4: Flexible orchestration patterns | 8/15 | PARTIALLY ADDRESSED | Ping-pong works. thread_id enables multi-round. Chain/ring/broadcast not implemented. |
 | 6 | O5: Institutional memory | 7/15 | DEFERRED (as planned) | No Tier 2/3 work done. |
 
@@ -277,21 +277,21 @@ The git transport architecture strengthened the opportunity map. Two previously 
 
 #### O7: Multi-Round Collaborative Workflows (Score: 13/15 -- NEW, HIGH)
 
-**Evidence**: The design-skill contract proves that thread_id enables iterative, multi-round collaboration through the GARP protocol. This is a new interaction pattern that was not explicitly designed in the original discovery -- it emerged from the implementation.
+**Evidence**: The design-pact contract proves that thread_id enables iterative, multi-round collaboration through the PACT protocol. This is a new interaction pattern that was not explicitly designed in the original discovery -- it emerged from the implementation.
 
 **Job step**: When two people need to iterate on something (a design, a decision, a document), they need each round to build on the previous one with shared context.
 
 **Current behavior**: thread_id exists but is a raw primitive. No thread listing, no thread history, no thread state tracking.
 
 **Scoring**:
-- Importance: 5/5 (the design-skill contract is the most sophisticated use case yet)
+- Importance: 5/5 (the design-pact contract is the most sophisticated use case yet)
 - Satisfaction with current solution: 2/5 (thread_id exists but no tooling around it)
 - Frequency: 4/5 (any non-trivial collaboration is iterative)
 - **Implementation readiness bonus**: +2 (thread_id primitive already in the schema)
 - Total: 13/15
 
 **Opportunities within**:
-- O7a: garp_thread tool -- list all requests sharing a thread_id, ordered chronologically
+- O7a: pact_thread tool -- list all requests sharing a thread_id, ordered chronologically
 - O7b: Thread context accumulation -- each round can reference/include prior round responses
 - O7c: Thread status tracking -- is a thread open, converging, or resolved?
 - O7d: Thread-aware inbox -- group inbox entries by thread instead of flat list
@@ -304,7 +304,7 @@ The git transport architecture strengthened the opportunity map. Two previously 
 
 **Job step**: When handing off an investigation, the receiver needs not just a summary but the actual artifacts (log snippets, config files, error screenshots).
 
-**Current behavior**: Attachments schema exists. Files store in attachments/{request_id}/. But no tooling for reading attachments on the receiving end, and no integration with the skill contract for specifying expected attachment types.
+**Current behavior**: Attachments schema exists. Files store in attachments/{request_id}/. But no tooling for reading attachments on the receiving end, and no integration with the pact for specifying expected attachment types.
 
 **Scoring**:
 - Importance: 4/5 (critical for the tech support use case specifically)
@@ -315,7 +315,7 @@ The git transport architecture strengthened the opportunity map. Two previously 
 
 **Opportunities within**:
 - O8a: Attachment content surfacing in inbox -- receiver's agent gets attachment paths/content
-- O8b: Skill-defined attachment expectations -- SKILL.md specifies what attachments are expected
+- O8b: Pact-defined attachment expectations -- PACT.md specifies what attachments are expected
 - O8c: Attachment size/type validation -- prevent binary blobs in git
 - O8d: Inline vs file attachments -- small text content inline in JSON vs large files on disk
 
@@ -337,8 +337,8 @@ The git transport architecture strengthened the opportunity map. Two previously 
 - Total: 9/15
 
 **Opportunities within**:
-- O9a: garp_cancel tool -- move a pending request to a cancelled/ directory
-- O9b: garp_amend tool -- append additional context to a pending request
+- O9a: pact_cancel tool -- move a pending request to a cancelled/ directory
+- O9b: pact_amend tool -- append additional context to a pending request
 - O9c: Request retraction notification -- recipient sees that a request was cancelled
 - O9d: Draft state -- compose locally before committing/pushing
 
@@ -346,11 +346,11 @@ The git transport architecture strengthened the opportunity map. Two previously 
 
 #### O10: Notification and Awareness (Score: 8/15 -- NEW)
 
-**Evidence**: The inbox is poll-only. The agent must explicitly call garp_inbox to discover new requests. In real usage, this means requests can sit unnoticed until someone thinks to check.
+**Evidence**: The inbox is poll-only. The agent must explicitly call pact_inbox to discover new requests. In real usage, this means requests can sit unnoticed until someone thinks to check.
 
 **Job step**: When a teammate sends me a request, I need to know about it without manually polling.
 
-**Current behavior**: garp_inbox pulls on every call, but nothing triggers the call. No push notifications.
+**Current behavior**: pact_inbox pulls on every call, but nothing triggers the call. No push notifications.
 
 **Scoring**:
 - Importance: 4/5 (discovery latency reduces the value of async coordination)
@@ -382,7 +382,7 @@ The git transport architecture strengthened the opportunity map. Two previously 
 - Total: 7/15
 
 **Opportunities within**:
-- O11a: garp_search tool -- search requests by type, sender, date range, keyword
+- O11a: pact_search tool -- search requests by type, sender, date range, keyword
 - O11b: Thread listing -- find all threads, see thread status and participant list
 - O11c: History summary -- "what happened this week" digest
 - O11d: Related request linking -- manual cross-references between requests
@@ -393,7 +393,7 @@ The git transport architecture strengthened the opportunity map. Two previously 
 
 | Rank | Opportunity | Score | Phase 2? | Rationale |
 |------|-----------|-------|----------|-----------|
-| 1 | O7: Multi-round collaborative workflows | 13 | YES | thread_id primitive exists. Highest emergent value. Design-skill proves the pattern. |
+| 1 | O7: Multi-round collaborative workflows | 13 | YES | thread_id primitive exists. Highest emergent value. Design-pact proves the pattern. |
 | 2 | O1: Rich context bundles (ORIGINAL -- untested) | 12 | YES | Core value prop still unvalidated with real tech support workflow. Must test. |
 | 3 | O8: Richer context through attachments | 10 | YES | Consumer-side tooling needed to complete the feature. |
 | 4 | O9: Request lifecycle management | 9 | YES | Cancel and amend are basic operational needs. |

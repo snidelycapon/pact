@@ -6,11 +6,11 @@
 
 ---
 
-## 1. Unified SKILL.md Format
+## 1. Unified PACT.md Format
 
 ### Structure
 
-A SKILL.md file consists of YAML frontmatter (between `---` delimiters) followed by a markdown body.
+A PACT.md file consists of YAML frontmatter (between `---` delimiters) followed by a markdown body.
 
 ```
 ---
@@ -24,7 +24,7 @@ A SKILL.md file consists of YAML frontmatter (between `---` delimiters) followed
 
 ```yaml
 # --- Required fields ---
-name: string                    # Skill identifier, matches directory name (e.g., "ask", "code-review")
+name: string                    # Pact identifier, matches directory name (e.g., "ask", "code-review")
 version: string                 # Semantic version (e.g., "1.0.0")
 description: string             # One-line description for discovery catalogs
 
@@ -54,7 +54,7 @@ response_bundle:
   additionalProperties: true    # Always true
 
 # --- Optional fields ---
-when_to_use: string | string[]  # When to reach for this skill (for discovery filtering)
+when_to_use: string | string[]  # When to reach for this pact (for discovery filtering)
 
 attachments:                    # Optional: expected attachments
   - name: string                # Attachment identifier
@@ -63,7 +63,7 @@ attachments:                    # Optional: expected attachments
     description: string         # What this attachment is for
 
 # --- Brain Processing (Optional) ---
-brain_processing:
+hooks:
   validation:                   # Optional: validation rules
     - when:
         <field_path>:
@@ -100,7 +100,7 @@ brain_processing:
       <field_name>: <value_or_template>
 ```
 
-### Example: "ask" Skill in New Format
+### Example: "ask" Pact in New Format
 
 ```yaml
 ---
@@ -111,7 +111,7 @@ description: "A general-purpose request for when you need input, an opinion, or 
 when_to_use:
   - "You have a question that needs another person's perspective"
   - "You want to get a gut check, recommendation, or decision"
-  - "The question doesn't fit a more structured skill type"
+  - "The question doesn't fit a more structured pact type"
 
 context_bundle:
   required:
@@ -153,13 +153,13 @@ response_bundle:
 
 # Ask a Question
 
-A general-purpose request for when you need input, an opinion, or an answer from a teammate. Use this when no more specific skill type fits.
+A general-purpose request for when you need input, an opinion, or an answer from a teammate. Use this when no more specific pact type fits.
 
 ## When To Use
 
 - You have a question that needs another person's perspective
 - You want to get a gut check, recommendation, or decision from someone
-- The question doesn't fit a more structured skill type
+- The question doesn't fit a more structured pact type
 
 ## Tips
 
@@ -168,7 +168,7 @@ A general-purpose request for when you need input, an opinion, or an answer from
 - If you've already considered options, list them to save the recipient time
 ```
 
-### Example: "ask" Skill with Brain Processing
+### Example: "ask" Pact with Brain Processing
 
 ```yaml
 ---
@@ -196,7 +196,7 @@ response_bundle:
       description: "Direct answer to the question"
   additionalProperties: true
 
-brain_processing:
+hooks:
   validation:
     - when:
         context_bundle.question:
@@ -228,25 +228,25 @@ brain_processing:
 
 ---
 
-## 2. garp_discover Response Schema
+## 2. pact_discover Response Schema
 
 ### Input Schema
 
 ```yaml
-garp_discover:
+pact_discover:
   parameters:
     query:
       type: string
       required: false
-      description: "Optional keyword to filter skills by name, description, or when_to_use"
+      description: "Optional keyword to filter pacts by name, description, or when_to_use"
 ```
 
 ### Output Schema
 
 ```yaml
 DiscoverResponse:
-  skills:                       # Array of skill summaries
-    - name: string              # Skill directory name
+  pacts:                       # Array of pact summaries
+    - name: string              # Pact directory name
       description: string       # One-line description
       when_to_use: string[]     # Usage guidance lines
       context_bundle:
@@ -261,7 +261,7 @@ DiscoverResponse:
           <name>:
             type: string
             description: string
-      has_brain: boolean        # Whether brain_processing section is present
+      has_hooks: boolean        # Whether hooks section is present
 
   team:                         # Array of team members
     - user_id: string
@@ -272,20 +272,20 @@ DiscoverResponse:
 
 ### Design Notes
 
-- The `skills` array returns enough information for an agent to compose a `garp_do` action without reading the SKILL.md file directly.
-- Field definitions include type and description but not enum values, defaults, or items -- those are available in the full SKILL.md but are not needed for request composition.
-- `has_brain` is a boolean indicator, not the full brain_processing rules. Agents do not need to know brain rules; the brain executes them server-side.
+- The `pacts` array returns enough information for an agent to compose a `pact_do` action without reading the PACT.md file directly.
+- Field definitions include type and description but not enum values, defaults, or items -- those are available in the full PACT.md but are not needed for request composition.
+- `has_hooks` is a boolean indicator, not the full hooks rules. Agents do not need to know brain rules; the brain executes them server-side.
 - `team` is always included so the agent knows valid recipient values.
-- The response shape is flat (no pagination, no cursor) because the expected scale is <100 skills and <20 team members.
+- The response shape is flat (no pagination, no cursor) because the expected scale is <100 pacts and <20 team members.
 
 ---
 
-## 3. garp_do Action Dispatch Schema
+## 3. pact_do Action Dispatch Schema
 
 ### Input Schema
 
 ```yaml
-garp_do:
+pact_do:
   parameters:
     action:
       type: string
@@ -298,7 +298,7 @@ garp_do:
 
     request_type:
       type: string
-      description: "Skill type for send action"
+      description: "Pact type for send action"
 
     recipient:
       type: string
@@ -345,17 +345,17 @@ garp_do:
 
 | Action | Handler | Required Params | Optional Params |
 |--------|---------|----------------|----------------|
-| `send` | `handleGarpRequest` | `request_type`, `recipient`, `context_bundle` | `deadline`, `thread_id`, `attachments` |
-| `respond` | `handleGarpRespond` | `request_id`, `response_bundle` | -- |
-| `cancel` | `handleGarpCancel` | `request_id` | `reason` |
-| `amend` | `handleGarpAmend` | `request_id`, `fields` | `note` |
-| `check_status` | `handleGarpStatus` | `request_id` | -- |
-| `inbox` | `handleGarpInbox` | -- | -- |
-| `view_thread` | `handleGarpThread` | `thread_id` | -- |
+| `send` | `handlePactRequest` | `request_type`, `recipient`, `context_bundle` | `deadline`, `thread_id`, `attachments` |
+| `respond` | `handlePactRespond` | `request_id`, `response_bundle` | -- |
+| `cancel` | `handlePactCancel` | `request_id` | `reason` |
+| `amend` | `handlePactAmend` | `request_id`, `fields` | `note` |
+| `check_status` | `handlePactStatus` | `request_id` | -- |
+| `inbox` | `handlePactInbox` | -- | -- |
+| `view_thread` | `handlePactThread` | `thread_id` | -- |
 
 ### Output Schema
 
-The output of `garp_do` is the output of the dispatched handler, unchanged. Each handler's return type is preserved as-is:
+The output of `pact_do` is the output of the dispatched handler, unchanged. Each handler's return type is preserved as-is:
 
 | Action | Return Shape |
 |--------|-------------|
@@ -458,7 +458,7 @@ AutoResponseRule:
     <field_name>: <value>       # Static value or {{field_path}} substitution
 ```
 
-**Evaluation**: If enabled and all conditions match, the brain generates a response using the template. The request is moved to completed. Only one auto-response rule per skill (it is a single object, not an array).
+**Evaluation**: If enabled and all conditions match, the brain generates a response using the template. The request is moved to completed. Only one auto-response rule per pact (it is a single object, not an array).
 
 ---
 
@@ -500,8 +500,8 @@ requests/completed/   -- responded requests
 requests/cancelled/   -- cancelled requests
 responses/            -- response envelopes
 attachments/{id}/     -- attachment files
-skills/               -- skill contracts (SKILL.md per directory)
+pacts/               -- pacts (PACT.md per directory)
 config.json           -- team configuration
 ```
 
-Note: `skills/` replaces `examples/skills/` as the canonical location. The `examples/` prefix is dropped because skills are now functional artifacts, not documentation.
+Note: `pacts/` replaces `examples/pacts/` as the canonical location. The `examples/` prefix is dropped because pacts are now functional artifacts, not documentation.

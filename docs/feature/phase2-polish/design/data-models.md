@@ -1,4 +1,4 @@
-# Data Models -- GARP Phase 2 Polish
+# Data Models -- PACT Phase 2 Polish
 
 ## Schema Changes
 
@@ -19,8 +19,8 @@ Added fields (all optional for backward compat):
 
 | Field | Type | Default | Set By |
 |-------|------|---------|--------|
-| `amendments` | `z.array(AmendmentEntrySchema).optional()` | absent | garp_amend (append) |
-| `cancel_reason` | `z.string().optional()` | absent | garp_cancel |
+| `amendments` | `z.array(AmendmentEntrySchema).optional()` | absent | pact_amend (append) |
+| `cancel_reason` | `z.string().optional()` | absent | pact_cancel |
 
 `thread_id` remains `z.string().optional()` in the schema for backward compatibility with pre-Phase-2 envelopes. After US-010, all NEW requests will always have `thread_id` set, but the schema does not enforce it to avoid breaking existing data.
 
@@ -36,7 +36,7 @@ No changes. No new team configuration needed.
 
 ## Tool Input/Output Schemas
 
-### garp_request (Modified -- US-010)
+### pact_request (Modified -- US-010)
 
 **Input**: Unchanged (thread_id already optional).
 
@@ -52,7 +52,7 @@ Before: ...(params.thread_id ? { thread_id: params.thread_id } : {})
 After:  thread_id: params.thread_id ?? requestId
 ```
 
-### garp_thread (New -- US-009)
+### pact_thread (New -- US-009)
 
 **Input**:
 ```
@@ -77,7 +77,7 @@ After:  thread_id: params.thread_id ?? requestId
 }
 ```
 
-### garp_cancel (New -- US-013)
+### pact_cancel (New -- US-013)
 
 **Input**:
 ```
@@ -101,7 +101,7 @@ After:  thread_id: params.thread_id ?? requestId
 - `cancel_reason` field set if `reason` param provided
 - File moved from `requests/pending/` to `requests/cancelled/`
 
-### garp_amend (New -- US-014)
+### pact_amend (New -- US-014)
 
 **Input**:
 ```
@@ -127,7 +127,7 @@ After:  thread_id: params.thread_id ?? requestId
 - File rewritten in-place at `requests/pending/{request_id}.json`
 - Original `context_bundle` untouched
 
-### garp_inbox (Modified -- US-011, US-012, US-014)
+### pact_inbox (Modified -- US-011, US-012, US-014)
 
 **Input**: Unchanged (no parameters).
 
@@ -141,7 +141,7 @@ After:  thread_id: params.thread_id ?? requestId
   sender: string,
   created_at: string,
   summary: string,
-  skill_path: string,
+  pact_path: string,
   attachment_count: number,
   attachments?: Array<{ filename: string, description: string }>,   // NEW (US-012)
   amendment_count: number,                                           // NEW (US-014)
@@ -161,7 +161,7 @@ After:  thread_id: params.thread_id ?? requestId
   latest_summary: string,
   created_at: string,              // latest round's created_at
   request_ids: string[],
-  skill_path: string,
+  pact_path: string,
   attachment_count: number,        // sum
   amendment_count: number,         // sum
 }
@@ -175,7 +175,7 @@ After:  thread_id: params.thread_id ?? requestId
 }
 ```
 
-### garp_respond (Modified -- US-015)
+### pact_respond (Modified -- US-015)
 
 **Input**: Unchanged.
 
@@ -183,7 +183,7 @@ After:  thread_id: params.thread_id ?? requestId
 
 **Side effect change**: Before moving file to `completed/`, read the envelope, set `status: "completed"`, write the updated envelope back, then proceed with git mv.
 
-### garp_status (Modified -- US-013, US-012)
+### pact_status (Modified -- US-013, US-012)
 
 **Input**: Unchanged.
 

@@ -1,7 +1,7 @@
 {
-  "name": "garp",
+  "name": "pact",
   "version": "0.1.0",
-  "description": "Git-based Agent Request Protocol — async MCP server for human+agent coordination",
+  "description": "Protocol for Agent Context Transfer — async MCP server for human+agent coordination",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

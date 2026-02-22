@@ -1,5 +1,5 @@
 /**
- * Unit tests for GARP request ID generator.
+ * Unit tests for PACT request ID generator.
  *
  * Tests enter through generateRequestId (the public API).
  * Validates the format matches req-YYYYMMDD-HHmmss-{userId}-{4hex}.

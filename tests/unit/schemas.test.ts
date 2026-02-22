@@ -1,5 +1,5 @@
 /**
- * Unit tests for GARP Zod schemas.
+ * Unit tests for PACT Zod schemas.
  *
  * Tests enter through the schema parsing API (the driving port for validation).
  * Each test validates observable behavior: parse succeeds or fails with

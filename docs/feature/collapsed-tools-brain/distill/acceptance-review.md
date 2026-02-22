@@ -19,7 +19,7 @@
 
 ### Rationale
 
-Brain processing is explicitly designated as "future wave" in the architecture (section 7: "This section defines the contract format only; implementation is a later wave"). The DISTILL tests correctly cover the `has_brain` flag (contract surface) without testing brain pipeline execution (future implementation). This is a design-aligned gap, not an oversight.
+Brain processing is explicitly designated as "future wave" in the architecture (section 7: "This section defines the contract format only; implementation is a later wave"). The DISTILL tests correctly cover the `has_hooks` flag (contract surface) without testing brain pipeline execution (future implementation). This is a design-aligned gap, not an oversight.
 
 ---
 
@@ -41,10 +41,10 @@ Brain processing is explicitly designated as "future wave" in the architecture (
 
 **Evidence**: All test files import only the driving port:
 ```
-import { createGarpServer } from "../../src/server.ts";
+import { createPactServer } from "../../src/server.ts";
 ```
 
-No imports of internal components (handlers, adapters, skill-parser, ports, schemas). All operations route through `server.callTool(name, params)`.
+No imports of internal components (handlers, adapters, pact-parser, ports, schemas). All operations route through `server.callTool(name, params)`.
 
 ### CM-B: Business Language — PASS
 
@@ -52,7 +52,7 @@ No imports of internal components (handlers, adapters, skill-parser, ports, sche
 - "discovers available request types and team members"
 - "agent sends a request to a teammate"
 - "the recipient sees it in their inbox"
-- "filters skills by keyword matching"
+- "filters pacts by keyword matching"
 - "rejects unknown action with error listing valid actions"
 
 No HTTP verbs, status codes, or implementation terms in Given/When/Then descriptions.
@@ -60,8 +60,8 @@ No HTTP verbs, status codes, or implementation terms in Given/When/Then descript
 ### CM-C: User Journey — PASS
 
 **Evidence**: Walking skeletons deliver observable user value:
-- WS-1: Agent discovers skills + team in one call → can compose requests
-- WS-2: Alice sends request via garp_do → Bob sees it in inbox via garp_do → round-trip verified
+- WS-1: Agent discovers pacts + team in one call → can compose requests
+- WS-2: Alice sends request via pact_do → Bob sees it in inbox via pact_do → round-trip verified
 
 Both pass the stakeholder-demonstrable litmus test.
 

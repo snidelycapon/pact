@@ -11,37 +11,37 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We mock all 7 handler modules so dispatchAction calls our stubs
-vi.mock("../../src/tools/garp-request.ts", () => ({
-  handleGarpRequest: vi.fn().mockResolvedValue({ mocked: "request" }),
+vi.mock("../../src/tools/pact-request.ts", () => ({
+  handlePactRequest: vi.fn().mockResolvedValue({ mocked: "request" }),
 }));
-vi.mock("../../src/tools/garp-respond.ts", () => ({
-  handleGarpRespond: vi.fn().mockResolvedValue({ mocked: "respond" }),
+vi.mock("../../src/tools/pact-respond.ts", () => ({
+  handlePactRespond: vi.fn().mockResolvedValue({ mocked: "respond" }),
 }));
-vi.mock("../../src/tools/garp-cancel.ts", () => ({
-  handleGarpCancel: vi.fn().mockResolvedValue({ mocked: "cancel" }),
+vi.mock("../../src/tools/pact-cancel.ts", () => ({
+  handlePactCancel: vi.fn().mockResolvedValue({ mocked: "cancel" }),
 }));
-vi.mock("../../src/tools/garp-amend.ts", () => ({
-  handleGarpAmend: vi.fn().mockResolvedValue({ mocked: "amend" }),
+vi.mock("../../src/tools/pact-amend.ts", () => ({
+  handlePactAmend: vi.fn().mockResolvedValue({ mocked: "amend" }),
 }));
-vi.mock("../../src/tools/garp-status.ts", () => ({
-  handleGarpStatus: vi.fn().mockResolvedValue({ mocked: "status" }),
+vi.mock("../../src/tools/pact-status.ts", () => ({
+  handlePactStatus: vi.fn().mockResolvedValue({ mocked: "status" }),
 }));
-vi.mock("../../src/tools/garp-inbox.ts", () => ({
-  handleGarpInbox: vi.fn().mockResolvedValue({ mocked: "inbox" }),
+vi.mock("../../src/tools/pact-inbox.ts", () => ({
+  handlePactInbox: vi.fn().mockResolvedValue({ mocked: "inbox" }),
 }));
-vi.mock("../../src/tools/garp-thread.ts", () => ({
-  handleGarpThread: vi.fn().mockResolvedValue({ mocked: "thread" }),
+vi.mock("../../src/tools/pact-thread.ts", () => ({
+  handlePactThread: vi.fn().mockResolvedValue({ mocked: "thread" }),
 }));
 
 import { dispatchAction } from "../../src/action-dispatcher.ts";
 import type { DispatchContext } from "../../src/action-dispatcher.ts";
-import { handleGarpRequest } from "../../src/tools/garp-request.ts";
-import { handleGarpRespond } from "../../src/tools/garp-respond.ts";
-import { handleGarpCancel } from "../../src/tools/garp-cancel.ts";
-import { handleGarpAmend } from "../../src/tools/garp-amend.ts";
-import { handleGarpStatus } from "../../src/tools/garp-status.ts";
-import { handleGarpInbox } from "../../src/tools/garp-inbox.ts";
-import { handleGarpThread } from "../../src/tools/garp-thread.ts";
+import { handlePactRequest } from "../../src/tools/pact-request.ts";
+import { handlePactRespond } from "../../src/tools/pact-respond.ts";
+import { handlePactCancel } from "../../src/tools/pact-cancel.ts";
+import { handlePactAmend } from "../../src/tools/pact-amend.ts";
+import { handlePactStatus } from "../../src/tools/pact-status.ts";
+import { handlePactInbox } from "../../src/tools/pact-inbox.ts";
+import { handlePactThread } from "../../src/tools/pact-thread.ts";
 
 function makeCtx(): DispatchContext {
   return {
@@ -120,66 +120,66 @@ describe("dispatchAction", () => {
 
   // --- Routing: each valid action calls the correct handler ---
 
-  it("routes 'send' to handleGarpRequest", async () => {
+  it("routes 'send' to handlePactRequest", async () => {
     const ctx = makeCtx();
     const params = { action: "send", request_type: "sanity-check", recipient: "bob", context_bundle: {} };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpRequest).toHaveBeenCalledOnce();
+    expect(handlePactRequest).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "request" });
   });
 
-  it("routes 'respond' to handleGarpRespond", async () => {
+  it("routes 'respond' to handlePactRespond", async () => {
     const ctx = makeCtx();
     const params = { action: "respond", request_id: "req-123" };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpRespond).toHaveBeenCalledOnce();
+    expect(handlePactRespond).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "respond" });
   });
 
-  it("routes 'cancel' to handleGarpCancel", async () => {
+  it("routes 'cancel' to handlePactCancel", async () => {
     const ctx = makeCtx();
     const params = { action: "cancel", request_id: "req-123" };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpCancel).toHaveBeenCalledOnce();
+    expect(handlePactCancel).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "cancel" });
   });
 
-  it("routes 'amend' to handleGarpAmend", async () => {
+  it("routes 'amend' to handlePactAmend", async () => {
     const ctx = makeCtx();
     const params = { action: "amend", request_id: "req-123", fields: {} };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpAmend).toHaveBeenCalledOnce();
+    expect(handlePactAmend).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "amend" });
   });
 
-  it("routes 'check_status' to handleGarpStatus", async () => {
+  it("routes 'check_status' to handlePactStatus", async () => {
     const ctx = makeCtx();
     const params = { action: "check_status", request_id: "req-123" };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpStatus).toHaveBeenCalledOnce();
+    expect(handlePactStatus).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "status" });
   });
 
-  it("routes 'inbox' to handleGarpInbox", async () => {
+  it("routes 'inbox' to handlePactInbox", async () => {
     const ctx = makeCtx();
     const params = { action: "inbox" };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpInbox).toHaveBeenCalledOnce();
+    expect(handlePactInbox).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "inbox" });
   });
 
-  it("routes 'view_thread' to handleGarpThread", async () => {
+  it("routes 'view_thread' to handlePactThread", async () => {
     const ctx = makeCtx();
     const params = { action: "view_thread", thread_id: "req-123" };
     const result = await dispatchAction(params, ctx);
 
-    expect(handleGarpThread).toHaveBeenCalledOnce();
+    expect(handlePactThread).toHaveBeenCalledOnce();
     expect(result).toEqual({ mocked: "thread" });
   });
 
@@ -190,7 +190,7 @@ describe("dispatchAction", () => {
     const params = { action: "send", request_type: "sanity-check", recipient: "bob", context_bundle: { q: "test" } };
     await dispatchAction(params, ctx);
 
-    const call = vi.mocked(handleGarpRequest).mock.calls[0];
+    const call = vi.mocked(handlePactRequest).mock.calls[0];
     // First arg is params (without action), second is context
     expect(call[1]).toMatchObject({
       userId: "alice",

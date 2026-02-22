@@ -1,8 +1,8 @@
-# GARP -- Git-based Agent Request Protocol
+# PACT -- Protocol for Agent Context Transfer
 
-A git-backed MCP server for async human+agent coordination. Structured requests and responses flow through a shared git repo, with SKILL.md contracts defining request types.
+A git-backed MCP server for async human+agent coordination. Structured requests and responses flow through a shared git repo, with PACT.md contracts defining request types.
 
-GARP works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom agents, or anything else that speaks the Model Context Protocol.
+PACT works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom agents, or anything else that speaks the Model Context Protocol.
 
 ## Prerequisites
 
@@ -13,26 +13,26 @@ GARP works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom
 
 ## Setup
 
-### 1. Create or join a shared GARP repo
+### 1. Create or join a shared PACT repo
 
 **New repo** -- use the init script:
 
 ```bash
-./scripts/garp-init.sh new ~/garp-team "My Team" alice/Alice bob/Bob
+./scripts/pact-init.sh new ~/pact-team "My Team" alice/Alice bob/Bob
 ```
 
-This creates the directory structure, `config.json`, and seeds an `ask` skill contract. The script will offer to push to a remote.
+This creates the directory structure, `config.json`, and seeds an `ask` pact. The script will offer to push to a remote.
 
 **Existing repo** -- clone it:
 
 ```bash
-./scripts/garp-init.sh join git@github.com:your-org/garp-team.git ~/garp-team
+./scripts/pact-init.sh join git@github.com:your-org/pact-team.git ~/pact-team
 ```
 
 ### 2. Build the MCP server
 
 ```bash
-cd ~/garp
+cd ~/pact
 bun install
 bun run build
 ```
@@ -41,7 +41,7 @@ This produces `dist/index.js`.
 
 ### 3. Register as an MCP server
 
-Add GARP to your MCP host's configuration. The exact location depends on your host:
+Add PACT to your MCP host's configuration. The exact location depends on your host:
 
 | Host | Config location |
 |------|----------------|
@@ -55,12 +55,12 @@ The server configuration follows the standard MCP stdio format:
 ```json
 {
   "mcpServers": {
-    "garp": {
+    "pact": {
       "command": "node",
-      "args": ["/absolute/path/to/garp/dist/index.js"],
+      "args": ["/absolute/path/to/pact/dist/index.js"],
       "env": {
-        "GARP_REPO": "/absolute/path/to/garp-team",
-        "GARP_USER": "alice"
+        "PACT_REPO": "/absolute/path/to/pact-team",
+        "PACT_USER": "alice"
       }
     }
   }
@@ -73,21 +73,21 @@ Replace the paths and user ID with your own values. See `examples/source-config.
 
 | Tool | Description |
 |------|-------------|
-| `garp_request` | Submit a structured request to a team member |
-| `garp_inbox` | Check your inbox for pending requests |
-| `garp_respond` | Respond to a pending request |
-| `garp_status` | Check the status of a request |
-| `garp_cancel` | Cancel a pending request you sent |
-| `garp_amend` | Amend a pending request you sent |
-| `garp_thread` | View the full history of a request thread |
+| `pact_request` | Submit a structured request to a team member |
+| `pact_inbox` | Check your inbox for pending requests |
+| `pact_respond` | Respond to a pending request |
+| `pact_status` | Check the status of a request |
+| `pact_cancel` | Cancel a pending request you sent |
+| `pact_amend` | Amend a pending request you sent |
+| `pact_thread` | View the full history of a request thread |
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GARP_REPO` | Yes | -- | Absolute path to local clone of the shared GARP git repo |
-| `GARP_USER` | Yes | -- | Your user ID, must match an entry in config.json |
-| `GARP_LOG_LEVEL` | No | `info` | Log verbosity: `debug`, `info`, `error` |
+| `PACT_REPO` | Yes | -- | Absolute path to local clone of the shared PACT git repo |
+| `PACT_USER` | Yes | -- | Your user ID, must match an entry in config.json |
+| `PACT_LOG_LEVEL` | No | `info` | Log verbosity: `debug`, `info`, `error` |
 
 ## Development
 
@@ -103,17 +103,17 @@ bun run build         # Build dist/index.js
 The shared git repo follows this layout:
 
 ```
-garp-team/
+pact-team/
   config.json              # Team membership
   requests/
     pending/               # New requests awaiting response
     active/                # Reserved for future use
-    completed/             # Responded requests (moved by garp_respond)
-    cancelled/             # Cancelled requests (moved by garp_cancel)
+    completed/             # Responded requests (moved by pact_respond)
+    cancelled/             # Cancelled requests (moved by pact_cancel)
   responses/               # Response data keyed by request ID
-  skills/
+  pacts/
     ask/
-      SKILL.md             # Contract for the "ask a question" request type
+      PACT.md             # Contract for the "ask a question" request type
 ```
 
-Request lifecycle: `pending/` -> `completed/` (via `garp_respond`) or `pending/` -> `cancelled/` (via `garp_cancel`). Responses are written to `responses/`. Requests support threading (`thread_id`), amendments (`garp_amend`), and file attachments.
+Request lifecycle: `pending/` -> `completed/` (via `pact_respond`) or `pending/` -> `cancelled/` (via `pact_cancel`). Responses are written to `responses/`. Requests support threading (`thread_id`), amendments (`pact_amend`), and file attachments.

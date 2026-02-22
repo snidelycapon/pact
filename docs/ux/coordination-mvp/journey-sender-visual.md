@@ -30,13 +30,13 @@ Cory:  Focused ──> Uncertain ──> "Need eyes on this" ──> Confident �
  [2] Decides to ask Alex
      "Send a sanity check to Alex about this"
      — or —
-     "Invoke the sanity-check skill for Alex"
+     "Invoke the sanity-check pact for Alex"
      |
      v
- [3] Agent loads SKILL.md
-     skills/sanity-check/SKILL.md
+ [3] Agent loads PACT.md
+     pacts/sanity-check/PACT.md
      |
-     | Agent reads the skill, understands what
+     | Agent reads the pact, understands what
      | fields to gather for this request type
      v
  [4] Agent gathers context from session
@@ -82,7 +82,7 @@ Cory:  Focused ──> Uncertain ──> "Need eyes on this" ──> Confident �
      | Cory reviews, edits if needed, approves
      | Emotion: Confident — "This captures what I need"
      v
- [6] Agent calls garp_request                ──────>  requests/pending/
+ [6] Agent calls pact_request                ──────>  requests/pending/
      - Writes JSON to pending/                          req-20260221-001.json
      - git add + commit + push                          (status: pending)
      |
@@ -100,7 +100,7 @@ Cory:  Focused ──> Uncertain ──> "Need eyes on this" ──> Confident �
      "Check on my sanity-check to Alex"
      |
      v
- [9] Agent calls garp_status               <──────  responses/
+ [9] Agent calls pact_status               <──────  responses/
      - git pull                                        req-20260221-001.json
      - reads request + response                        (Alex's response)
      |
@@ -143,14 +143,14 @@ Cory:  Focused ──> Uncertain ──> "Need eyes on this" ──> Confident �
 | # | Action | Tool | Emotion | Shared Artifacts |
 |---|--------|------|---------|-----------------|
 | 1 | Investigating bug with agent | Craft Agents session | Focused then uncertain | Session context (local) |
-| 2 | Decides to ask Alex | Natural language or skill invocation | "Need another set of eyes" | - |
-| 3 | Agent loads SKILL.md | Auto-loaded from repo | - | skills/sanity-check/SKILL.md |
+| 2 | Decides to ask Alex | Natural language or pact invocation | "Need another set of eyes" | - |
+| 3 | Agent loads PACT.md | Auto-loaded from repo | - | pacts/sanity-check/PACT.md |
 | 4 | Agent gathers context | Reads from session, may ask user | Collaborative | Session context -> context bundle fields |
 | 5 | Agent composes request (Plan preview) | Plan submission pattern | Confident (after review) | Request JSON (draft) |
-| 6 | Request submitted and pushed | garp_request | Relieved | requests/pending/req-*.json |
+| 6 | Request submitted and pushed | pact_request | Relieved | requests/pending/req-*.json |
 | 7 | Cory continues other work | - | Freed — no longer blocked | - |
 | 8 | Cory checks status | Natural language | Curious | - |
-| 9 | Agent pulls and reads response | garp_status | Anticipation | responses/req-*.json |
+| 9 | Agent pulls and reads response | pact_status | Anticipation | responses/req-*.json |
 | 10 | Response presented for review | Plan-style display | Validated | Response content |
 | 11 | Cory acts on response | Varies | Empowered | - |
 
@@ -163,12 +163,12 @@ The request preview and response display both use the Plan submission pattern fr
 - User can edit, approve, or cancel
 - No surprises — nothing leaves the machine without human review
 
-### Skill Invocation (Steps 2-3)
+### Pact Invocation (Steps 2-3)
 Two ways to trigger:
-1. **Direct**: User invokes the skill explicitly ("use the sanity-check skill")
+1. **Direct**: User invokes the pact explicitly ("use the sanity-check pact")
 2. **Inferred**: User describes the need ("ask Alex to check this") and agent matches to the right request type
 
-Both paths load the same SKILL.md which tells the agent what context to gather.
+Both paths load the same PACT.md which tells the agent what context to gather.
 
 ### Session Decoupling (Steps 6-8)
 The request is a file in a git repo. Once pushed, it exists independently of any conversation. Cory can:
@@ -179,7 +179,7 @@ The request is a file in a git repo. Once pushed, it exists independently of any
 ### Context Bundle Assembly (Step 4)
 The agent assembles the context bundle from:
 1. Information already in the current session (files read, findings made)
-2. Fields defined in SKILL.md (what the request type requires)
+2. Fields defined in PACT.md (what the request type requires)
 3. Clarification from the user (specific question, priority, deadline)
 
 This is the core value proposition — the agent does the context packaging that was previously manual.

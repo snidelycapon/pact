@@ -6,7 +6,7 @@ journey:
   status: draft
 
   summary: >
-    Two users go from nothing to a working shared GARP repo
+    Two users go from nothing to a working shared PACT repo
     with MCP servers configured and a complete round-trip validated.
 
   actors:
@@ -31,7 +31,7 @@ journey:
     - Cory has built and tested the local MCP server
     - Both users have Craft Agents installed
     - Both users have GitHub accounts with git credentials configured
-    - Cory has created the GARP repo with correct directory structure
+    - Cory has created the PACT repo with correct directory structure
 
   steps:
     - id: create-repo
@@ -39,17 +39,17 @@ journey:
       action: Create private GitHub repo with directory conventions
       tool: git/GitHub
       produces:
-        - artifact: garp-repo
-          description: Empty GARP repo with directory structure
+        - artifact: pact-repo
+          description: Empty PACT repo with directory structure
       emotion: confident
       duration_minutes: 5
 
     - id: seed-welcome
       actor: cory
       action: Seed a welcome request addressed to Alex
-      tool: garp_request
+      tool: pact_request
       consumes:
-        - artifact: garp-repo
+        - artifact: pact-repo
       produces:
         - artifact: welcome-request
           file: requests/pending/req-welcome-001.json
@@ -76,7 +76,7 @@ journey:
 
     - id: clone-repo
       actor: alex
-      action: Clone GARP repo locally
+      action: Clone PACT repo locally
       tool: git clone
       produces:
         - artifact: local-repo-clone
@@ -85,13 +85,13 @@ journey:
 
     - id: configure-mcp
       actor: alex
-      action: Add GARP MCP source in Craft Agents pointing at local repo
+      action: Add PACT MCP source in Craft Agents pointing at local repo
       tool: Craft Agents UI
       consumes:
         - artifact: local-repo-clone
       produces:
         - artifact: mcp-source-config
-          description: Source entry with GARP_REPO path and GARP_USER identity
+          description: Source entry with PACT_REPO path and PACT_USER identity
       emotion: slight_uncertainty
       duration_minutes: 2
       friction: >
@@ -100,8 +100,8 @@ journey:
 
     - id: first-inbox-check
       actor: alex
-      action: Start agent session, ask to check GARP inbox
-      tool: garp_inbox
+      action: Start agent session, ask to check PACT inbox
+      tool: pact_inbox
       consumes:
         - artifact: mcp-source-config
         - artifact: welcome-request
@@ -117,11 +117,11 @@ journey:
     - id: respond-to-welcome
       actor: alex
       action: Respond to welcome request with agent assistance
-      tool: garp_respond
+      tool: pact_respond
       consumes:
         - artifact: welcome-request
-        - artifact: skill-file
-          file: skills/sanity-check/SKILL.md
+        - artifact: pact-file
+          file: pacts/sanity-check/PACT.md
       produces:
         - artifact: welcome-response
           file: responses/req-welcome-001.json
@@ -129,13 +129,13 @@ journey:
       duration_minutes: 3
       plan_submission: true
       description: >
-        Agent loads SKILL.md, composes response, Alex reviews
+        Agent loads PACT.md, composes response, Alex reviews
         and approves (Plan submission pattern), then pushes.
 
     - id: verify-round-trip
       actor: cory
       action: Check status of welcome request, see Alex's response
-      tool: garp_status
+      tool: pact_status
       consumes:
         - artifact: welcome-response
       emotion: validated
@@ -149,10 +149,10 @@ journey:
     - Both users have working MCP server configurations
     - Both users have cloned the shared repo
     - One complete round-trip has been validated
-    - Skill files are synced to both clients via git
+    - Pact files are synced to both clients via git
 
   shared_artifacts:
-    - id: garp-repo
+    - id: pact-repo
       type: git_repository
       source: step:create-repo
       consumed_by: [clone-repo, seed-welcome]
@@ -161,9 +161,9 @@ journey:
       file: requests/pending/req-welcome-001.json
       source: step:seed-welcome
       consumed_by: [first-inbox-check, respond-to-welcome]
-    - id: skill-file
-      type: skill_md
-      file: skills/sanity-check/SKILL.md
+    - id: pact-file
+      type: pact_md
+      file: pacts/sanity-check/PACT.md
       source: step:create-repo
       consumed_by: [seed-welcome, respond-to-welcome]
     - id: welcome-response
@@ -183,7 +183,7 @@ journey:
         MCP source config requires correct repo path and user ID.
         Misconfiguration causes silent failure (empty inbox on first check).
       mitigation: >
-        Clear error message when GARP_REPO path does not exist or is
+        Clear error message when PACT_REPO path does not exist or is
         not a git repo. Validation on MCP server startup.
 
     - step: first-inbox-check
@@ -195,7 +195,7 @@ journey:
         Cory seeds the welcome request before sending the invite.
 
   corrections_from_discovery:
-    - field: skill_contracts
-      discovery_said: "Paired SKILL.md files (sender.md + receiver.md) per request type"
-      user_clarified: "One SKILL.md file per request type. Both sides use the same file."
-      impact: "Simplifies onboarding, skill distribution, and contract understanding"
+    - field: pact_contracts
+      discovery_said: "Paired PACT.md files (sender.md + receiver.md) per request type"
+      user_clarified: "One PACT.md file per request type. Both sides use the same file."
+      impact: "Simplifies onboarding, pact distribution, and contract understanding"

@@ -1,18 +1,18 @@
 /**
- * Action dispatcher for the collapsed garp tool.
+ * Action dispatcher for the collapsed pact tool.
  *
  * Maps action strings to handler functions, validates the action field,
  * and delegates to the matching handler with the full params + context.
  */
 
 import type { GitPort, ConfigPort, FilePort } from "./ports.ts";
-import { handleGarpRequest } from "./tools/garp-request.ts";
-import { handleGarpRespond } from "./tools/garp-respond.ts";
-import { handleGarpCancel } from "./tools/garp-cancel.ts";
-import { handleGarpAmend } from "./tools/garp-amend.ts";
-import { handleGarpStatus } from "./tools/garp-status.ts";
-import { handleGarpInbox } from "./tools/garp-inbox.ts";
-import { handleGarpThread } from "./tools/garp-thread.ts";
+import { handlePactRequest } from "./tools/pact-request.ts";
+import { handlePactRespond } from "./tools/pact-respond.ts";
+import { handlePactCancel } from "./tools/pact-cancel.ts";
+import { handlePactAmend } from "./tools/pact-amend.ts";
+import { handlePactStatus } from "./tools/pact-status.ts";
+import { handlePactInbox } from "./tools/pact-inbox.ts";
+import { handlePactThread } from "./tools/pact-thread.ts";
 
 export interface DispatchContext {
   userId: string;
@@ -28,13 +28,13 @@ type ActionHandler = (
 ) => Promise<unknown>;
 
 const ACTION_MAP: Record<string, ActionHandler> = {
-  send: handleGarpRequest as ActionHandler,
-  respond: handleGarpRespond as ActionHandler,
-  cancel: handleGarpCancel as ActionHandler,
-  amend: handleGarpAmend as ActionHandler,
-  check_status: handleGarpStatus as ActionHandler,
-  inbox: handleGarpInbox as ActionHandler,
-  view_thread: handleGarpThread as ActionHandler,
+  send: handlePactRequest as ActionHandler,
+  respond: handlePactRespond as ActionHandler,
+  cancel: handlePactCancel as ActionHandler,
+  amend: handlePactAmend as ActionHandler,
+  check_status: handlePactStatus as ActionHandler,
+  inbox: handlePactInbox as ActionHandler,
+  view_thread: handlePactThread as ActionHandler,
 };
 
 const VALID_ACTIONS = Object.keys(ACTION_MAP);

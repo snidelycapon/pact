@@ -60,7 +60,7 @@ Allow conditions to be JavaScript expressions evaluated at runtime (e.g., `"cont
 
 - **Pro**: Maximum expressiveness. Any boolean logic expressible in JavaScript can be a condition.
 - **Pro**: Familiar syntax for developers.
-- **Con**: Security risk. Expression evaluation is code execution. Even sandboxed eval (vm2, isolated-vm) has a history of sandbox escape vulnerabilities. Skill files are committed by any team member.
+- **Con**: Security risk. Expression evaluation is code execution. Even sandboxed eval (vm2, isolated-vm) has a history of sandbox escape vulnerabilities. Pact files are committed by any team member.
 - **Con**: Dependency. Requires a JavaScript expression evaluator or `eval`-equivalent in the brain runtime. The brain should be implementable in any language.
 - **Con**: Testing complexity. Freeform expressions cannot be structurally validated; they must be executed to verify correctness. Declarative operators can be validated by schema.
 - **Con**: Readability in YAML. Multi-line JavaScript expressions in YAML strings are error-prone (quoting, escaping).
@@ -74,7 +74,7 @@ Use JSONPath or JMESPath for field path resolution and filtering.
 - **Pro**: Support array filtering, projections, and multi-value matching natively.
 - **Con**: New runtime dependency. JSONPath (`jsonpath-plus`, ~45KB) or JMESPath (`@jmespath/jmespath`, ~35KB) packages would be required.
 - **Con**: Over-powered for the use case. Brain conditions match individual fields, not query/filter across arrays or project nested structures. Dot-notation paths with simple operators are sufficient.
-- **Con**: Learning curve. JSONPath/JMESPath syntax is non-trivial. Skill authors would need to learn a query language to write conditions.
+- **Con**: Learning curve. JSONPath/JMESPath syntax is non-trivial. Pact authors would need to learn a query language to write conditions.
 - **Rejection rationale**: The added dependency and complexity are not justified. Dot-notation field paths with a closed operator set achieve the same result for the known use cases. If array querying or complex projections are needed in the future, JMESPath can be added as an extension operator.
 
 ### CEL (Common Expression Language)
@@ -85,7 +85,7 @@ Use Google's Common Expression Language for condition evaluation.
 - **Pro**: Used by Firebase Security Rules, Envoy, Kubernetes. Well-established.
 - **Con**: Requires a CEL runtime library. No maintained JavaScript/TypeScript CEL implementation with broad adoption.
 - **Con**: Heavyweight for the use case. CEL supports macros, list comprehensions, and type checking -- features that are unnecessary for field matching.
-- **Con**: Skill authors would need to learn CEL syntax, which is less familiar than YAML key-value matching.
+- **Con**: Pact authors would need to learn CEL syntax, which is less familiar than YAML key-value matching.
 - **Rejection rationale**: CEL is architecturally sound but practically unavailable in the TypeScript/Node.js ecosystem. The closed operator set achieves the same safety guarantees (non-Turing-complete, deterministic) without a runtime dependency.
 
 ## Consequences

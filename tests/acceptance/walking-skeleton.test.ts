@@ -4,13 +4,13 @@
  * Traces to: US-001, US-008
  *
  * This is the FIRST and most important acceptance test. It proves the
- * entire GARP loop works end-to-end:
+ * entire PACT loop works end-to-end:
  *
  *   1. Repo exists with correct directory structure
- *   2. Alice submits a sanity-check request to Bob via garp_request
- *   3. Bob checks inbox via garp_inbox and sees the request
- *   4. Bob responds via garp_respond with findings
- *   5. Alice checks status via garp_status and sees the response
+ *   2. Alice submits a sanity-check request to Bob via pact_request
+ *   3. Bob checks inbox via pact_inbox and sees the request
+ *   4. Bob responds via pact_respond with findings
+ *   5. Alice checks status via pact_status and sees the response
  *
  * The test exercises all 4 driving ports (MCP tool handlers) against
  * real local git repos. No mocks, no network -- just bare repos on
@@ -18,7 +18,7 @@
  *
  * Implementation note: The test calls tool handlers directly (the
  * driving ports), not through MCP JSON-RPC. The tool handlers are
- * the public API boundary of the GARP server.
+ * the public API boundary of the PACT server.
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -33,7 +33,7 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { createGarpServer } from "../../src/server.js";
+import { createPactServer } from "../../src/server.js";
 
 describe("Walking Skeleton: complete round-trip", () => {
   let ctx: TestRepoContext;
@@ -49,16 +49,16 @@ describe("Walking Skeleton: complete round-trip", () => {
   it("Alice sends a request, Bob receives and responds, Alice sees the response", async () => {
     ctx = createTestRepos();
 
-    const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const bobServer   = createGarpServer({ repoPath: ctx.bobRepo,   userId: "bob" });
+    const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+    const bobServer   = createPactServer({ repoPath: ctx.bobRepo,   userId: "bob" });
 
     let requestId: string;
 
-    // --- Given: repo structure exists with skill and team config ---
+    // --- Given: repo structure exists with pact and team config ---
 
     await given("repo has standard directory structure and team config", async () => {
       expect(fileExists(ctx.aliceRepo, "config.json")).toBe(true);
-      expect(fileExists(ctx.aliceRepo, "skills/sanity-check/SKILL.md")).toBe(true);
+      expect(fileExists(ctx.aliceRepo, "pacts/sanity-check/PACT.md")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "requests/pending/.gitkeep")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "requests/completed/.gitkeep")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "responses/.gitkeep")).toBe(true);
@@ -67,7 +67,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Alice submits a sanity-check request to Bob ---
 
     await when("Alice submits a sanity-check request to Bob", async () => {
-      const result = await aliceServer.callTool("garp_do", { action: "send",
+      const result = await aliceServer.callTool("pact_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -104,18 +104,18 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Bob checks inbox and sees the request ---
 
     await when("Bob checks inbox and sees one pending request", async () => {
-      const inbox = await bobServer.callTool("garp_do", { action: "inbox" }) as { requests: any[] };
+      const inbox = await bobServer.callTool("pact_do", { action: "inbox" }) as { requests: any[] };
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].request_id).toBe(requestId);
       expect(inbox.requests[0].request_type).toBe("sanity-check");
       expect(inbox.requests[0].sender).toBe("Alice");
-      expect(inbox.requests[0].skill_path).toContain("skills/sanity-check/SKILL.md");
+      expect(inbox.requests[0].pact_path).toContain("pacts/sanity-check/PACT.md");
     });
 
     // --- When: Bob responds with findings ---
 
     await when("Bob responds with investigation findings", async () => {
-      const response = await bobServer.callTool("garp_do", { action: "respond",
+      const response = await bobServer.callTool("pact_do", { action: "respond",
         request_id: requestId,
         response_bundle: {
           answer: "YES - same pattern as ZD-4102",
@@ -157,7 +157,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Alice checks status ---
 
     await when("Alice checks status of her request", async () => {
-      const status = await aliceServer.callTool("garp_do", { action: "check_status",
+      const status = await aliceServer.callTool("pact_do", { action: "check_status",
         request_id: requestId,
       }) as any;
       expect(status.status).toBe("completed");
@@ -176,11 +176,11 @@ describe("Walking Skeleton: complete round-trip", () => {
   it("git log shows structured commit messages for the full round-trip", async () => {
     ctx = createTestRepos();
 
-    const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const bobServer   = createGarpServer({ repoPath: ctx.bobRepo,   userId: "bob" });
+    const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+    const bobServer   = createPactServer({ repoPath: ctx.bobRepo,   userId: "bob" });
 
     // Execute a complete round-trip
-    const result = await aliceServer.callTool("garp_do", { action: "send",
+    const result = await aliceServer.callTool("pact_do", { action: "send",
       request_type: "sanity-check",
       recipient: "bob",
       context_bundle: {
@@ -194,7 +194,7 @@ describe("Walking Skeleton: complete round-trip", () => {
 
     gitPull(ctx.bobRepo);
 
-    await bobServer.callTool("garp_do", { action: "respond",
+    await bobServer.callTool("pact_do", { action: "respond",
       request_id: requestId,
       response_bundle: {
         answer: "YES",
@@ -206,8 +206,8 @@ describe("Walking Skeleton: complete round-trip", () => {
     const messages = allCommitMessages(ctx.aliceRepo);
 
     // Most recent first -- response commit, then request commit
-    expect(messages[0]).toMatch(/\[garp\] response:.*sanity-check.*bob -> alice/);
-    expect(messages[1]).toMatch(/\[garp\] new request:.*sanity-check.*-> bob/);
+    expect(messages[0]).toMatch(/\[pact\] response:.*sanity-check.*bob -> alice/);
+    expect(messages[1]).toMatch(/\[pact\] new request:.*sanity-check.*-> bob/);
   });
 
   // =========================================================================
@@ -218,8 +218,8 @@ describe("Walking Skeleton: complete round-trip", () => {
     ctx = createTestRepos();
 
     // --- Session A: Alice sends request ---
-    const aliceSessionA = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const result = await aliceSessionA.callTool("garp_do", { action: "send",
+    const aliceSessionA = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+    const result = await aliceSessionA.callTool("pact_do", { action: "send",
       request_type: "sanity-check",
       recipient: "bob",
       context_bundle: { question: "Test question" },
@@ -227,16 +227,16 @@ describe("Walking Skeleton: complete round-trip", () => {
     const requestId = result.request_id;
 
     // --- Bob responds ---
-    const bobSession = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+    const bobSession = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
     gitPull(ctx.bobRepo);
-    await bobSession.callTool("garp_do", { action: "respond",
+    await bobSession.callTool("pact_do", { action: "respond",
       request_id: requestId,
       response_bundle: { answer: "Confirmed" },
     });
 
     // --- Session B: Alice checks from a new server instance ---
-    const aliceSessionB = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const status = await aliceSessionB.callTool("garp_do", { action: "check_status",
+    const aliceSessionB = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+    const status = await aliceSessionB.callTool("pact_do", { action: "check_status",
       request_id: requestId,
     }) as any;
     expect(status.status).toBe("completed");

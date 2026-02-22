@@ -1,18 +1,18 @@
 Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
-  As a colleague receiving a GARP request
+  As a colleague receiving a PACT request
   I want to see the full context of what is being asked and respond with structured findings
   So that the sender gets an actionable answer without us juggling context over Slack
 
   Background:
-    Given Alex has a working MCP server configured for the "acme-garp" repo
+    Given Alex has a working MCP server configured for the "acme-pact" repo
     And Cory has submitted a sanity-check request "req-20260221-001" addressed to Alex
-    And the skill file "skills/sanity-check/SKILL.md" exists in the repo
+    And the pact file "pacts/sanity-check/PACT.md" exists in the repo
 
   # --- Happy Path ---
 
   Scenario: Alex checks inbox and sees pending requests
-    When Alex asks their agent to check the GARP inbox
-    Then the agent calls garp_inbox
+    When Alex asks their agent to check the PACT inbox
+    Then the agent calls pact_inbox
     And the agent pulls latest from the repo
     And the result shows 1 pending request:
       | field        | value                                              |
@@ -22,11 +22,11 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
       | sent         | 2026-02-21 14:00 UTC                               |
       | summary      | Does this memory leak match the session service pattern? |
 
-  Scenario: Alex opens a request and agent auto-loads context and skill
+  Scenario: Alex opens a request and agent auto-loads context and pact
     Given Alex sees "req-20260221-001" in the inbox listing
     When Alex says "Open that request from Cory"
     Then the agent reads the full request JSON from "requests/pending/req-20260221-001.json"
-    And the agent auto-loads "skills/sanity-check/SKILL.md" based on request type
+    And the agent auto-loads "pacts/sanity-check/PACT.md" based on request type
     And the agent presents the full context bundle:
       | field                | value                                               |
       | customer             | Acme Corp                                           |
@@ -40,7 +40,7 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
     Given Alex has opened request "req-20260221-001" with full context loaded
     And the agent has read the referenced files from the local repos
     When Alex concludes the investigation and says "Compose a response"
-    Then the agent composes a response following the SKILL.md response structure:
+    Then the agent composes a response following the PACT.md response structure:
       | section        | content                                              |
       | answer         | YES - same pattern as ZD-4102                        |
       | evidence       | Compared refresh.ts:L45-90 with cleanup.ts:L30-60   |
@@ -51,7 +51,7 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
     Given the agent has composed a response for "req-20260221-001"
     And the response is presented in Plan submission format
     When Alex approves the response
-    Then the agent calls garp_respond for "req-20260221-001"
+    Then the agent calls pact_respond for "req-20260221-001"
     And a response file is created at "responses/req-20260221-001.json"
     And the request file moves from "requests/pending/" to "requests/completed/"
     And the changes are committed and pushed to the remote
@@ -62,13 +62,13 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
   Scenario: Alex has multiple pending requests
     Given Cory has submitted "req-20260221-001" (sanity-check) addressed to Alex
     And Cory has submitted "req-20260221-003" (sanity-check) addressed to Alex
-    When Alex checks the GARP inbox
+    When Alex checks the PACT inbox
     Then the inbox shows 2 pending requests ordered by creation time
     And each request shows type, sender, timestamp, and summary
 
   Scenario: Alex checks inbox with no pending requests
     Given there are no pending requests addressed to Alex
-    When Alex checks the GARP inbox
+    When Alex checks the PACT inbox
     Then the agent reports "No pending requests in your inbox"
 
   # --- Edge Cases ---
@@ -80,7 +80,7 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
     Then the agent updates the recommendation field
     And the updated response is presented for review again
     When Alex approves the updated response
-    Then the agent calls garp_respond with the edited content
+    Then the agent calls pact_respond with the edited content
 
   Scenario: Alex adds their own direction before investigation
     Given Alex has opened request "req-20260221-001" with full context loaded
@@ -109,7 +109,7 @@ Feature: Receiver Journey — Receive, Investigate, and Respond to a Request
 
   Scenario: Git push fails when submitting response
     Given Alex has approved a response for submission
-    When the agent calls garp_respond
+    When the agent calls pact_respond
     And git push fails because the remote has new commits
     Then the MCP server runs git pull --rebase
     And the MCP server retries git push

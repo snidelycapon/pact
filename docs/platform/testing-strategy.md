@@ -1,4 +1,4 @@
-# Testing Strategy -- GARP MCP Server
+# Testing Strategy -- PACT MCP Server
 
 ## Scope
 
@@ -128,10 +128,10 @@ export function createMockConfig(
 
 | Test File | Cases | What It Validates |
 |-----------|-------|-------------------|
-| `garp-request.test.ts` | 5-6 | Creates valid envelope, generates request ID, validates required fields, rejects unknown recipient, rejects missing skill directory, calls git pull+add+commit+push in order |
-| `garp-inbox.test.ts` | 4-5 | Calls git pull first, filters by current user, returns empty array when no pending, parses request JSON correctly, includes skill_path in response |
-| `garp-respond.test.ts` | 5-6 | Writes response file, moves request via git mv, atomic commit (response + move in one commit), rejects if not recipient, rejects if already completed, calls push with rebase retry |
-| `garp-status.test.ts` | 4-5 | Searches completed first then pending, returns status + response bundle for completed, returns pending status without response, returns not-found error, calls git pull first |
+| `pact-request.test.ts` | 5-6 | Creates valid envelope, generates request ID, validates required fields, rejects unknown recipient, rejects missing pact directory, calls git pull+add+commit+push in order |
+| `pact-inbox.test.ts` | 4-5 | Calls git pull first, filters by current user, returns empty array when no pending, parses request JSON correctly, includes pact_path in response |
+| `pact-respond.test.ts` | 5-6 | Writes response file, moves request via git mv, atomic commit (response + move in one commit), rejects if not recipient, rejects if already completed, calls push with rebase retry |
+| `pact-status.test.ts` | 4-5 | Searches completed first then pending, returns status + response bundle for completed, returns pending status without response, returns not-found error, calls git pull first |
 
 #### Schema Tests (`test/unit/schemas/`)
 
@@ -150,14 +150,14 @@ export function createMockConfig(
 ### Example Unit Test
 
 ```typescript
-// test/unit/tools/garp-request.test.ts
+// test/unit/tools/pact-request.test.ts
 import { describe, it, expect, beforeEach } from "bun:test";
-import { handleGarpRequest } from "../../../src/tools/garp-request";
+import { handlePactRequest } from "../../../src/tools/pact-request";
 import { createMockGit } from "../../mocks/mock-git";
 import { createMockFile } from "../../mocks/mock-file";
 import { createMockConfig } from "../../mocks/mock-config";
 
-describe("garp_request", () => {
+describe("pact_request", () => {
   let git: ReturnType<typeof createMockGit>;
   let file: ReturnType<typeof createMockFile>;
   let config: ReturnType<typeof createMockConfig>;
@@ -165,13 +165,13 @@ describe("garp_request", () => {
   beforeEach(() => {
     git = createMockGit();
     file = createMockFile({
-      "skills/sanity-check/SKILL.md": "# Sanity Check\n...",
+      "pacts/sanity-check/PACT.md": "# Sanity Check\n...",
     });
     config = createMockConfig();
   });
 
   it("creates a valid request envelope in pending directory", async () => {
-    const result = await handleGarpRequest(
+    const result = await handlePactRequest(
       {
         request_type: "sanity-check",
         recipient: "bob",
@@ -186,7 +186,7 @@ describe("garp_request", () => {
   });
 
   it("rejects unknown recipient", async () => {
-    const promise = handleGarpRequest(
+    const promise = handlePactRequest(
       {
         request_type: "sanity-check",
         recipient: "unknown-user",
@@ -200,7 +200,7 @@ describe("garp_request", () => {
   });
 
   it("calls git operations in correct order", async () => {
-    await handleGarpRequest(
+    await handlePactRequest(
       {
         request_type: "sanity-check",
         recipient: "bob",
@@ -241,7 +241,7 @@ export interface TestRepoContext {
 }
 
 export function createTestRepos(): TestRepoContext {
-  const base = mkdtempSync(join(tmpdir(), "garp-test-"));
+  const base = mkdtempSync(join(tmpdir(), "pact-test-"));
   const remotePath = join(base, "remote.git");
   const aliceRepo = join(base, "alice");
   const bobRepo = join(base, "bob");
@@ -255,9 +255,9 @@ export function createTestRepos(): TestRepoContext {
     cd ${aliceRepo} &&
     git config user.email "alice@test.com" &&
     git config user.name "Alice" &&
-    mkdir -p requests/pending requests/active requests/completed responses skills/sanity-check &&
+    mkdir -p requests/pending requests/active requests/completed responses pacts/sanity-check &&
     echo '{"team_name":"Test","version":1,"members":[{"user_id":"alice","display_name":"Alice"},{"user_id":"bob","display_name":"Bob"}]}' > config.json &&
-    echo '# Sanity Check' > skills/sanity-check/SKILL.md &&
+    echo '# Sanity Check' > pacts/sanity-check/PACT.md &&
     touch requests/pending/.gitkeep requests/active/.gitkeep requests/completed/.gitkeep responses/.gitkeep &&
     git add -A && git commit -m "init" && git push origin main
   `);
@@ -294,9 +294,9 @@ export function createTestRepos(): TestRepoContext {
 // test/integration/round-trip.test.ts
 import { describe, it, expect, afterEach } from "bun:test";
 import { createTestRepos, type TestRepoContext } from "./helpers/test-repo";
-import { createGarpServer } from "../../src/index";
+import { createPactServer } from "../../src/index";
 
-describe("GARP round-trip", () => {
+describe("PACT round-trip", () => {
   let ctx: TestRepoContext;
 
   afterEach(() => ctx?.cleanup());
@@ -305,12 +305,12 @@ describe("GARP round-trip", () => {
     ctx = createTestRepos();
 
     // Alice sends a request
-    const aliceServer = createGarpServer({
+    const aliceServer = createPactServer({
       repoPath: ctx.aliceRepo,
       userId: "alice",
     });
 
-    const requestResult = await aliceServer.callTool("garp_request", {
+    const requestResult = await aliceServer.callTool("pact_request", {
       request_type: "sanity-check",
       recipient: "bob",
       context_bundle: { question: "Does the data model look right?" },
@@ -320,17 +320,17 @@ describe("GARP round-trip", () => {
     const requestId = requestResult.request_id;
 
     // Bob checks inbox
-    const bobServer = createGarpServer({
+    const bobServer = createPactServer({
       repoPath: ctx.bobRepo,
       userId: "bob",
     });
 
-    const inbox = await bobServer.callTool("garp_inbox", {});
+    const inbox = await bobServer.callTool("pact_inbox", {});
     expect(inbox.requests).toHaveLength(1);
     expect(inbox.requests[0].request_id).toBe(requestId);
 
     // Bob responds
-    const respondResult = await bobServer.callTool("garp_respond", {
+    const respondResult = await bobServer.callTool("pact_respond", {
       request_id: requestId,
       response_bundle: { verdict: "Looks good", notes: "No issues found" },
     });
@@ -338,7 +338,7 @@ describe("GARP round-trip", () => {
     expect(respondResult.status).toBe("completed");
 
     // Alice checks status
-    const status = await aliceServer.callTool("garp_status", {
+    const status = await aliceServer.callTool("pact_status", {
       request_id: requestId,
     });
 
@@ -358,7 +358,7 @@ describe("GARP round-trip", () => {
 | Git internals (commit, merge) | Tested by `simple-git` and git itself. We test our usage of it |
 | Craft Agents source loading | Craft Agents responsibility. Not in our codebase |
 | Network git operations (SSH, HTTPS) | Integration tests use local bare repos. Network auth is the user's git config |
-| Skill file content parsing | MCP server is type-agnostic. Skills are agent-level guidance, not parsed by the server |
+| Pact file content parsing | MCP server is type-agnostic. Pacts are agent-level guidance, not parsed by the server |
 
 ---
 
@@ -372,9 +372,9 @@ test/fixtures/
   valid-request.json        # Valid request envelope (all fields)
   minimal-request.json      # Request with only required fields
   invalid-request.json      # Missing required fields (for error tests)
-  skills/
+  pacts/
     sanity-check/
-      SKILL.md              # Minimal valid skill file
+      PACT.md              # Minimal valid pact file
 ```
 
 ### Fixture: valid-request.json
@@ -442,11 +442,11 @@ For the walking skeleton (US-008), these manual tests validate the full stack:
 
 - [ ] Build succeeds: `npm run build` produces `dist/index.js`
 - [ ] MCP Inspector connects: `npx @modelcontextprotocol/inspector node dist/index.js`
-- [ ] Inspector lists 4 tools: garp_request, garp_inbox, garp_respond, garp_status
-- [ ] garp_request creates file in `requests/pending/` and pushes
-- [ ] garp_inbox returns the request when run as the recipient
-- [ ] garp_respond moves request to `completed/` and writes response
-- [ ] garp_status returns completed status with response bundle
+- [ ] Inspector lists 4 tools: pact_request, pact_inbox, pact_respond, pact_status
+- [ ] pact_request creates file in `requests/pending/` and pushes
+- [ ] pact_inbox returns the request when run as the recipient
+- [ ] pact_respond moves request to `completed/` and writes response
+- [ ] pact_status returns completed status with response bundle
 - [ ] Structured JSON logs appear on stderr during all operations
 - [ ] Error messages are structured JSON (not stack traces) for invalid input
 - [ ] Craft Agents loads the MCP source and all 4 tools appear in the agent's tool list

@@ -8,13 +8,13 @@ Requests have a lifecycle: pending (awaiting response), active (acknowledged, Ti
 
 ## Decision
 
-Request lifecycle is represented by directory placement. A request file in `requests/pending/` is pending. When responded to, `garp_respond` uses `git mv` to move it to `requests/completed/`. The directory a file lives in IS its status.
+Request lifecycle is represented by directory placement. A request file in `requests/pending/` is pending. When responded to, `pact_respond` uses `git mv` to move it to `requests/completed/`. The directory a file lives in IS its status.
 
 State transitions:
-- `garp_request` creates file in `requests/pending/`
-- `garp_respond` moves file to `requests/completed/` via `git mv`
-- `garp_inbox` scans `requests/pending/` (directory listing)
-- `garp_status` searches all directories (pending, active, completed)
+- `pact_request` creates file in `requests/pending/`
+- `pact_respond` moves file to `requests/completed/` via `git mv`
+- `pact_inbox` scans `requests/pending/` (directory listing)
+- `pact_status` searches all directories (pending, active, completed)
 
 ## Alternatives Considered
 
@@ -47,9 +47,9 @@ Local SQLite database indexed from repo files (like Beads' dual-storage pattern)
 ### Negative
 
 - `git mv` creates a rename entry in git history (slightly more complex log)
-- Three directories to search for garp_status (search completed first, then pending, then active)
+- Three directories to search for pact_status (search completed first, then pending, then active)
 - Cannot add arbitrary lifecycle states without new directories (acceptable: only 3 states planned)
 
 ### Risks
 
-- Concurrent `git mv` of the same file (two people try to respond simultaneously) -- LOW risk because requests have a single recipient, and only the recipient can respond (enforced by garp_respond validation).
+- Concurrent `git mv` of the same file (two people try to respond simultaneously) -- LOW risk because requests have a single recipient, and only the recipient can respond (enforced by pact_respond validation).

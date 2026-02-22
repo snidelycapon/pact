@@ -20,11 +20,11 @@ The roadmap is **well-structured, appropriately decomposed, and strategically so
 
 **Findings**:
 - **Excellent**. Each of the 9 steps is independently deliverable and testable:
-  - Steps 01-01 through 01-03 (Phase 1) create core infrastructure with clear module boundaries (skill-loader, action-dispatcher, discovery-handler).
+  - Steps 01-01 through 01-03 (Phase 1) create core infrastructure with clear module boundaries (pact-loader, action-dispatcher, discovery-handler).
   - Steps 02-01 through 02-04 (Phase 2) integrate and validate the surface, with explicit gate conditions (existing tests pass, new tests pass).
   - Steps 03-01 and 03-02 (Phase 3) migrate and clean up with precise file lists.
 
-- **Praise**: The skill-loader step (01-01) is particularly well-isolated—it has zero MCP surface dependencies and can be unit-tested with in-memory FilePort. This enables parallel development.
+- **Praise**: The pact-loader step (01-01) is particularly well-isolated—it has zero MCP surface dependencies and can be unit-tested with in-memory FilePort. This enables parallel development.
 
 - **Praise**: Step 02-02 (MCP Registration - Additive) is correctly sequenced *after* individual handler completion but *before* acceptance test enablement. This respects the build-integration ordering.
 
@@ -37,12 +37,12 @@ The roadmap is **well-structured, appropriately decomposed, and strategically so
 **Findings**:
 - **Strong across all steps**. Criteria are concrete and verifiable:
 
-  - **01-01 (Skill Loader)**: "Returns typed metadata... Returns undefined for missing or malformed..." + explicit mutation score target (>90%) — this is measurable.
+  - **01-01 (Pact Loader)**: "Returns typed metadata... Returns undefined for missing or malformed..." + explicit mutation score target (>90%) — this is measurable.
   - **01-02 (Action Dispatcher)**: "Unknown actions produce a descriptive error that lists all valid actions" — testable behavior, not vague intent.
-  - **02-01 (garp_do Handler)**: "Walking skeleton acceptance test passes: Alice sends... Bob sees it..." — clear scenario.
+  - **02-01 (pact_do Handler)**: "Walking skeleton acceptance test passes: Alice sends... Bob sees it..." — clear scenario.
   - **02-03 & 02-04**: Acceptance criteria directly reference existing test file structure (14 scenarios for discover, 13 for do) with milestone breakdown.
 
-- **Observation**: The walking skeleton tests already exist and are 1-enabled / 14-15-skipped respectively (garp-discover.test.ts and garp-do.test.ts). This is correctly modeled—the roadmap will unskip these tests as implementation completes.
+- **Observation**: The walking skeleton tests already exist and are 1-enabled / 14-15-skipped respectively (pact-discover.test.ts and pact-do.test.ts). This is correctly modeled—the roadmap will unskip these tests as implementation completes.
 
 - **Minor Note**: Step 03-01 references "behavioral contract is unchanged" — this is correct but could be strengthened by adding "verified by running existing test suite without modifications" for absolute clarity.
 
@@ -56,13 +56,13 @@ The roadmap is **well-structured, appropriately decomposed, and strategically so
 - **Excellent ordering**. The three-phase structure respects hard and soft dependencies:
 
   **Phase 1 Build** (01-01 → 01-02 → 01-03):
-  - Skill-loader (01-01) has no dependents; built first.
+  - Pact-loader (01-01) has no dependents; built first.
   - Action-dispatcher (01-02) depends on existing handler modules (unchanged).
-  - Discovery-handler (01-03) depends on skill-loader and ConfigPort—correctly sequenced after 01-01.
+  - Discovery-handler (01-03) depends on pact-loader and ConfigPort—correctly sequenced after 01-01.
 
   **Phase 2 Integration** (02-01 → 02-02 → 02-03 → 02-04):
-  - garp_do (02-01) depends on action-dispatcher (01-02); correctly sequenced.
-  - MCP registration (02-02) is additive and depends on both 02-01 (garp_do) and 01-03 (garp_discover).
+  - pact_do (02-01) depends on action-dispatcher (01-02); correctly sequenced.
+  - MCP registration (02-02) is additive and depends on both 02-01 (pact_do) and 01-03 (pact_discover).
   - Test enablement (02-03, 02-04) happens *after* MCP registration, which is correct.
 
   **Phase 3 Migration** (03-01 → 03-02):
@@ -96,27 +96,27 @@ The roadmap is **well-structured, appropriately decomposed, and strategically so
 - **Verified against current state**. The roadmap correctly identifies:
 
   **Phase 1 Creates** (New files):
-  - `src/skill-loader.ts` — not yet created ✓
+  - `src/pact-loader.ts` — not yet created ✓
   - `src/action-dispatcher.ts` — not yet created ✓
-  - `src/tools/garp-discover.ts` — not yet created ✓
-  - `src/tools/garp-do.ts` — not yet created ✓
+  - `src/tools/pact-discover.ts` — not yet created ✓
+  - `src/tools/pact-do.ts` — not yet created ✓
 
   **Phase 2 Modifies**:
   - `src/mcp-server.ts` — exists; will add registrations ✓
   - `src/server.ts` — exists; will add callTool cases ✓
-  - `tests/acceptance/garp-discover.test.ts` — exists (1 enabled, 14 skipped); will unskip ✓
-  - `tests/acceptance/garp-do.test.ts` — exists (1 enabled, 13 skipped); will unskip ✓
+  - `tests/acceptance/pact-discover.test.ts` — exists (1 enabled, 14 skipped); will unskip ✓
+  - `tests/acceptance/pact-do.test.ts` — exists (1 enabled, 13 skipped); will unskip ✓
 
   **Phase 3 Migrates Import**:
-  - `src/tools/garp-request.ts` — currently imports from skill-parser ✓
-  - `src/tools/garp-inbox.ts` — currently imports from skill-parser ✓
-  - Verified via grep: both are currently importing from skill-parser
+  - `src/tools/pact-request.ts` — currently imports from pact-parser ✓
+  - `src/tools/pact-inbox.ts` — currently imports from pact-parser ✓
+  - Verified via grep: both are currently importing from pact-parser
 
   **Phase 3 Deletes**:
-  - `src/skill-parser.ts` (291 lines) — currently exists ✓
-  - `src/tools/garp-skills.ts` (82 lines) — currently exists ✓
-  - `tests/unit/skill-parser.test.ts` — exists ✓
-  - `examples/skills/*/schema.json` — exist ✓
+  - `src/pact-parser.ts` (291 lines) — currently exists ✓
+  - `src/tools/pact-pacts.ts` (82 lines) — currently exists ✓
+  - `tests/unit/pact-parser.test.ts` — exists ✓
+  - `examples/pacts/*/schema.json` — exist ✓
 
 - **Praise**: The file list in 03-02 is comprehensive and includes test files often overlooked in migration planning.
 
@@ -130,7 +130,7 @@ The roadmap is **well-structured, appropriately decomposed, and strategically so
 The three-phase approach (Build additive → Validate both surfaces → Remove old) is a proven pattern that eliminates big-bang risk. By running all 10 tools simultaneously during Phase 2, you can detect behavioral divergence before committing to the change. This is first-class engineering.
 
 **praise: Excellent test artifact reuse**
-The acceptance test files (garp-discover.test.ts, garp-do.test.ts) already exist with 28 scenarios pre-written and 14-15 currently skipped. This DISTILL wave artifact is perfectly aligned with the roadmap phases. Step 02-03 and 02-04 simply unskip existing tests—there's no rework.
+The acceptance test files (pact-discover.test.ts, pact-do.test.ts) already exist with 28 scenarios pre-written and 14-15 currently skipped. This DISTILL wave artifact is perfectly aligned with the roadmap phases. Step 02-03 and 02-04 simply unskip existing tests—there's no rework.
 
 **praise: Clear walking skeleton strategy**
 Each phase begins with a single "golden path" scenario (01-03, 02-01, 02-04) before expanding to edge cases. This is pedagogically sound and reduces cognitive load during implementation.
@@ -150,15 +150,15 @@ The roadmap is internally consistent, the strategy is sound, and the acceptance 
 
 ### Suggestions
 
-**suggestion: Document the skill-loader contract in roadmap step 01-01**
+**suggestion: Document the pact-loader contract in roadmap step 01-01**
 The acceptance criteria currently reference ">90% mutation score" but don't explicitly state the return type signature. Consider adding to step 01-01:
 ```
-Returns: SkillMetadata | undefined where SkillMetadata = { name, version, description, when_to_use, context_bundle, response_bundle, has_brain?, brain_processing? }
+Returns: PactMetadata | undefined where PactMetadata = { name, version, description, when_to_use, context_bundle, response_bundle, has_hooks?, hooks? }
 ```
-This makes it crystal clear what consumers (garp-discover, garp-request, garp-inbox) will depend on.
+This makes it crystal clear what consumers (pact-discover, pact-request, pact-inbox) will depend on.
 
 **suggestion: Add explicit "no breaking changes to handler modules" statement**
-Step 02-02 states "All existing acceptance and unit tests continue to pass unchanged." Consider strengthening this to explicitly state: "Handler modules (garp-request, garp-inbox, etc.) retain existing function signatures and behavior. They are used as-is by action-dispatcher without modification."
+Step 02-02 states "All existing acceptance and unit tests continue to pass unchanged." Consider strengthening this to explicitly state: "Handler modules (pact-request, pact-inbox, etc.) retain existing function signatures and behavior. They are used as-is by action-dispatcher without modification."
 
 This removes any ambiguity about whether handlers will be refactored during Phase 2.
 
@@ -170,7 +170,7 @@ This removes any ambiguity about whether handlers will be refactored during Phas
 The acceptance criterion states: "All 10 tools are registered simultaneously." This is correct, but the phrasing in the criteria says "existing acceptance and unit tests continue to pass unchanged." Technically, there are 8 existing tools + 2 new ones = 10 total. This is already accurate, just noting the wording could clarify: "All 179 existing unit/acceptance tests for the original 8 tools continue to pass without modification."
 
 **nitpick: Step 03-01 could explicitly call out the test impact**
-The step says "garp-request.ts imports... Behavioral contract is unchanged: all existing acceptance tests... pass without any test modifications." This is true but could be clearer: "No test modifications are required during this step; import statements inside handlers are internal. Tests continue to call the old 8 tool names."
+The step says "pact-request.ts imports... Behavioral contract is unchanged: all existing acceptance tests... pass without any test modifications." This is true but could be clearer: "No test modifications are required during this step; import statements inside handlers are internal. Tests continue to call the old 8 tool names."
 
 ---
 
@@ -193,7 +193,7 @@ The step says "garp-request.ts imports... Behavioral contract is unchanged: all 
 The roadmap is ready for implementation. It demonstrates strong architectural thinking, appropriate risk stratification, and measurable acceptance criteria. The three-phase approach ensures observability and reversibility throughout the build cycle.
 
 **Next Steps**:
-1. Begin Phase 1 with Step 01-01 (skill-loader implementation).
+1. Begin Phase 1 with Step 01-01 (pact-loader implementation).
 2. Use the pre-written acceptance tests (existing .test.ts files) as acceptance gates.
 3. After Phase 2 validation, proceed to Phase 3 removal with confidence.
 

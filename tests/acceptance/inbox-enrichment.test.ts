@@ -1,19 +1,19 @@
 /**
- * Acceptance Tests -- Inbox Skill Enrichment
+ * Acceptance Tests -- Inbox Pact Enrichment
  *
  * Traces to: US-020
  *
- * Tests exercise the garp_inbox driving port (tool handler) against
- * real local git repos to verify skill enrichment of inbox entries.
+ * Tests exercise the pact_inbox driving port (tool handler) against
+ * real local git repos to verify pact enrichment of inbox entries.
  * Scenarios verify:
- *   - Inbox entries include skill_description extracted from skill metadata
+ *   - Inbox entries include pact_description extracted from pact metadata
  *   - Inbox entries include response_fields listing expected response field names
  *   - Enrichment prefers schema.json when available for response_fields
- *   - Enrichment falls back to SKILL.md when no schema.json exists
- *   - Missing or unreadable skill files cause enrichment fields to be omitted (not error)
+ *   - Enrichment falls back to PACT.md when no schema.json exists
+ *   - Missing or unreadable pact files cause enrichment fields to be omitted (not error)
  *   - Existing inbox fields remain unchanged after enrichment
- *   - Skill metadata is cached per request_type during a single inbox scan
- *   - Thread groups include enrichment from the latest entry's skill
+ *   - Pact metadata is cached per request_type during a single inbox scan
+ *   - Thread groups include enrichment from the latest entry's pact
  *
  * Error/edge scenarios: 4 of 9 total (44%)
  */
@@ -27,13 +27,13 @@ import { given, when, thenAssert } from "./helpers/gwt";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { createGarpServer } from "../../src/server.ts";
+import { createPactServer } from "../../src/server.ts";
 
 // ---------------------------------------------------------------------------
-// Skill content fixtures
+// Pact content fixtures
 // ---------------------------------------------------------------------------
 
-const ASK_SKILL = `# Ask
+const ASK_PACT = `# Ask
 
 A general question needing another person's view.
 
@@ -56,8 +56,8 @@ When you have a question that needs human judgment.
 
 const SANITY_CHECK_SCHEMA = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
-  skill_name: "sanity-check",
-  skill_version: "1.0.0",
+  pact_name: "sanity-check",
+  pact_version: "1.0.0",
   context_bundle: {
     type: "object",
     required: ["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question"],
@@ -120,7 +120,7 @@ function seedRequest(
   });
 }
 
-describe("inbox enrichment: skill description and response fields in inbox entries", () => {
+describe("inbox enrichment: pact description and response fields in inbox entries", () => {
   let ctx: TestRepoContext;
 
   afterEach(() => {
@@ -131,7 +131,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
   // Walking Skeleton
   // =========================================================================
 
-  it("includes skill_description and response_fields in inbox entries for existing skills", async () => {
+  it("includes pact_description and response_fields in inbox entries for existing pacts", async () => {
     ctx = createTestRepos();
 
     await given("Cory sent a sanity-check request to Bob", () => {
@@ -148,15 +148,15 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
-    await thenAssert("the inbox entry includes skill_description", () => {
+    await thenAssert("the inbox entry includes pact_description", () => {
       expect(inbox.requests).toHaveLength(1);
-      expect(inbox.requests[0].skill_description).toBeDefined();
-      expect(typeof inbox.requests[0].skill_description).toBe("string");
-      expect(inbox.requests[0].skill_description.length).toBeGreaterThan(0);
+      expect(inbox.requests[0].pact_description).toBeDefined();
+      expect(typeof inbox.requests[0].pact_description).toBe("string");
+      expect(inbox.requests[0].pact_description.length).toBeGreaterThan(0);
     });
 
     await thenAssert("the inbox entry includes response_fields as an array of field names", () => {
@@ -171,7 +171,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
       expect(inbox.requests[0].request_id).toBe("req-20260222-100000-alice-e001");
       expect(inbox.requests[0].request_type).toBe("sanity-check");
       expect(inbox.requests[0].sender).toBe("Alice");
-      expect(inbox.requests[0].skill_path).toContain("skills/sanity-check/SKILL.md");
+      expect(inbox.requests[0].pact_path).toContain("pacts/sanity-check/PACT.md");
     });
   });
 
@@ -182,9 +182,9 @@ describe("inbox enrichment: skill description and response fields in inbox entri
   it("extracts response_fields from schema.json when available", async () => {
     ctx = createTestRepos();
 
-    await given("the sanity-check skill has both SKILL.md and schema.json", () => {
+    await given("the sanity-check pact has both PACT.md and schema.json", () => {
       writeFileSync(
-        join(ctx.aliceRepo, "skills", "sanity-check", "schema.json"),
+        join(ctx.aliceRepo, "pacts", "sanity-check", "schema.json"),
         JSON.stringify(SANITY_CHECK_SCHEMA, null, 2),
       );
       execSync(
@@ -206,8 +206,8 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
     await thenAssert("response_fields are extracted from schema.json response_bundle properties", () => {
@@ -217,14 +217,14 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     });
   });
 
-  it("falls back to SKILL.md for response_fields when no schema.json exists", async () => {
+  it("falls back to PACT.md for response_fields when no schema.json exists", async () => {
     ctx = createTestRepos();
 
-    await given("the ask skill has SKILL.md but no schema.json", () => {
-      mkdirSync(join(ctx.aliceRepo, "skills", "ask"), { recursive: true });
-      writeFileSync(join(ctx.aliceRepo, "skills", "ask", "SKILL.md"), ASK_SKILL);
+    await given("the ask pact has PACT.md but no schema.json", () => {
+      mkdirSync(join(ctx.aliceRepo, "pacts", "ask"), { recursive: true });
+      writeFileSync(join(ctx.aliceRepo, "pacts", "ask", "PACT.md"), ASK_PACT);
       execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add ask skill" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add ask pact" && git push`,
         { stdio: "pipe" },
       );
     });
@@ -243,16 +243,16 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
-    await thenAssert("the ask entry includes skill_description", () => {
-      expect(inbox.requests[0].skill_description).toBeDefined();
-      expect(inbox.requests[0].skill_description.length).toBeGreaterThan(0);
+    await thenAssert("the ask entry includes pact_description", () => {
+      expect(inbox.requests[0].pact_description).toBeDefined();
+      expect(inbox.requests[0].pact_description.length).toBeGreaterThan(0);
     });
 
-    await thenAssert("response_fields are extracted from the SKILL.md Response Structure table", () => {
+    await thenAssert("response_fields are extracted from the PACT.md Response Structure table", () => {
       expect(inbox.requests[0].response_fields).toEqual(
         expect.arrayContaining(["answer", "reasoning", "caveats"]),
       );
@@ -263,14 +263,14 @@ describe("inbox enrichment: skill description and response fields in inbox entri
   // Happy Path -- Multiple Request Types
   // =========================================================================
 
-  it("enriches multiple inbox entries of different skill types independently", async () => {
+  it("enriches multiple inbox entries of different pact types independently", async () => {
     ctx = createTestRepos();
 
-    await given("the repo has sanity-check and ask skills", () => {
-      mkdirSync(join(ctx.aliceRepo, "skills", "ask"), { recursive: true });
-      writeFileSync(join(ctx.aliceRepo, "skills", "ask", "SKILL.md"), ASK_SKILL);
+    await given("the repo has sanity-check and ask pacts", () => {
+      mkdirSync(join(ctx.aliceRepo, "pacts", "ask"), { recursive: true });
+      writeFileSync(join(ctx.aliceRepo, "pacts", "ask", "PACT.md"), ASK_PACT);
       execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add ask skill" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add ask pact" && git push`,
         { stdio: "pipe" },
       );
     });
@@ -299,28 +299,28 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
-    await thenAssert("each entry has enrichment from its own skill type", () => {
+    await thenAssert("each entry has enrichment from its own pact type", () => {
       expect(inbox.requests).toHaveLength(2);
 
       const sc = inbox.requests.find((r: any) => r.request_type === "sanity-check");
-      expect(sc.skill_description).toBeDefined();
+      expect(sc.pact_description).toBeDefined();
       expect(sc.response_fields).toEqual(
         expect.arrayContaining(["answer", "evidence", "recommendation"]),
       );
 
       const ask = inbox.requests.find((r: any) => r.request_type === "ask");
-      expect(ask.skill_description).toBeDefined();
+      expect(ask.pact_description).toBeDefined();
       expect(ask.response_fields).toEqual(
         expect.arrayContaining(["answer", "reasoning", "caveats"]),
       );
     });
   });
 
-  it("caches skill metadata so duplicate request types do not re-read files", async () => {
+  it("caches pact metadata so duplicate request types do not re-read files", async () => {
     ctx = createTestRepos();
 
     await given("Bob has 3 sanity-check requests pending", () => {
@@ -340,16 +340,16 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
     await thenAssert("all 3 entries have identical enrichment (proving cache consistency)", () => {
       expect(inbox.requests).toHaveLength(3);
-      const descriptions = inbox.requests.map((r: any) => r.skill_description);
+      const descriptions = inbox.requests.map((r: any) => r.pact_description);
       const fieldSets = inbox.requests.map((r: any) => JSON.stringify(r.response_fields));
 
-      // All 3 should have the same enrichment from the same skill
+      // All 3 should have the same enrichment from the same pact
       expect(new Set(descriptions).size).toBe(1);
       expect(new Set(fieldSets).size).toBe(1);
     });
@@ -359,79 +359,79 @@ describe("inbox enrichment: skill description and response fields in inbox entri
   // Edge Cases / Error Paths
   // =========================================================================
 
-  it("omits enrichment fields when skill file is missing without breaking inbox", async () => {
+  it("omits enrichment fields when pact file is missing without breaking inbox", async () => {
     ctx = createTestRepos();
 
-    await given("a request with an unknown skill type exists for Bob", () => {
+    await given("a request with an unknown pact type exists for Bob", () => {
       seedRequest(ctx.aliceRepo, {
         requestId: "req-20260222-100000-alice-u001",
         recipient: "bob",
         sender: "alice",
         senderName: "Alice",
-        requestType: "unknown-skill",
-        question: "Request for nonexistent skill type",
+        requestType: "unknown-pact",
+        question: "Request for nonexistent pact type",
       });
     });
 
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
-    await thenAssert("the inbox entry omits skill_description and response_fields", () => {
+    await thenAssert("the inbox entry omits pact_description and response_fields", () => {
       expect(inbox.requests).toHaveLength(1);
-      expect(inbox.requests[0].skill_description).toBeUndefined();
+      expect(inbox.requests[0].pact_description).toBeUndefined();
       expect(inbox.requests[0].response_fields).toBeUndefined();
     });
 
     await thenAssert("existing inbox fields are still present and correct", () => {
       expect(inbox.requests[0].request_id).toBe("req-20260222-100000-alice-u001");
-      expect(inbox.requests[0].request_type).toBe("unknown-skill");
+      expect(inbox.requests[0].request_type).toBe("unknown-pact");
       expect(inbox.requests[0].sender).toBe("Alice");
       expect(inbox.requests[0].summary).toBeDefined();
     });
   });
 
-  it("omits enrichment when SKILL.md exists but is empty or unparseable", async () => {
+  it("omits enrichment when PACT.md exists but is empty or unparseable", async () => {
     ctx = createTestRepos();
 
-    await given("the repo has a skill with an empty SKILL.md", () => {
-      mkdirSync(join(ctx.aliceRepo, "skills", "empty-skill"), { recursive: true });
-      writeFileSync(join(ctx.aliceRepo, "skills", "empty-skill", "SKILL.md"), "");
+    await given("the repo has a pact with an empty PACT.md", () => {
+      mkdirSync(join(ctx.aliceRepo, "pacts", "empty-pact"), { recursive: true });
+      writeFileSync(join(ctx.aliceRepo, "pacts", "empty-pact", "PACT.md"), "");
       execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "empty skill" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "empty pact" && git push`,
         { stdio: "pipe" },
       );
     });
 
-    await given("a request for the empty skill exists for Bob", () => {
+    await given("a request for the empty pact exists for Bob", () => {
       seedRequest(ctx.aliceRepo, {
         requestId: "req-20260222-100000-alice-ep01",
         recipient: "bob",
         sender: "alice",
         senderName: "Alice",
-        requestType: "empty-skill",
-        question: "Empty skill test",
+        requestType: "empty-pact",
+        question: "Empty pact test",
       });
     });
 
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
     await thenAssert("enrichment fields are omitted but inbox does not error", () => {
       expect(inbox.requests).toHaveLength(1);
-      // With an empty SKILL.md, enrichment should gracefully degrade
+      // With an empty PACT.md, enrichment should gracefully degrade
       expect(inbox.requests[0].request_id).toBe("req-20260222-100000-alice-ep01");
     });
   });
 
-  it("thread groups include enrichment from the skill metadata", async () => {
+  it("thread groups include enrichment from the pact metadata", async () => {
     ctx = createTestRepos();
     const threadId = "req-20260222-100000-alice-tg01";
 
@@ -461,15 +461,15 @@ describe("inbox enrichment: skill description and response fields in inbox entri
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
-    await thenAssert("the thread group includes skill_description and response_fields", () => {
+    await thenAssert("the thread group includes pact_description and response_fields", () => {
       expect(inbox.requests).toHaveLength(1);
       const group = inbox.requests[0];
       expect(group.is_thread_group).toBe(true);
-      expect(group.skill_description).toBeDefined();
+      expect(group.pact_description).toBeDefined();
       expect(group.response_fields).toBeDefined();
       expect(Array.isArray(group.response_fields)).toBe(true);
       expect(group.response_fields).toEqual(
@@ -481,7 +481,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
   it("mixed inbox with enrichable and non-enrichable entries does not error", async () => {
     ctx = createTestRepos();
 
-    await given("Bob has a sanity-check request and an unknown-skill request", () => {
+    await given("Bob has a sanity-check request and an unknown-pact request", () => {
       seedRequest(ctx.aliceRepo, {
         requestId: "req-20260222-100000-alice-mx01",
         recipient: "bob",
@@ -489,7 +489,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
         senderName: "Alice",
         requestType: "sanity-check",
         createdAt: "2026-02-22T10:00:00Z",
-        question: "Known skill question",
+        question: "Known pact question",
       });
       seedRequest(ctx.aliceRepo, {
         requestId: "req-20260222-110000-alice-mx02",
@@ -498,15 +498,15 @@ describe("inbox enrichment: skill description and response fields in inbox entri
         senderName: "Alice",
         requestType: "nonexistent-type",
         createdAt: "2026-02-22T11:00:00Z",
-        question: "Unknown skill question",
+        question: "Unknown pact question",
       });
     });
 
     let inbox: any;
 
     await when("Bob checks his inbox", async () => {
-      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      inbox = await bobServer.callTool("pact_do", { action: "inbox" });
     });
 
     await thenAssert("both entries are returned", () => {
@@ -515,13 +515,13 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await thenAssert("the sanity-check entry has enrichment", () => {
       const sc = inbox.requests.find((r: any) => r.request_type === "sanity-check");
-      expect(sc.skill_description).toBeDefined();
+      expect(sc.pact_description).toBeDefined();
       expect(sc.response_fields).toBeDefined();
     });
 
-    await thenAssert("the unknown-skill entry omits enrichment gracefully", () => {
+    await thenAssert("the unknown-pact entry omits enrichment gracefully", () => {
       const unknown = inbox.requests.find((r: any) => r.request_type === "nonexistent-type");
-      expect(unknown.skill_description).toBeUndefined();
+      expect(unknown.pact_description).toBeUndefined();
       expect(unknown.response_fields).toBeUndefined();
       // But other fields are present
       expect(unknown.request_id).toBe("req-20260222-110000-alice-mx02");

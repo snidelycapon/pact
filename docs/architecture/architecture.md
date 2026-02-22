@@ -1,8 +1,8 @@
-# Architecture Design -- GARP (Git-backed Agent Request Protocol)
+# Architecture Design -- PACT (Git-backed Agent Request Protocol)
 
 ## System Overview
 
-A git-backed protocol for asynchronous human+agent coordination. JSON files in a shared git repository serve as the transport layer. A local MCP server on each client wraps git operations into 4 tools. SKILL.md files define request type contracts. Both sides of a request use the same skill file.
+A git-backed protocol for asynchronous human+agent coordination. JSON files in a shared git repository serve as the transport layer. A local MCP server on each client wraps git operations into 4 tools. PACT.md files define request type contracts. Both sides of a request use the same pact file.
 
 **Architecture style**: Modular monolith (single MCP server process) with ports-and-adapters. The git repository is a driven adapter; the MCP protocol is a driving adapter.
 
@@ -22,25 +22,25 @@ Each tier is additive. Tier 2 does not replace Tier 1 -- it watches the same rep
 
 ```mermaid
 C4Context
-    title System Context -- GARP
+    title System Context -- PACT
 
     Person(sender, "Sender", "Human + agent investigating a bug, composes structured request")
     Person(receiver, "Receiver", "Human + agent who receives, investigates, and responds")
 
-    System(garp, "GARP", "Git-backed async coordination: structured requests, skill contracts, context bundles")
+    System(pact, "PACT", "Git-backed async coordination: structured requests, pacts, context bundles")
 
-    System_Ext(github, "Git Remote", "GitHub/GitLab private repo -- stores requests, responses, skills")
+    System_Ext(github, "Git Remote", "GitHub/GitLab private repo -- stores requests, responses, pacts")
     System_Ext(craft, "Craft Agents", "Desktop agent platform -- hosts MCP server, provides agent session + Plan UI")
 
     Rel(sender, craft, "Works in agent session")
     Rel(receiver, craft, "Works in agent session")
-    Rel(craft, garp, "Invokes 4 MCP tools via stdio")
-    Rel(garp, github, "Reads/writes JSON files via git push/pull")
+    Rel(craft, pact, "Invokes 4 MCP tools via stdio")
+    Rel(pact, github, "Reads/writes JSON files via git push/pull")
 ```
 
 ### Context Narrative
 
-Two users (Sender and Receiver) each work in Craft Agents sessions. When the Sender needs async help, their agent calls GARP tools exposed by a local MCP server. The MCP server writes structured JSON to a shared git repository and pushes. The Receiver's agent pulls the repo and finds the request in their inbox. After investigation, the Receiver's agent writes a structured response and pushes. The Sender checks status from any session at any time.
+Two users (Sender and Receiver) each work in Craft Agents sessions. When the Sender needs async help, their agent calls PACT tools exposed by a local MCP server. The MCP server writes structured JSON to a shared git repository and pushes. The Receiver's agent pulls the repo and finds the request in their inbox. After investigation, the Receiver's agent writes a structured response and pushes. The Sender checks status from any session at any time.
 
 ---
 
@@ -48,14 +48,14 @@ Two users (Sender and Receiver) each work in Craft Agents sessions. When the Sen
 
 ```mermaid
 C4Container
-    title Container Diagram -- GARP
+    title Container Diagram -- PACT
 
     Person(user, "User", "Human operator paired with LLM agent")
 
     System_Boundary(client, "Client Machine") {
         Container(craft, "Craft Agents", "Electron + React", "Desktop agent platform with session management, Plan UI, hooks")
-        Container(mcp, "GARP MCP Server", "TypeScript / Node.js, stdio", "4 tools: garp_request, garp_inbox, garp_respond, garp_status. Validates envelopes, wraps git operations.")
-        Container(localrepo, "Local Repo Clone", "Git working directory", "Clone of shared GARP repo. JSON files + SKILL.md files.")
+        Container(mcp, "PACT MCP Server", "TypeScript / Node.js, stdio", "4 tools: pact_request, pact_inbox, pact_respond, pact_status. Validates envelopes, wraps git operations.")
+        Container(localrepo, "Local Repo Clone", "Git working directory", "Clone of shared PACT repo. JSON files + PACT.md files.")
     }
 
     System_Ext(remote, "Git Remote", "GitHub/GitLab private repo")
@@ -73,9 +73,9 @@ C4Container
 - Provides the agent session where users compose/review requests
 - Plan submission UI for human review of requests and responses
 - Hooks system for automated inbox polling (SchedulerTick)
-- Loads SKILL.md files from the local repo clone when referenced
+- Loads PACT.md files from the local repo clone when referenced
 
-**GARP MCP Server** (new -- the thing we build):
+**PACT MCP Server** (new -- the thing we build):
 - Exposes 4 tools via MCP stdio protocol
 - Validates request envelopes (required fields, recipient exists in config)
 - Generates unique request IDs
@@ -85,8 +85,8 @@ C4Container
 - Stateless between tool calls -- all state lives in the repo
 
 **Local Repo Clone** (convention -- not code):
-- Working directory for the shared GARP repo
-- Directory structure IS the protocol (requests/pending, completed, responses, skills)
+- Working directory for the shared PACT repo
+- Directory structure IS the protocol (requests/pending, completed, responses, pacts)
 - JSON files are the data model
 - git log is the audit trail
 
@@ -108,10 +108,10 @@ Driving side (inbound):
     v
   Tool Dispatcher (routes to tool handlers)
     |
-    +-- garp_request handler
-    +-- garp_inbox handler
-    +-- garp_respond handler
-    +-- garp_status handler
+    +-- pact_request handler
+    +-- pact_inbox handler
+    +-- pact_respond handler
+    +-- pact_status handler
     |
     v
 Driven side (outbound):
@@ -123,10 +123,10 @@ Driven side (outbound):
 ### Port Definitions
 
 **Driving port (MCP protocol)**:
-- `garp_request(request_type, recipient, context_bundle, deadline?)` -- submit a request
-- `garp_inbox()` -- list pending requests for current user
-- `garp_respond(request_id, response_bundle)` -- respond to a request
-- `garp_status(request_id)` -- check request status and response
+- `pact_request(request_type, recipient, context_bundle, deadline?)` -- submit a request
+- `pact_inbox()` -- list pending requests for current user
+- `pact_respond(request_id, response_bundle)` -- respond to a request
+- `pact_status(request_id)` -- check request status and response
 
 **Driven ports (infrastructure)**:
 - `GitPort`: pull, add, commit, push, mv, log
@@ -144,8 +144,8 @@ This separation allows testing the tool handlers against in-memory adapters with
 | Field | Type | Required | Source | Validation |
 |-------|------|----------|--------|------------|
 | `request_id` | string | yes | Generated | Format: `req-{YYYYMMDD}-{HHmmss}-{user_id}-{random4}` |
-| `request_type` | string | yes | Agent input | Must match a `skills/{type}/SKILL.md` directory |
-| `sender.user_id` | string | yes | `GARP_USER` env var | Must exist in config.json |
+| `request_type` | string | yes | Agent input | Must match a `pacts/{type}/PACT.md` directory |
+| `sender.user_id` | string | yes | `PACT_USER` env var | Must exist in config.json |
 | `sender.display_name` | string | yes | config.json lookup | Resolved by MCP server |
 | `recipient.user_id` | string | yes | Agent input | Must exist in config.json |
 | `recipient.display_name` | string | yes | config.json lookup | Resolved by MCP server |
@@ -160,7 +160,7 @@ This separation allows testing the tool handlers against in-memory adapters with
 | Field | Type | Required | Source |
 |-------|------|----------|--------|
 | `request_id` | string | yes | From original request |
-| `responder.user_id` | string | yes | `GARP_USER` env var |
+| `responder.user_id` | string | yes | `PACT_USER` env var |
 | `responder.display_name` | string | yes | config.json lookup |
 | `responded_at` | ISO 8601 | yes | Generated |
 | `response_bundle` | object | yes | Agent input (flexible) |
@@ -183,7 +183,7 @@ This separation allows testing the tool handlers against in-memory adapters with
 ## Git Repository Structure (The Protocol)
 
 ```
-garp-repo/
+pact-repo/
   README.md                         # Protocol documentation (self-documenting repo)
   config.json                       # Team membership and settings
 
@@ -193,34 +193,34 @@ garp-repo/
       req-20260221-143022-cory-a1b2.json
     active/                         # Reserved for Tier 2 (brain acknowledges receipt)
       .gitkeep
-    completed/                      # Responded requests (moved here by garp_respond)
+    completed/                      # Responded requests (moved here by pact_respond)
       .gitkeep
 
   responses/
     .gitkeep
     req-20260221-143022-cory-a1b2.json   # Response keyed by request_id
 
-  skills/
+  pacts/
     .gitkeep
     sanity-check/
-      SKILL.md                      # Single skill file, both sides
+      PACT.md                      # Single pact file, both sides
 ```
 
 ### Directory Semantics
 
 | Directory | Meaning | Who writes | Who reads |
 |-----------|---------|------------|-----------|
-| `requests/pending/` | Awaiting response | garp_request | garp_inbox |
+| `requests/pending/` | Awaiting response | pact_request | pact_inbox |
 | `requests/active/` | Reserved for Tier 2 | (future brain) | (future) |
-| `requests/completed/` | Response received | garp_respond (git mv) | garp_status |
-| `responses/` | Response data | garp_respond | garp_status |
-| `skills/{type}/` | Request type contracts | Any team member | Agents on both sides |
+| `requests/completed/` | Response received | pact_respond (git mv) | pact_status |
+| `responses/` | Response data | pact_respond | pact_status |
+| `pacts/{type}/` | Request type contracts | Any team member | Agents on both sides |
 | `config.json` | Team membership | Any team member | All tools (validation) |
 
 ### Request Lifecycle
 
 ```
-[garp_request]          [garp_respond]
+[pact_request]          [pact_respond]
      |                        |
      v                        v
 pending/ -----> (git mv) -----> completed/
@@ -246,7 +246,7 @@ State transitions are directory moves (`git mv`), visible in `git log`.
 ### Why Not Python?
 
 The user has built MCP servers in both TypeScript and Python. TypeScript was chosen because:
-1. Craft Agents is a TypeScript codebase -- skill and source conventions are TypeScript-native
+1. Craft Agents is a TypeScript codebase -- pact and source conventions are TypeScript-native
 2. `@modelcontextprotocol/sdk` (TypeScript) is the most mature MCP SDK
 3. `simple-git` is a well-maintained npm package
 4. Single-file bundling with esbuild/tsup produces a clean stdio entry point
@@ -258,46 +258,46 @@ The user has built MCP servers in both TypeScript and Python. TypeScript was cho
 
 ### Craft Agents Source Configuration
 
-The GARP MCP server registers as a stdio source:
+The PACT MCP server registers as a stdio source:
 
 ```json
 {
-  "id": "garp_{random}",
-  "name": "GARP",
-  "slug": "garp",
-  "provider": "garp",
+  "id": "pact_{random}",
+  "name": "PACT",
+  "slug": "pact",
+  "provider": "pact",
   "type": "mcp",
   "icon": "{mail-or-inbox-icon-url}",
   "tagline": "Agent-native async coordination with your team",
   "mcp": {
     "transport": "stdio",
     "command": "node",
-    "args": ["{path-to-garp-mcp}/dist/index.js"],
+    "args": ["{path-to-pact-mcp}/dist/index.js"],
     "env": {
-      "GARP_REPO": "/absolute/path/to/local/garp-repo-clone",
-      "GARP_USER": "cory"
+      "PACT_REPO": "/absolute/path/to/local/pact-repo-clone",
+      "PACT_USER": "cory"
     },
     "authType": "none"
   }
 }
 ```
 
-### Skill Auto-Loading
+### Pact Auto-Loading
 
-When `garp_inbox` returns a request, the response includes:
+When `pact_inbox` returns a request, the response includes:
 - The `request_type` field (e.g., "sanity-check")
-- The `skill_path` field pointing to the local file: `{GARP_REPO}/skills/{request_type}/SKILL.md`
+- The `pact_path` field pointing to the local file: `{PACT_REPO}/pacts/{request_type}/PACT.md`
 
-The agent reads the skill file from the local filesystem (the repo clone). No separate distribution mechanism needed -- git pull syncs skills.
+The agent reads the pact file from the local filesystem (the repo clone). No separate distribution mechanism needed -- git pull syncs pacts.
 
 ### Plan Submission Integration
 
-Craft Agents already has `SubmitPlan` for human review. The GARP tools integrate naturally:
+Craft Agents already has `SubmitPlan` for human review. The PACT tools integrate naturally:
 
-1. Agent composes request -> writes to temp file -> calls `SubmitPlan` -> user reviews/edits -> on approval, agent calls `garp_request`
-2. Agent composes response -> writes to temp file -> calls `SubmitPlan` -> user reviews/edits -> on approval, agent calls `garp_respond`
+1. Agent composes request -> writes to temp file -> calls `SubmitPlan` -> user reviews/edits -> on approval, agent calls `pact_request`
+2. Agent composes response -> writes to temp file -> calls `SubmitPlan` -> user reviews/edits -> on approval, agent calls `pact_respond`
 
-The MCP server does not implement plan submission -- Craft Agents handles it. The GARP tools are downstream of the approval gate.
+The MCP server does not implement plan submission -- Craft Agents handles it. The PACT tools are downstream of the approval gate.
 
 ### Hooks Integration (Optional, Tier 1)
 
@@ -309,7 +309,7 @@ Automated inbox checking via Craft Agents SchedulerTick hook:
     "cron": "*/15 * * * *",
     "hooks": [{
       "type": "prompt",
-      "prompt": "Check @garp inbox for new requests. If any exist, summarize them."
+      "prompt": "Check @pact inbox for new requests. If any exist, summarize them."
     }]
   }]
 }
@@ -329,7 +329,7 @@ This creates a new session every 15 minutes to check the inbox. More sophisticat
 
 ### Maintainability
 - Ports-and-adapters allows swapping git for HTTP transport without changing tool logic
-- Type-agnostic server -- new request types require only a new SKILL.md, zero server changes
+- Type-agnostic server -- new request types require only a new PACT.md, zero server changes
 - MCP server is stateless -- all state in repo files
 
 ### Testability
@@ -339,7 +339,7 @@ This creates a new session every 15 minutes to check the inbox. More sophisticat
 
 ### Security
 - Git authentication via SSH keys or tokens (existing user config)
-- GARP_USER env var prevents sender spoofing (MCP server sets sender, not agent input)
+- PACT_USER env var prevents sender spoofing (MCP server sets sender, not agent input)
 - Craft Agents filters sensitive env vars from MCP subprocesses (existing behavior)
 - Private repo = access control delegated to GitHub/GitLab
 
@@ -357,7 +357,7 @@ User A's Machine                    User B's Machine
 +------------------+                +------------------+
 | Craft Agents     |                | Craft Agents     |
 |   |               |                |   |               |
-|   +-- GARP MCP  |                |   +-- GARP MCP  |
+|   +-- PACT MCP  |                |   +-- PACT MCP  |
 |       |           |                |       |           |
 |       +-- ~/repo |                |       +-- ~/repo |
 +----------|-------+                +----------|-------+
@@ -408,7 +408,7 @@ No additional authentication mechanism is built. The target users are developers
 |-------|-------------------|-------------|
 | Recipient not in config.json | Error: "Recipient '{id}' not found in team config" | Agent reports, user corrects |
 | Missing required envelope field | Error: "Missing required field: {field}" | Agent retries with field |
-| Skill directory does not exist | Error: "No skill found for request type '{type}'" | User creates skill first |
+| Pact directory does not exist | Error: "No pact found for request type '{type}'" | User creates pact first |
 | Git push conflict | Auto: pull --rebase, retry once | Transparent to user |
 | Git push conflict after retry | Error: "Push failed after retry. Run 'git status' in repo." | User resolves manually |
 | Git pull network failure | Warning + stale local data | Agent notes staleness |
@@ -422,8 +422,8 @@ All errors return structured JSON with `error` field and human-readable `message
 
 ## Design Decisions Requiring ADRs
 
-1. **ADR-001**: Git as GARP transport (over HTTP service)
-2. **ADR-002**: Single SKILL.md per request type (over paired sender/receiver files)
+1. **ADR-001**: Git as PACT transport (over HTTP service)
+2. **ADR-002**: Single PACT.md per request type (over paired sender/receiver files)
 3. **ADR-003**: Local stdio MCP server (over centralized HTTP MCP)
 4. **ADR-004**: TypeScript with simple-git (over Python, over raw child_process)
 5. **ADR-005**: Directory-as-lifecycle (over status field mutation)
@@ -441,13 +441,13 @@ Build order follows the critical path: repo structure first, then tools in paral
 
 | Step | What | AC Count |
 |------|------|----------|
-| 1 | Repo template + config.json + skill stub | 5 (US-001) |
+| 1 | Repo template + config.json + pact stub | 5 (US-001) |
 | 2 | MCP server scaffold (stdio, 4 tool stubs, env var loading) | 4 (US-007 partial) |
-| 3 | garp_request (write JSON, validate envelope, git commit+push) | 5 (US-002) |
-| 4 | garp_inbox (git pull, scan pending, filter by user, return summaries) | 5 (US-003) |
-| 5 | garp_respond (write response, git mv to completed, atomic commit+push) | 5 (US-004) |
-| 6 | garp_status (git pull, search directories, return status + response) | 5 (US-005) |
-| 7 | Sanity-check SKILL.md | 4 (US-006) |
+| 3 | pact_request (write JSON, validate envelope, git commit+push) | 5 (US-002) |
+| 4 | pact_inbox (git pull, scan pending, filter by user, return summaries) | 5 (US-003) |
+| 5 | pact_respond (write response, git mv to completed, atomic commit+push) | 5 (US-004) |
+| 6 | pact_status (git pull, search directories, return status + response) | 5 (US-005) |
+| 7 | Sanity-check PACT.md | 4 (US-006) |
 | 8 | Craft Agents source config + round-trip test | 5 (US-007 + US-008) |
 
 Steps 3-6 are parallelizable after step 2. Total estimated: 5-7 days.
@@ -457,12 +457,12 @@ Steps 3-6 are parallelizable after step 2. Total estimated: 5-7 days.
 ## Handoff to Acceptance Designer
 
 This architecture document, together with the 6 ADRs, provides:
-- Component boundaries (MCP server, repo conventions, skill system)
+- Component boundaries (MCP server, repo conventions, pact system)
 - Technology stack with rationale
 - Data model (request/response schemas, config schema)
-- Integration points with Craft Agents (source config, Plan UI, hooks, skills)
+- Integration points with Craft Agents (source config, Plan UI, hooks, pacts)
 - Port definitions for test isolation
 - Quality attribute strategies
-- Unresolved decisions resolved (request ID format, git auth, skill auto-load, error handling)
+- Unresolved decisions resolved (request ID format, git auth, pact auto-load, error handling)
 
 The acceptance designer can now produce step-level acceptance tests for the 8-step roadmap.

@@ -4,15 +4,15 @@
 
 ## Context
 
-The GARP needs client-side tooling that agents can invoke. MCP (Model Context Protocol) is the standard for exposing tools to LLM agents. Two deployment models exist: a centralized HTTP MCP server that all clients connect to, or a local stdio MCP server running as a subprocess on each client machine.
+The PACT needs client-side tooling that agents can invoke. MCP (Model Context Protocol) is the standard for exposing tools to LLM agents. Two deployment models exist: a centralized HTTP MCP server that all clients connect to, or a local stdio MCP server running as a subprocess on each client machine.
 
 ## Decision
 
 Each client runs a local MCP server via stdio transport, started as a subprocess by Craft Agents. The server reads/writes to a local git repo clone and communicates with the agent host via JSON-RPC over stdin/stdout.
 
 Environment variables configure identity and repo path:
-- `GARP_REPO`: absolute path to local repo clone
-- `GARP_USER`: user identity for inbox filtering and sender attribution
+- `PACT_REPO`: absolute path to local repo clone
+- `PACT_USER`: user identity for inbox filtering and sender attribution
 
 ## Alternatives Considered
 
@@ -46,7 +46,7 @@ An HTTP MCP server running locally but using HTTP transport instead of stdio.
 ### Negative
 
 - Each user must install the MCP server locally (mitigated by npm/npx distribution)
-- Each user must clone the repo and configure GARP_REPO path
+- Each user must clone the repo and configure PACT_REPO path
 - Cannot serve multiple client platforms simultaneously (addressed by HTTP transport in future)
 
 ### Risks

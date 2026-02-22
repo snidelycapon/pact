@@ -36,7 +36,7 @@
 
 ## 2. YAML Parsing Library Selection
 
-The unified SKILL.md format uses YAML frontmatter. A YAML parser is needed to extract the frontmatter deterministically.
+The unified PACT.md format uses YAML frontmatter. A YAML parser is needed to extract the frontmatter deterministically.
 
 ### Decision: No New Dependency -- Built-in Frontmatter Extraction
 
@@ -62,7 +62,7 @@ The unified SKILL.md format uses YAML frontmatter. A YAML parser is needed to ex
 - YAML frontmatter parsing must be deterministic -- this is the entire reason for replacing the heuristic markdown parser
 - The `yaml` package implements YAML 1.2 (the current spec), is well-maintained (>50M weekly downloads), MIT licensed, and has zero transitive dependencies
 - Hand-rolling a YAML parser would repeat the exact mistake that created the 63% mutation score problem
-- This is the only new runtime dependency. The principle is "zero new deps unless strongly justified" -- deterministic skill format parsing is strong justification.
+- This is the only new runtime dependency. The principle is "zero new deps unless strongly justified" -- deterministic pact format parsing is strong justification.
 
 **Alternative if zero-dep is a hard constraint**: Use `js-yaml` (smaller, YAML 1.1) or implement a JSON-only frontmatter format (valid JSON between `---` delimiters). The JSON alternative sacrifices readability but avoids any new dependency.
 
@@ -76,7 +76,7 @@ The final choice between `yaml`, `js-yaml`, or JSON frontmatter is a crafter imp
 
 | Package | Version | Purpose | Justification |
 |---------|---------|---------|---------------|
-| `yaml` | ^2.x | YAML frontmatter parsing in SKILL.md | Replaces heuristic regex parser (63% mutation score). Deterministic parsing is a first-class requirement. Zero transitive deps. |
+| `yaml` | ^2.x | YAML frontmatter parsing in PACT.md | Replaces heuristic regex parser (63% mutation score). Deterministic parsing is a first-class requirement. Zero transitive deps. |
 
 ### Dev
 

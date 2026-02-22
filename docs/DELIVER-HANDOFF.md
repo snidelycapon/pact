@@ -1,4 +1,4 @@
-# DELIVER Wave Handoff — Agent-Native Async GARP
+# DELIVER Wave Handoff — Agent-Native Async PACT
 
 **Date**: 2026-02-21
 **Status**: Ready for DELIVER (wave 6 of 6) — Outside-In TDD implementation
@@ -8,11 +8,11 @@
 
 ## What We're Building
 
-A **git-backed protocol for async human+agent coordination**. JSON files in a shared git repo serve as the transport layer. A local MCP server on each client wraps git operations into 4 tools. SKILL.md files define request type contracts. Both sides of a request use the same skill file.
+A **git-backed protocol for async human+agent coordination**. JSON files in a shared git repo serve as the transport layer. A local MCP server on each client wraps git operations into 4 tools. PACT.md files define request type contracts. Both sides of a request use the same pact file.
 
-**Elevator pitch**: You're in a Claude session investigating a bug. You need a second opinion. Instead of writing up a markdown file and pasting it into Slack, you tell your agent "send Alex a sanity check." The agent packages your context into a structured request, you preview and approve it, and it pushes to a shared git repo. Alex pulls, sees it in their inbox, their agent auto-loads the skill contract, they investigate and respond. You see the response whenever you check. It's agent-to-agent email with humans in the loop.
+**Elevator pitch**: You're in a Claude session investigating a bug. You need a second opinion. Instead of writing up a markdown file and pasting it into Slack, you tell your agent "send Alex a sanity check." The agent packages your context into a structured request, you preview and approve it, and it pushes to a shared git repo. Alex pulls, sees it in their inbox, their agent auto-loads the pact, they investigate and respond. You see the response whenever you check. It's agent-to-agent email with humans in the loop.
 
-**Name**: GARP (Git-based Agent Request Protocol)
+**Name**: PACT (Protocol for Agent Context Transfer)
 
 ---
 
@@ -28,10 +28,10 @@ A **git-backed protocol for async human+agent coordination**. JSON files in a sh
 **4 MCP Tools** (driving ports):
 | Tool | Purpose | Git Operations |
 |------|---------|----------------|
-| `garp_request` | Submit a structured request | write JSON + commit + push |
-| `garp_inbox` | Check inbox for pending requests | pull + scan directory |
-| `garp_respond` | Submit a response to a request | write response + git mv request to completed + commit + push |
-| `garp_status` | Check status of a request | pull + read files |
+| `pact_request` | Submit a structured request | write JSON + commit + push |
+| `pact_inbox` | Check inbox for pending requests | pull + scan directory |
+| `pact_respond` | Submit a response to a request | write response + git mv request to completed + commit + push |
+| `pact_status` | Check status of a request | pull + read files |
 
 **Driven ports** (infrastructure adapters):
 - `GitPort`: pull, add, commit, push, mv, log
@@ -40,9 +40,9 @@ A **git-backed protocol for async human+agent coordination**. JSON files in a sh
 
 **Key properties**:
 - Stateless between tool calls — all state lives in the repo
-- Type-agnostic — skills define request types, not server code
+- Type-agnostic — pacts define request types, not server code
 - Session-decoupled — send from session A, receive in session Z months later
-- Skill auto-loading — request_type field triggers skill file selection
+- Pact auto-loading — request_type field triggers pact file selection
 - Plan submission pattern for UX — preview before push on both send and respond
 
 ---
@@ -59,25 +59,25 @@ A **git-backed protocol for async human+agent coordination**. JSON files in a sh
 | Build | `tsup` or `esbuild` | Single-file bundle for stdio |
 | Test | Vitest | Custom GWT helpers |
 | CI | GitHub Actions | Trunk-based, lint+typecheck+test+build |
-| Logging | Structured JSON to stderr | `GARP_LOG_LEVEL` env var |
+| Logging | Structured JSON to stderr | `PACT_LOG_LEVEL` env var |
 
 ---
 
 ## Git Repo Structure (The Protocol)
 
 ```
-garp-repo/
+pact-repo/
   config.json                        # Team membership
   requests/
     pending/                         # New requests awaiting response
       req-20260221-143022-cory-a1b2.json
     active/                          # Reserved for Tier 2
-    completed/                       # Responded requests (moved by garp_respond)
+    completed/                       # Responded requests (moved by pact_respond)
   responses/
     req-20260221-143022-cory-a1b2.json  # Response keyed by request_id
-  skills/
+  pacts/
     sanity-check/
-      SKILL.md                       # Single skill file, both sides
+      PACT.md                       # Single pact file, both sides
 ```
 
 **Request lifecycle**: `pending/` → (git mv) → `completed/` + `responses/{id}.json` written. State transitions are directory moves.
@@ -132,9 +132,9 @@ garp-repo/
 
 | Var | Purpose | Example |
 |-----|---------|---------|
-| `GARP_REPO` | Absolute path to local repo clone | `/Users/cory/garp-team` |
-| `GARP_USER` | Current user's ID (must match config.json) | `cory` |
-| `GARP_LOG_LEVEL` | Logging verbosity | `info` (default), `debug`, `error` |
+| `PACT_REPO` | Absolute path to local repo clone | `/Users/cory/pact-team` |
+| `PACT_USER` | Current user's ID (must match config.json) | `cory` |
+| `PACT_LOG_LEVEL` | Logging verbosity | `info` (default), `debug`, `error` |
 
 ---
 
@@ -143,15 +143,15 @@ garp-repo/
 ```json
 {
   "type": "mcp",
-  "name": "GARP",
-  "slug": "garp",
+  "name": "PACT",
+  "slug": "pact",
   "mcp": {
     "transport": "stdio",
     "command": "node",
-    "args": ["{path-to-garp-mcp}/dist/index.js"],
+    "args": ["{path-to-pact-mcp}/dist/index.js"],
     "env": {
-      "GARP_REPO": "/absolute/path/to/local/garp-repo-clone",
-      "GARP_USER": "cory"
+      "PACT_REPO": "/absolute/path/to/local/pact-repo-clone",
+      "PACT_USER": "cory"
     }
   }
 }
@@ -163,13 +163,13 @@ garp-repo/
 
 | Step | Story | What | Est |
 |------|-------|------|-----|
-| 1 | US-001 | Repo template + config.json + skill stub | Day 1 |
+| 1 | US-001 | Repo template + config.json + pact stub | Day 1 |
 | 2 | — | MCP server scaffold (stdio, 4 tool stubs, env var loading) | Day 1 |
-| 3 | US-002 | garp_request (validate, write JSON, commit, push) | Day 2 |
-| 4 | US-003 | garp_inbox (pull, scan pending, filter by user, return summaries) | Day 2-3 |
-| 5 | US-004 | garp_respond (write response, git mv, atomic commit, push) | Day 3 |
-| 6 | US-005 | garp_status (pull, search directories, return status + response) | Day 3-4 |
-| 7 | US-006 | Sanity-check SKILL.md (full contract) | Day 4 |
+| 3 | US-002 | pact_request (validate, write JSON, commit, push) | Day 2 |
+| 4 | US-003 | pact_inbox (pull, scan pending, filter by user, return summaries) | Day 2-3 |
+| 5 | US-004 | pact_respond (write response, git mv, atomic commit, push) | Day 3 |
+| 6 | US-005 | pact_status (pull, search directories, return status + response) | Day 3-4 |
+| 7 | US-006 | Sanity-check PACT.md (full contract) | Day 4 |
 | 8 | US-007+008 | Craft Agents source config + round-trip validation | Day 5 |
 
 Steps 3-6 are parallelizable after step 2. Total: 5-7 days.
@@ -180,11 +180,11 @@ Steps 3-6 are parallelizable after step 2. Total: 5-7 days.
 
 **Acceptance tests** (already written, assertions commented out):
 - `tests/acceptance/walking-skeleton.test.ts` — 3 scenarios (full round-trip, audit trail, session independence)
-- `tests/acceptance/garp-request.test.ts` — 11 scenarios
-- `tests/acceptance/garp-inbox.test.ts` — 9 scenarios
-- `tests/acceptance/garp-respond.test.ts` — 10 scenarios
-- `tests/acceptance/garp-status.test.ts` — 8 scenarios
-- `tests/acceptance/skill-contract.test.ts` — 7 scenarios
+- `tests/acceptance/pact-request.test.ts` — 11 scenarios
+- `tests/acceptance/pact-inbox.test.ts` — 9 scenarios
+- `tests/acceptance/pact-respond.test.ts` — 10 scenarios
+- `tests/acceptance/pact-status.test.ts` — 8 scenarios
+- `tests/acceptance/pact-contract.test.ts` — 7 scenarios
 
 **Test helpers** (already written):
 - `tests/acceptance/helpers/setup-test-repos.ts` — creates bare remote + Alice/Bob clones
@@ -204,7 +204,7 @@ Steps 3-6 are parallelizable after step 2. Total: 5-7 days.
 |-------|----------|----------|
 | Recipient not in config | `"Recipient '{id}' not found in team config"` | Agent corrects |
 | Missing required field | `"Missing required field: {field}"` | Agent retries |
-| No matching skill | `"No skill found for request type '{type}'"` | User creates skill |
+| No matching pact | `"No pact found for request type '{type}'"` | User creates pact |
 | Git push conflict | Auto pull --rebase, retry once | Transparent |
 | Push still fails | `"Push failed after retry"` | User resolves |
 | Network failure on pull | Warning + stale local data | Agent notes staleness |
@@ -221,7 +221,7 @@ All errors: structured JSON with `error: true` and `message` string.
 | ADR | Decision | Rationale |
 |-----|----------|-----------|
 | ADR-001 | Git as transport (over HTTP) | Zero infrastructure, free sync/audit/auth |
-| ADR-002 | Single SKILL.md (over paired files) | One contract both sides read, simpler |
+| ADR-002 | Single PACT.md (over paired files) | One contract both sides read, simpler |
 | ADR-003 | Local stdio MCP (over central HTTP) | No server to deploy, Craft Agents native |
 | ADR-004 | TypeScript + simple-git (over Python) | Matches Craft Agents ecosystem |
 | ADR-005 | Directory-as-lifecycle (over status mutation) | Git-friendly, no merge conflicts on status |
@@ -277,18 +277,18 @@ tests/acceptance/
     setup-test-repos.ts            # Creates bare remote + Alice/Bob clones
     gwt.ts                         # Given/When/Then helpers
   walking-skeleton.test.ts         # 3 scenarios (skeleton 1 enabled, 2-3 skipped)
-  garp-request.test.ts            # 11 scenarios (all skipped)
-  garp-inbox.test.ts              # 9 scenarios (all skipped)
-  garp-respond.test.ts            # 10 scenarios (all skipped)
-  garp-status.test.ts             # 8 scenarios (all skipped)
-  skill-contract.test.ts           # 7 scenarios (all skipped)
+  pact-request.test.ts            # 11 scenarios (all skipped)
+  pact-inbox.test.ts              # 9 scenarios (all skipped)
+  pact-respond.test.ts            # 10 scenarios (all skipped)
+  pact-status.test.ts             # 8 scenarios (all skipped)
+  pact-contract.test.ts           # 7 scenarios (all skipped)
 ```
 
 ---
 
 ## How to Start the DELIVER Wave
 
-1. **Create the new repo** for the GARP MCP server (separate from craft-gm)
+1. **Create the new repo** for the PACT MCP server (separate from craft-gm)
 2. **Copy tests/** from craft-gm to the new repo
 3. **Read** `docs/architecture/architecture.md` for the complete architecture
 4. **Read** `tests/acceptance/walking-skeleton.test.ts` for the first test to make pass
@@ -306,6 +306,6 @@ The acceptance tests have production code imports commented out as placeholders.
 - The protocol (repo directory structure, request/response envelope schema)
 - The 4 tool names and their parameter signatures
 - The request ID format
-- Single SKILL.md per request type (not paired files)
+- Single PACT.md per request type (not paired files)
 - Directory-as-lifecycle (not status field mutation)
-- Sender identity from GARP_USER env var (not from agent input)
+- Sender identity from PACT_USER env var (not from agent input)

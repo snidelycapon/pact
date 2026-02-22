@@ -9,7 +9,7 @@
 
 ## 1. System Overview
 
-GARP is a local MCP server deployed as a Node.js process that communicates via stdio transport. It is not a cloud-deployed service, containerized application, or web service. It runs on developer workstations and is installed from source (git clone + npm/bun install).
+PACT is a local MCP server deployed as a Node.js process that communicates via stdio transport. It is not a cloud-deployed service, containerized application, or web service. It runs on developer workstations and is installed from source (git clone + npm/bun install).
 
 ### Deployment Target
 
@@ -38,14 +38,14 @@ graph TB
             Agent["AI Agent Process"]
         end
 
-        subgraph "GARP Process (Node.js)"
+        subgraph "PACT Process (Node.js)"
             MCP["MCP Server<br/>(stdio transport)"]
             Tools["Tool Handlers<br/>(discover + do)"]
             Ports["Port Adapters<br/>(git, file, config)"]
         end
 
         subgraph "Local Filesystem"
-            Repo["Shared Git Repo<br/>(skills/, requests/, config.json)"]
+            Repo["Shared Git Repo<br/>(pacts/, requests/, config.json)"]
         end
 
         Agent -->|"stdio IPC"| MCP
@@ -67,7 +67,7 @@ graph TB
 
 ### Single-Process Architecture
 
-GARP is a **single TypeScript process** with no sidecars, background workers, or external services. All functionality runs in one Node.js process that:
+PACT is a **single TypeScript process** with no sidecars, background workers, or external services. All functionality runs in one Node.js process that:
 
 - Accepts MCP requests via stdin
 - Writes MCP responses to stdout
@@ -77,11 +77,11 @@ GARP is a **single TypeScript process** with no sidecars, background workers, or
 
 ### No Horizontal Scaling
 
-GARP is a single-user tool. Each developer runs their own isolated instance. There is no concept of load balancing, request distribution, or shared state across instances.
+PACT is a single-user tool. Each developer runs their own isolated instance. There is no concept of load balancing, request distribution, or shared state across instances.
 
 ### No Service Discovery
 
-The host application (Craft Agents) invokes GARP as a subprocess and communicates via stdio. No network ports, no service mesh, no DNS resolution.
+The host application (Craft Agents) invokes PACT as a subprocess and communicates via stdio. No network ports, no service mesh, no DNS resolution.
 
 ---
 
@@ -91,8 +91,8 @@ The host application (Craft Agents) invokes GARP as a subprocess and communicate
 
 ```bash
 # Developer clones the repository
-git clone https://github.com/coryetzkorn/garp.git
-cd garp
+git clone https://github.com/coryetzkorn/pact.git
+cd pact
 
 # Install dependencies
 npm install  # or: bun install
@@ -106,27 +106,27 @@ test -f dist/index.js && echo "Build successful"
 
 ### Configuration for MCP Hosts
 
-Developers configure their MCP host (e.g., Craft Agents) to invoke GARP as a subprocess:
+Developers configure their MCP host (e.g., Craft Agents) to invoke PACT as a subprocess:
 
 ```json
 {
   "mcpServers": {
-    "garp": {
+    "pact": {
       "command": "node",
-      "args": ["/path/to/garp/dist/index.js"],
+      "args": ["/path/to/pact/dist/index.js"],
       "cwd": "/path/to/shared/repo"
     }
   }
 }
 ```
 
-The `cwd` parameter determines which shared git repository GARP operates on.
+The `cwd` parameter determines which shared git repository PACT operates on.
 
 ### Update Process
 
 ```bash
 # Developer pulls latest code
-cd /path/to/garp
+cd /path/to/pact
 git pull origin main
 
 # Rebuild
@@ -159,7 +159,7 @@ Updates are manual. Developers choose when to update by pulling from git and reb
 | GitHub | Remote git storage, synchronization | Yes (for multi-developer teams) |
 | npm registry | Dependency resolution during installation | Yes (during install only) |
 
-GARP can operate offline after initial installation, but git push/pull require network access to GitHub.
+PACT can operate offline after initial installation, but git push/pull require network access to GitHub.
 
 ---
 
@@ -167,7 +167,7 @@ GARP can operate offline after initial installation, but git push/pull require n
 
 ### Compilation Process
 
-GARP uses **esbuild** (invoked via `build.ts` script) to produce a single ESM bundle:
+PACT uses **esbuild** (invoked via `build.ts` script) to produce a single ESM bundle:
 
 - **Input**: `src/index.ts` (entry point) + all imported modules
 - **Output**: `dist/index.js` (single-file bundle)
@@ -193,11 +193,11 @@ The `dist/index.js` file is the only artifact needed for execution, but `node_mo
 
 ### Filesystem as Database
 
-GARP uses the local filesystem as its persistent store. There is no database server, no object storage service, no external data tier.
+PACT uses the local filesystem as its persistent store. There is no database server, no object storage service, no external data tier.
 
 ```
 <shared-repo>/
-  skills/               -- Skill contracts (SKILL.md per directory)
+  pacts/               -- Pacts (PACT.md per directory)
   requests/
     pending/            -- Active requests
     completed/          -- Responded requests
@@ -212,7 +212,7 @@ All data operations are file I/O. Git provides versioning, synchronization, and 
 
 ### State Synchronization
 
-Multiple developers share state by pushing/pulling to/from the same git repository. GARP executes `git pull` before reads and `git push` after writes to maintain consistency.
+Multiple developers share state by pushing/pulling to/from the same git repository. PACT executes `git pull` before reads and `git push` after writes to maintain consistency.
 
 ### No Database Migrations
 
@@ -224,19 +224,19 @@ Schema changes are handled by modifying file structures. There are no database m
 
 ### Execution Context
 
-GARP runs with the permissions of the user who invoked the host application (Craft Agents). It has:
+PACT runs with the permissions of the user who invoked the host application (Craft Agents). It has:
 
 - **File system access**: Read/write to any path the user can access
 - **Network access**: Git operations over HTTPS (GitHub)
-- **No authentication boundary**: GARP trusts the host application completely
+- **No authentication boundary**: PACT trusts the host application completely
 
 ### Secrets Management
 
-GARP does not store secrets. Git credentials are managed by the developer's local git configuration (credential helper, SSH keys, etc.). No API keys, no tokens, no encrypted stores.
+PACT does not store secrets. Git credentials are managed by the developer's local git configuration (credential helper, SSH keys, etc.). No API keys, no tokens, no encrypted stores.
 
 ### Isolation
 
-Each developer's GARP instance is isolated to their local machine. Shared state is mediated through git commits. There is no shared memory, no network communication between instances.
+Each developer's PACT instance is isolated to their local machine. Shared state is mediated through git commits. There is no shared memory, no network communication between instances.
 
 ---
 
@@ -244,7 +244,7 @@ Each developer's GARP instance is isolated to their local machine. Shared state 
 
 ### Structured Logging to stderr
 
-GARP writes JSON-formatted log entries to stderr. The host application captures these logs. No log aggregation service, no centralized logging.
+PACT writes JSON-formatted log entries to stderr. The host application captures these logs. No log aggregation service, no centralized logging.
 
 Log format:
 
@@ -253,7 +253,7 @@ Log format:
   "timestamp": "2026-02-22T10:30:00.000Z",
   "level": "info",
   "message": "Tool invoked",
-  "tool": "garp_do",
+  "tool": "pact_do",
   "action": "send",
   "request_id": "req_20260222_103000_abc123"
 }
@@ -263,16 +263,16 @@ Levels: `debug`, `info`, `warn`, `error`.
 
 ### No Distributed Tracing
 
-GARP is a single-process local tool. There are no distributed traces, no trace IDs, no span propagation. The request/response model is synchronous within the MCP stdio channel.
+PACT is a single-process local tool. There are no distributed traces, no trace IDs, no span propagation. The request/response model is synchronous within the MCP stdio channel.
 
 ### Debugging
 
-Developers debug GARP by:
+Developers debug PACT by:
 
 1. Reading stderr logs from the host application
 2. Examining the shared git repository filesystem
 3. Running acceptance tests locally
-4. Attaching a Node.js debugger to the GARP process
+4. Attaching a Node.js debugger to the PACT process
 
 ---
 
@@ -280,10 +280,10 @@ Developers debug GARP by:
 
 ### Parallel Tool Registration (Phase 1)
 
-During Phase 1, GARP registers **10 MCP tools** simultaneously:
+During Phase 1, PACT registers **10 MCP tools** simultaneously:
 
-- 8 legacy tools: `garp_request`, `garp_inbox`, `garp_respond`, `garp_status`, `garp_thread`, `garp_cancel`, `garp_amend`, `garp_skills`
-- 2 new tools: `garp_discover`, `garp_do`
+- 8 legacy tools: `pact_request`, `pact_inbox`, `pact_respond`, `pact_status`, `pact_thread`, `pact_cancel`, `pact_amend`, `pact_pacts`
+- 2 new tools: `pact_discover`, `pact_do`
 
 Both surfaces invoke the same handler modules. There is no separate code path, no feature flag runtime. The parallel registration is purely at the MCP registration layer.
 
@@ -298,7 +298,7 @@ Acceptance tests validate that both surfaces produce identical outcomes:
 
 ### Tool Removal (Phase 3)
 
-After equivalence is proven, the 8 legacy tool registrations are deleted from `src/mcp-server.ts`. The handler modules (`garp-request.ts`, `garp-inbox.ts`, etc.) remain unchanged; only the MCP surface changes.
+After equivalence is proven, the 8 legacy tool registrations are deleted from `src/mcp-server.ts`. The handler modules (`pact-request.ts`, `pact-inbox.ts`, etc.) remain unchanged; only the MCP surface changes.
 
 ---
 
@@ -308,7 +308,7 @@ The brain processing layer (validation, enrichment, routing, auto-response) is d
 
 ### Option 1: In-Process Brain
 
-Add a brain execution module to the GARP process. The brain reads `brain_processing` rules from SKILL.md and executes them synchronously during request handling.
+Add a brain execution module to the PACT process. The brain reads `hooks` rules from PACT.md and executes them synchronously during request handling.
 
 - **Pros**: Simple, no new infrastructure
 - **Cons**: Brain execution blocks the MCP request
@@ -327,7 +327,7 @@ Deploy the brain as a serverless function (AWS Lambda, Cloudflare Workers) trigg
 - **Pros**: Scalable, event-driven
 - **Cons**: Adds cloud infrastructure dependency
 
-**Recommendation for Phase 1**: No brain implementation. Skill contracts include `brain_processing` sections, but GARP ignores them. Brain implementation is a separate feature wave.
+**Recommendation for Phase 1**: No brain implementation. Pacts include `hooks` sections, but PACT ignores them. Brain implementation is a separate feature wave.
 
 ---
 
@@ -344,4 +344,4 @@ Deploy the brain as a serverless function (AWS Lambda, Cloudflare Workers) trigg
 | Continuous Learning | Not applicable | Local dev tool |
 | Branching Strategy | Trunk-based development | Single `main` branch, PR gates |
 
-This platform architecture reflects the reality that GARP is a local development tool, not a production service.
+This platform architecture reflects the reality that PACT is a local development tool, not a production service.

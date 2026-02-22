@@ -1,16 +1,16 @@
-# ADR-001: Git as GARP Transport
+# ADR-001: Git as PACT Transport
 
 ## Status: Accepted
 
 ## Context
 
-The GARP needs a transport layer for structured requests and responses between distributed human+agent clients. The original design (discovery Round 5) specified a central HTTP service as the transport. During Round 6, the user identified that git provides all the "dumb router" capabilities needed for MVP.
+The PACT needs a transport layer for structured requests and responses between distributed human+agent clients. The original design (discovery Round 5) specified a central HTTP service as the transport. During Round 6, the user identified that git provides all the "dumb router" capabilities needed for MVP.
 
 The system must support: request storage, routing (inbox), audit trail, sync, conflict detection, authentication, versioning, hosting, and offline-first operation.
 
 ## Decision
 
-Use a shared git repository as the Tier 1 GARP transport. JSON files in the repo are the data model. Directory structure is the protocol. `git push/pull` is the sync mechanism. `git log` is the audit trail.
+Use a shared git repository as the Tier 1 PACT transport. JSON files in the repo are the data model. Directory structure is the protocol. `git push/pull` is the sync mechanism. `git log` is the audit trail.
 
 A central HTTP service (the "brain") is deferred to Tier 2 as an additive layer that watches the repo and commits enrichment back, without replacing the git transport.
 
@@ -40,7 +40,7 @@ Dedicated message broker for request routing between clients.
 - Zero server deployment or maintenance
 - Authentication solved (SSH keys, tokens -- already configured by target users)
 - Audit trail is native (`git log`)
-- Skill distribution is free (`git pull` syncs SKILL.md files)
+- Pact distribution is free (`git pull` syncs PACT.md files)
 - Offline-first (commit locally, push when ready)
 - Protocol is transport-independent (Tier 2 HTTP layer can be added without changing file format)
 

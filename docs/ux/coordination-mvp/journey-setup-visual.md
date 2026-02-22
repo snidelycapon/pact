@@ -1,7 +1,7 @@
 # Journey: Setup & Onboarding — Visual Map
 
 ## Actors
-- **Cory** — Product creator, sets up the GARP repo and MCP server
+- **Cory** — Product creator, sets up the PACT repo and MCP server
 - **Alex** — Testing partner, onboards as second user
 
 ## Emotional Arc
@@ -17,14 +17,14 @@ Alex:    Curious ──────> "That's it?" ──────> "Oh, it wo
  ============                          ==================
 
  [1] Create private GitHub repo
-     garp-repo/
+     pact-repo/
        config.json
        requests/pending/
        requests/active/
        requests/completed/
        responses/
-       skills/sanity-check/
-         SKILL.md
+       pacts/sanity-check/
+         PACT.md
               |
               |  GitHub invite
               v
@@ -38,14 +38,14 @@ Alex:    Curious ──────> "That's it?" ──────> "Oh, it wo
               |
               |                        [5] Configure MCP source
               |                            in Craft Agents:
-              |                            "Add GARP server,
+              |                            "Add PACT server,
               |                             point at repo path"
               |
               |                        [6] First session:
               |                            "Check my inbox"
               |
               |                            +----------------------------------+
-              |                            | garp_inbox                      |
+              |                            | pact_inbox                      |
               |                            |                                  |
               |                            | > git pull                       |
               |                            | > scan pending/ for user: alex   |
@@ -62,14 +62,14 @@ Alex:    Curious ──────> "That's it?" ──────> "Oh, it wo
               |                              Emotion: "Oh, it works."
               |
               |                        [7] Respond to welcome request
-              |                            Agent loads SKILL.md,
+              |                            Agent loads PACT.md,
               |                            composes response,
               |                            Alex reviews & approves
               |
               |                            (git commit + push)
               |
  [8] Check status
-     garp_status req-welcome-001
+     pact_status req-welcome-001
      > git pull
      > reads response
 
@@ -81,13 +81,13 @@ Alex:    Curious ──────> "That's it?" ──────> "Oh, it wo
 | # | Actor | Action | Tool | Emotion | Duration |
 |---|-------|--------|------|---------|----------|
 | 1 | Cory | Create GitHub repo with directory structure | git/GitHub | Confident — routine task | 5 min |
-| 2 | Cory | Seed a welcome request for Alex | garp_request | Anticipation | 2 min |
+| 2 | Cory | Seed a welcome request for Alex | pact_request | Anticipation | 2 min |
 | 3 | Alex | Accept GitHub repo invitation | GitHub UI | Curious | 1 min |
 | 4 | Alex | Clone repo locally | git clone | Routine | 1 min |
 | 5 | Alex | Add MCP source in Craft Agents pointing at repo | Craft Agents UI | Slight uncertainty — "is this all?" | 2 min |
-| 6 | Alex | Start session, check inbox | garp_inbox | Discovery — "oh, there's something here" | 1 min |
-| 7 | Alex | Respond to welcome request | garp_respond | Confirmation — "this actually works" | 3 min |
-| 8 | Cory | Check status, see Alex's response | garp_status | Validated — round-trip complete | 1 min |
+| 6 | Alex | Start session, check inbox | pact_inbox | Discovery — "oh, there's something here" | 1 min |
+| 7 | Alex | Respond to welcome request | pact_respond | Confirmation — "this actually works" | 3 min |
+| 8 | Cory | Check status, see Alex's response | pact_status | Validated — round-trip complete | 1 min |
 
 ## Total Onboarding Time: ~15 minutes (Alex), ~10 minutes prep (Cory)
 
@@ -100,11 +100,11 @@ Alex:    Curious ──────> "That's it?" ──────> "Oh, it wo
 ## TUI Mockup — Alex's First Inbox Check (Step 6)
 
 ```
-Alex > Check my GARP inbox
+Alex > Check my PACT inbox
 
-  [Agent calls garp_inbox]
+  [Agent calls pact_inbox]
 
-  Pulling latest from GARP repo...
+  Pulling latest from PACT repo...
 
   +--------------------------------------------------+
   |  COORDINATION INBOX — 1 pending request           |
@@ -124,7 +124,7 @@ Alex > Check my GARP inbox
 
 ## Correction from Discovery
 
-**Discovery docs proposed**: Separate sender.md and receiver.md skill files per request type.
-**User clarified**: One SKILL.md file per request type. Both sender and receiver load the same file. The skill defines the contract for composition AND interpretation.
+**Discovery docs proposed**: Separate sender.md and receiver.md pact files per request type.
+**User clarified**: One PACT.md file per request type. Both sender and receiver load the same file. The pact defines the contract for composition AND interpretation.
 
 This simplifies onboarding — there is one file to understand per request type, not two.

@@ -1,8 +1,8 @@
-# Shared Artifact Registry -- GARP Code Mode (Phase A)
+# Shared Artifact Registry -- PACT Code Mode (Phase A)
 
 ## Purpose
 
-Tracks every piece of data that flows between steps across the skill discovery
+Tracks every piece of data that flows between steps across the pact discovery
 journey. Every field in journey schemas and every value in TUI mockups has a
 documented source here.
 
@@ -10,67 +10,67 @@ documented source here.
 
 ## Artifact Index
 
-### A1: Skill Catalog (garp_skills result)
+### A1: Pact Catalog (pact_pacts result)
 
 | Property | Value |
 |----------|-------|
-| **Type** | JSON (garp_skills tool response) |
-| **Created by** | garp_skills tool, reading skills/ directory |
-| **Consumed by** | Agent (skill selection), sender flow |
-| **Lifecycle** | Ephemeral -- fresh on every garp_skills call |
-| **Source data** | SKILL.md files + schema.json files (when present) |
+| **Type** | JSON (pact_pacts tool response) |
+| **Created by** | pact_pacts tool, reading pacts/ directory |
+| **Consumed by** | Agent (pact selection), sender flow |
+| **Lifecycle** | Ephemeral -- fresh on every pact_pacts call |
+| **Source data** | PACT.md files + schema.json files (when present) |
 
 **Schema**:
 ```json
 {
-  "skills": [
+  "pacts": [
     {
       "name": "sanity-check",
       "description": "Validate findings on a bug investigation",
       "when_to_use": "You are investigating a bug and found something suspicious",
       "context_fields": ["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question"],
       "response_fields": ["answer", "evidence", "concerns", "recommendation"],
-      "skill_path": "/path/to/skills/sanity-check/SKILL.md"
+      "pact_path": "/path/to/pacts/sanity-check/PACT.md"
     }
   ]
 }
 ```
 
 **Fields used by**:
-- `name` -- Agent matches against user intent; used as request_type in garp_request
+- `name` -- Agent matches against user intent; used as request_type in pact_request
 - `description` -- Agent displays to user; used for keyword matching in search
 - `when_to_use` -- Agent matches against user intent; used for keyword matching in search
-- `context_fields` -- Agent knows what to gather before reading full SKILL.md
+- `context_fields` -- Agent knows what to gather before reading full PACT.md
 - `response_fields` -- Agent knows what response structure looks like; reused in inbox enrichment
-- `skill_path` -- Agent can read full SKILL.md for detailed guidance
+- `pact_path` -- Agent can read full PACT.md for detailed guidance
 
 **Field sources**:
-- `name` -- Directory name under skills/
-- `description` -- First paragraph of SKILL.md (after H1 heading)
-- `when_to_use` -- Content of "When To Use" section in SKILL.md
-- `context_fields` -- Field column of "Context Bundle Fields" table in SKILL.md, or `context_bundle.properties` keys from schema.json
-- `response_fields` -- Field column of "Response Structure" table in SKILL.md, or `response_bundle.properties` keys from schema.json
-- `skill_path` -- Constructed from repoPath + skills/ + name + /SKILL.md
+- `name` -- Directory name under pacts/
+- `description` -- First paragraph of PACT.md (after H1 heading)
+- `when_to_use` -- Content of "When To Use" section in PACT.md
+- `context_fields` -- Field column of "Context Bundle Fields" table in PACT.md, or `context_bundle.properties` keys from schema.json
+- `response_fields` -- Field column of "Response Structure" table in PACT.md, or `response_bundle.properties` keys from schema.json
+- `pact_path` -- Constructed from repoPath + pacts/ + name + /PACT.md
 
 ---
 
-### A2: Skill Schema (schema.json)
+### A2: Pact Schema (schema.json)
 
 | Property | Value |
 |----------|-------|
 | **Type** | JSON Schema file |
-| **File** | `skills/{type}/schema.json` |
-| **Created by** | Skill author (manual, or future: generated from SKILL.md) |
-| **Consumed by** | garp_skills (field extraction), garp_request (validation), garp_respond (validation), garp_inbox (response_fields enrichment) |
-| **Lifecycle** | Versioned in git. Updated when skill contract changes. |
-| **Optional** | Yes -- skills work without it. When absent, SKILL.md is parsed instead. |
+| **File** | `pacts/{type}/schema.json` |
+| **Created by** | Pact author (manual, or future: generated from PACT.md) |
+| **Consumed by** | pact_pacts (field extraction), pact_request (validation), pact_respond (validation), pact_inbox (response_fields enrichment) |
+| **Lifecycle** | Versioned in git. Updated when pact changes. |
+| **Optional** | Yes -- pacts work without it. When absent, PACT.md is parsed instead. |
 
 **Schema**:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "skill_name": "sanity-check",
-  "skill_version": "1.0.0",
+  "pact_name": "sanity-check",
+  "pact_version": "1.0.0",
   "context_bundle": {
     "type": "object",
     "required": ["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question"],
@@ -102,50 +102,50 @@ documented source here.
 **Critical design decision**: `additionalProperties: true` on both context_bundle and response_bundle. Required fields enforce minimum contract; additional fields allow creative extension.
 
 **Fields used by**:
-- `skill_name` -- Display, validation
-- `skill_version` -- Future: contract evolution tracking
-- `context_bundle.required` -- garp_request validation (warn on missing)
-- `context_bundle.properties` -- garp_skills field extraction (preferred over SKILL.md parsing)
-- `response_bundle.required` -- garp_respond validation (warn on missing, future)
-- `response_bundle.properties` -- garp_inbox enrichment (response_fields), garp_skills field extraction
+- `pact_name` -- Display, validation
+- `pact_version` -- Future: contract evolution tracking
+- `context_bundle.required` -- pact_request validation (warn on missing)
+- `context_bundle.properties` -- pact_pacts field extraction (preferred over PACT.md parsing)
+- `response_bundle.required` -- pact_respond validation (warn on missing, future)
+- `response_bundle.properties` -- pact_inbox enrichment (response_fields), pact_pacts field extraction
 
 ---
 
-### A3: Enriched Inbox Entry (garp_inbox response, modified)
+### A3: Enriched Inbox Entry (pact_inbox response, modified)
 
 | Property | Value |
 |----------|-------|
-| **Type** | JSON (garp_inbox tool response, modified) |
-| **Created by** | garp_inbox tool, enriched with skill metadata |
+| **Type** | JSON (pact_inbox tool response, modified) |
+| **Created by** | pact_inbox tool, enriched with pact metadata |
 | **Consumed by** | Receiver agent (response composition guidance) |
-| **Lifecycle** | Ephemeral -- fresh on every garp_inbox call |
+| **Lifecycle** | Ephemeral -- fresh on every pact_inbox call |
 | **Backward compatible** | Yes -- new fields are additive |
 
 **New fields** (added to existing InboxEntry):
 ```json
 {
-  "skill_description": "Validate findings on a bug investigation",
+  "pact_description": "Validate findings on a bug investigation",
   "response_fields": ["answer", "evidence", "concerns", "recommendation"]
 }
 ```
 
 **Field sources**:
-- `skill_description` -- From garp_skills parsing logic (first paragraph of SKILL.md or description from schema.json)
-- `response_fields` -- From schema.json `response_bundle.properties` keys, or from SKILL.md "Response Structure" table Field column
+- `pact_description` -- From pact_pacts parsing logic (first paragraph of PACT.md or description from schema.json)
+- `response_fields` -- From schema.json `response_bundle.properties` keys, or from PACT.md "Response Structure" table Field column
 
 ---
 
-### A4: Validation Warnings (garp_request response, modified)
+### A4: Validation Warnings (pact_request response, modified)
 
 | Property | Value |
 |----------|-------|
-| **Type** | JSON (garp_request tool response, modified) |
-| **Created by** | garp_request tool, when schema.json exists and fields are missing |
+| **Type** | JSON (pact_request tool response, modified) |
+| **Created by** | pact_request tool, when schema.json exists and fields are missing |
 | **Consumed by** | Sender agent (display to user) |
-| **Lifecycle** | Ephemeral -- part of the garp_request response |
+| **Lifecycle** | Ephemeral -- part of the pact_request response |
 | **Backward compatible** | Yes -- new field is additive, absent when no schema exists |
 
-**New field** (added to existing garp_request response):
+**New field** (added to existing pact_request response):
 ```json
 {
   "request_id": "req-20260222-143022-cory-a1b2",
@@ -167,38 +167,38 @@ documented source here.
 ## Cross-Flow Data Flow
 
 ```
-SKILL AUTHOR              garp_skills              SENDER AGENT
+PACT AUTHOR              pact_pacts              SENDER AGENT
 ============              ===========              ============
 
-SKILL.md ──────────────> Parses title,          Calls garp_skills ──> Gets catalog
+PACT.md ──────────────> Parses title,          Calls pact_pacts ──> Gets catalog
                          when_to_use,                |
-schema.json ───────────> fields from              Selects skill
+schema.json ───────────> fields from              Selects pact
 (optional)               schema or tables            |
-                              |                   Loads SKILL.md
+                              |                   Loads PACT.md
                               |                   or schema.json
                               |                      |
                               |                   Assembles bundle
                               |                      |
-                              +──── inbox ───>    garp_request ──> Validates against
+                              +──── inbox ───>    pact_request ──> Validates against
                               |   enrichment                       schema.json (warn)
                               |                      |
                               v                   Submits with warnings
-                         garp_inbox                  (if any)
+                         pact_inbox                  (if any)
                          adds:
-                         - skill_description
+                         - pact_description
                          - response_fields
 
                          RECEIVER AGENT
                          ==============
                          Sees enriched inbox ──> Knows response expectations
-                                                 without reading SKILL.md
+                                                 without reading PACT.md
 ```
 
 ## Integration Checkpoints
 
 | Checkpoint | What Must Match | How Validated |
 |------------|----------------|---------------|
-| Skill name consistency | garp_skills `name` == garp_request `request_type` == directory name in skills/ | garp_request already validates skill directory exists |
-| Field extraction parity | Fields from schema.json properties == fields from SKILL.md tables | Manual review during schema.json authoring; future: lint tool |
-| Inbox enrichment source | response_fields in inbox entries == response_bundle properties from schema.json or SKILL.md | Uses same parsing logic as garp_skills |
-| Validation warnings accuracy | Missing fields reported by garp_request match schema.json required array | Unit tests with known schemas and incomplete bundles |
+| Pact name consistency | pact_pacts `name` == pact_request `request_type` == directory name in pacts/ | pact_request already validates pact directory exists |
+| Field extraction parity | Fields from schema.json properties == fields from PACT.md tables | Manual review during schema.json authoring; future: lint tool |
+| Inbox enrichment source | response_fields in inbox entries == response_bundle properties from schema.json or PACT.md | Uses same parsing logic as pact_pacts |
+| Validation warnings accuracy | Missing fields reported by pact_request match schema.json required array | Unit tests with known schemas and incomplete bundles |

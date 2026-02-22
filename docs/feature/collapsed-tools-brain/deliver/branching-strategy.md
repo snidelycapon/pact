@@ -9,7 +9,7 @@
 
 ## 1. Current Branching Model
 
-GARP uses **trunk-based development** with a single long-lived branch: `main`.
+PACT uses **trunk-based development** with a single long-lived branch: `main`.
 
 ### Characteristics
 
@@ -20,7 +20,7 @@ GARP uses **trunk-based development** with a single long-lived branch: `main`.
 
 ### Rationale
 
-Trunk-based development is appropriate for GARP because:
+Trunk-based development is appropriate for PACT because:
 
 1. **Small team** - 2-3 developers, low merge conflict risk
 2. **Local deployment** - No production environment to protect with release branches
@@ -80,11 +80,11 @@ All CI jobs must pass before merge:
 
 2. Develop incrementally (commit early, commit often)
    git add <files>
-   git commit -m "Add skill-loader module"
+   git commit -m "Add pact-loader module"
    git push origin feat/collapsed-tools-phase1
 
 3. Open PR against main
-   - Title: "feat: Add skill-loader and garp_discover tool"
+   - Title: "feat: Add pact-loader and pact_discover tool"
    - Description: Reference issue/feature, describe changes, list testing done
    - Reviewers: Assign team members
 
@@ -109,7 +109,7 @@ All CI jobs must pass before merge:
 |--------|-------|---------|
 | `feat/` | New feature or enhancement | `feat/collapsed-tools-phase1` |
 | `fix/` | Bug fix | `fix/yaml-parse-error-handling` |
-| `docs/` | Documentation only | `docs/update-skill-format-guide` |
+| `docs/` | Documentation only | `docs/update-pact-format-guide` |
 | `test/` | Test-only changes | `test/add-equivalence-tests` |
 | `chore/` | Maintenance, refactoring | `chore/update-dependencies` |
 
@@ -141,10 +141,10 @@ Convention is informal; any descriptive name is acceptable.
 ### Example: Good Commit Message
 
 ```
-feat: Add YAML frontmatter skill loader
+feat: Add YAML frontmatter pact loader
 
 Replace heuristic markdown parser with deterministic YAML parser.
-Reads SKILL.md files, extracts frontmatter, validates schema.
+Reads PACT.md files, extracts frontmatter, validates schema.
 Target: >90% mutation score.
 
 Closes #42
@@ -222,7 +222,7 @@ A PR can be approved if:
 
 ### Definition
 
-A hotfix is an urgent fix for a critical issue (e.g., GARP crashes on startup, data corruption bug).
+A hotfix is an urgent fix for a critical issue (e.g., PACT crashes on startup, data corruption bug).
 
 ### Workflow
 
@@ -249,7 +249,7 @@ This prevents introducing new bugs in the rush to fix old bugs.
 
 ### No Formal Releases
 
-GARP has no versioned releases. Developers pull from `main` whenever they want the latest code.
+PACT has no versioned releases. Developers pull from `main` whenever they want the latest code.
 
 ### Git Tags (Optional)
 
@@ -270,13 +270,13 @@ A `CHANGELOG.md` file can track notable changes per tag:
 ## [0.2.0] - 2026-02-22
 
 ### Added
-- `garp_discover` meta-tool for skill discovery
-- `garp_do` meta-tool for unified actions
-- YAML frontmatter skill format
+- `pact_discover` meta-tool for pact discovery
+- `pact_do` meta-tool for unified actions
+- YAML frontmatter pact format
 
 ### Removed
 - 8 legacy tool registrations
-- `skill-parser.ts` (replaced by `skill-loader.ts`)
+- `pact-parser.ts` (replaced by `pact-loader.ts`)
 ```
 
 This is optional; git log provides a complete history.
@@ -290,7 +290,7 @@ This is optional; git log provides a complete history.
 **Branch**: `feat/collapsed-tools-phase1`
 
 **Changes**:
-- Add `skill-loader.ts`, `action-dispatcher.ts`, `garp-discover.ts`, `garp-do.ts`
+- Add `pact-loader.ts`, `action-dispatcher.ts`, `pact-discover.ts`, `pact-do.ts`
 - Register new tools alongside old tools in `mcp-server.ts`
 - Add acceptance tests for new tools
 
@@ -307,7 +307,7 @@ This is optional; git log provides a complete history.
 
 **Changes**:
 - Add equivalence tests in `tests/acceptance/equivalence/`
-- Run mutation testing on `skill-loader.ts` and `action-dispatcher.ts`
+- Run mutation testing on `pact-loader.ts` and `action-dispatcher.ts`
 - Verify ≥90% mutation score
 
 **Merge criteria**:
@@ -323,7 +323,7 @@ This is optional; git log provides a complete history.
 
 **Changes**:
 - Remove 8 legacy tool registrations from `mcp-server.ts`
-- Delete `skill-parser.ts`, `garp-skills.ts`
+- Delete `pact-parser.ts`, `pact-pacts.ts`
 - Migrate acceptance tests to use collapsed surface
 - Update ADR-010 and ADR-011 status to Superseded
 
@@ -439,15 +439,15 @@ git push --force origin main
 
 ### No Forks Expected
 
-GARP is an internal tool, not an open-source project. External contributors are not expected.
+PACT is an internal tool, not an open-source project. External contributors are not expected.
 
 ### If Forks Occur
 
-If someone forks GARP and wants to contribute:
+If someone forks PACT and wants to contribute:
 
 1. Fork the repository
 2. Create a branch in the fork
-3. Open a PR from the fork to `coryetzkorn/garp:main`
+3. Open a PR from the fork to `coryetzkorn/pact:main`
 4. Same review process as internal PRs
 
 GitHub supports this workflow natively.
@@ -497,7 +497,7 @@ Average branch lifetime: **1-3 days** (goal: keep branches short-lived).
 
 ## 15. Comparison: Trunk-Based vs. GitFlow
 
-| Aspect | Trunk-Based (GARP) | GitFlow (Alternative) |
+| Aspect | Trunk-Based (PACT) | GitFlow (Alternative) |
 |--------|--------------------|-----------------------|
 | **Branches** | `main` only | `main`, `develop`, `feature/*`, `release/*`, `hotfix/*` |
 | **Merge frequency** | Multiple times per day | Once per release cycle |
@@ -508,7 +508,7 @@ Average branch lifetime: **1-3 days** (goal: keep branches short-lived).
 | **Deployment frequency** | Continuous (every commit) | Periodic (releases) |
 | **Best for** | Local tools, microservices | Traditional software releases |
 
-**Why trunk-based is right for GARP**:
+**Why trunk-based is right for PACT**:
 
 - Small team (2-3 developers)
 - No production deployment cadence (developers pull when ready)

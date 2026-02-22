@@ -1,4 +1,4 @@
-# Lean Canvas — Agent-Native Async GARP
+# Lean Canvas — Agent-Native Async PACT
 
 ## Discovery Phase: 4 (Market Viability) COMPLETE + POST-MVP RE-DISCOVERY
 
@@ -41,7 +41,7 @@
 
 ### 3. UNIQUE VALUE PROPOSITION
 
-**One sentence**: An agent-first GARP where structured requests with context bundles flow between human+agent pairs via a shared git repository, so the receiving agent starts with full situational awareness instead of a cold start.
+**One sentence**: An agent-first PACT where structured requests with context bundles flow between human+agent pairs via a shared git repository, so the receiving agent starts with full situational awareness instead of a cold start.
 
 **Tagline candidates** (user's own words):
 - "An agent-first email inbox"
@@ -53,24 +53,24 @@
 
 | Tool | What It Does |
 |------|-------------|
-| `garp_request` | Write structured request JSON to repo, commit, push |
-| `garp_inbox` | Pull repo, scan for pending requests addressed to user |
-| `garp_respond` | Write response, move request to completed, commit, push |
-| `garp_status` | Pull repo, read request status and any response |
+| `pact_request` | Write structured request JSON to repo, commit, push |
+| `pact_inbox` | Pull repo, scan for pending requests addressed to user |
+| `pact_respond` | Write response, move request to completed, commit, push |
+| `pact_status` | Pull repo, read request status and any response |
 
 **Tier 2 (Phase 2)**: Brain service that watches the repo.
 - Validates and enriches requests via LLM
 - Sends push notifications (Slack, email)
-- Runs per-request-type orchestrator skills (search JIRA, check duplicates)
+- Runs per-request-type orchestrator pacts (search JIRA, check duplicates)
 
 **Tier 3 (Phase 3)**: Institutional memory.
 - Indexes all requests/responses
 - Detects patterns, proactively enriches context
 
 **Key architectural decisions**:
-- Git repo IS the GARP server (no custom server to deploy for MVP)
+- Git repo IS the PACT server (no custom server to deploy for MVP)
 - Local MCP server wraps git operations into 4 tools
-- Skills live in the repo, distribute via git pull
+- Pacts live in the repo, distribute via git pull
 - Type-agnostic protocol: rigid envelope, flexible payload (Code Mode pattern)
 - Tiered: Tier 1 always works, Tier 2/3 are additive and removable
 
@@ -124,7 +124,7 @@
 |--------|--------|-----------|
 | Round-trip completion rate | >80% without Slack fallback | Core functionality works |
 | Receiver agent startup time | <2 turns to useful work | Context bundles are effective |
-| Skill contract consistency | >80% schema compliance | Skills produce reliable behavior |
+| Pact consistency | >80% schema compliance | Pacts produce reliable behavior |
 | Adoption over Slack | >50% of handoffs during test | System is actually preferred |
 | Second user initiation | At least 1 organic request | Not just responding |
 | Git operation speed | <10s per operation | Transport is fast enough |
@@ -136,11 +136,11 @@
 
 1. **Builder is the user** — shortest possible feedback loop between design and usage.
 
-2. **Existing platform ecosystem** — Craft Agents provides the mature client with MCP support, skills, Plan UI, and hooks.
+2. **Existing platform ecosystem** — Craft Agents provides the mature client with MCP support, pacts, Plan UI, and hooks.
 
-3. **The skill contract pattern** — Code Mode insight applied to multi-agent coordination. Novel architectural approach.
+3. **The pact pattern** — Code Mode insight applied to multi-agent coordination. Novel architectural approach.
 
-4. **Git as transport** — Eliminates the "build a server" barrier entirely. Anyone with a GitHub account can have a GARP server in 5 minutes.
+4. **Git as transport** — Eliminates the "build a server" barrier entirely. Anyone with a GitHub account can have a PACT server in 5 minutes.
 
 5. **Domain expertise** — Deep understanding of agent platforms (built Craft Agents) AND async coordination pain (daily tech support work).
 
@@ -162,7 +162,7 @@ The user has daily pain with the exact workflow this solves. Risk is whether it 
 
 Target users are developers who use git daily. The coordination system uses tools they already understand (git push, git pull, JSON files). The MCP server abstracts the git operations, so the agent handles the mechanics.
 
-**Onboarding**: Clone repo, add MCP source config to Craft Agents, start using. Skills are already in the repo.
+**Onboarding**: Clone repo, add MCP source config to Craft Agents, start using. Pacts are already in the repo.
 
 ### Feasibility Risk: Can we build it?
 
@@ -191,17 +191,17 @@ Open source tool. The "server" is a free GitHub repo. There is nothing to moneti
 3. **Builder is the user** — shortest possible feedback loop
 4. **Technical feasibility is trivially high** — ~500 lines of MCP server code
 5. **Second user is confirmed** — can test full loop with shared repo
-6. **MVP is tightly scoped** — local MCP server + repo conventions + 1 skill contract pair
+6. **MVP is tightly scoped** — local MCP server + repo conventions + 1 pact pair
 7. **Phase 2 path is clear** — brain service watches repo, adds intelligence additively
 8. **Zero infrastructure cost** — GitHub private repo is free
-9. **Skills distribute for free** — git pull syncs skill contracts
+9. **Pacts distribute for free** — git pull syncs pacts
 10. **Audit trail is free** — git log IS the audit
 
 **Conditions for GO**:
 - Conduct lightweight validation with second user (15-min conversation about handoff pain)
 - Define repo structure conventions (README in the repo)
 - Build the local MCP server
-- Write the sanity-check skill contract pair
+- Write the sanity-check pact pair
 - Test one complete round-trip
 
 ---
@@ -210,13 +210,13 @@ Open source tool. The "server" is a free GitHub repo. There is nothing to moneti
 
 ### What Was Discovered
 
-Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test questioning (24+ questions), discovered the actual product: an agent-native async GARP for human+agent teams. Further refined through an architectural pivot to git as GARP transport.
+Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test questioning (24+ questions), discovered the actual product: an agent-native async PACT for human+agent teams. Further refined through an architectural pivot to git as PACT transport.
 
 ### Discovery Arc
 
 1. RPG Campaign State Engine (all gaps unvalidated)
 2. Vision pivot to async multi-agent coordination
-3. Explicit choice of Product B (GARP, separate from Craft Agents)
+3. Explicit choice of Product B (PACT, separate from Craft Agents)
 4. Validated via daily tech support workflow (real pain, real behavior)
 5. Architectural decisions: central HTTP service, dumb router MVP, type-agnostic server
 6. **Architecture pivot**: git repo as transport, local MCP server, tiered brain service
@@ -226,13 +226,13 @@ Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test question
 - The problem (manual context assembly, non-agent-native coordination)
 - The user segment (technical teams using LLM agents daily)
 - The core loop (structured request -> sync -> context-loaded response)
-- The skill contract pattern (Code Mode applied to coordination)
+- The pact pattern (Code Mode applied to coordination)
 - The deployment model (git repo = server; self-hostable; zero infrastructure)
 - The tiered architecture (git base + optional brain + optional memory)
 
 ### What Needs Testing (requires building)
 
-- Skill contract reliability (do paired skills produce consistent agent behavior?)
+- Pact reliability (do paired pacts produce consistent agent behavior?)
 - Context bundle quality (better than manual markdown handoff?)
 - Receiver agent startup time (1-2 turns from context bundle?)
 - Git operation speed and conflict rate
@@ -244,7 +244,7 @@ Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test question
 |------|----------|
 | `docs/discovery/problem-validation.md` | 6-round interview record, evidence, assumptions, gate evaluation |
 | `docs/discovery/opportunity-tree.md` | 6 scored opportunities, git-upgraded scoring, MVP boundary |
-| `docs/discovery/solution-testing.md` | Git-based MVP components, repo structure, skill contracts, test plan, tiered roadmap |
+| `docs/discovery/solution-testing.md` | Git-based MVP components, repo structure, pacts, test plan, tiered roadmap |
 | `docs/discovery/lean-canvas.md` | This file -- business model, risks, go/no-go decision |
 
 ---
@@ -268,7 +268,7 @@ Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test question
 
 **Solution**: Delivered and exceeded. Ports-and-adapters architecture, structured logging, graceful degradation -- all improvements over the planned design. Three new protocol primitives (thread_id, attachments, short_id) extend the solution space.
 
-**Channels**: On track. garp-init.sh provides the onboarding tool. README is host-agnostic. Open source release path is clear.
+**Channels**: On track. pact-init.sh provides the onboarding tool. README is host-agnostic. Open source release path is clear.
 
 **Key Metrics -- Post-MVP Actuals**:
 
@@ -276,7 +276,7 @@ Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test question
 |--------|--------|--------|--------|
 | Round-trip completion rate | >80% | 100% (2/2) | PASS (small sample) |
 | Receiver agent startup | <2 turns | Not measured (trivial requests) | NOT TESTED |
-| Skill contract consistency | >80% | 100% (2/2) | PASS (small sample) |
+| Pact consistency | >80% | 100% (2/2) | PASS (small sample) |
 | Adoption over Slack | >50% | Not measured | NOT TESTED |
 | Second user initiation | 1+ organic | 1 (Dan sent a request back) | PASS |
 | Git operation speed | <10s | <1s | PASS |
@@ -289,12 +289,12 @@ Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test question
 | Rich context bundle usage | 5+ requests with 4+ context fields | Count requests with substantive context bundles |
 | Thread completion rate | 3+ multi-round threads completed | Count threads that reach resolution |
 | Attachment usage | 3+ requests with attachments | Count requests with file attachments |
-| Real workflow adoption | 2+ tech support handoffs through GARP instead of Slack | User self-report + request type diversity |
-| New skill types | 2+ new skills created (beyond ask and design-skill) | Count skills/ directories |
+| Real workflow adoption | 2+ tech support handoffs through PACT instead of Slack | User self-report + request type diversity |
+| New pact types | 2+ new pacts created (beyond ask and design-pact) | Count pacts/ directories |
 | Cancel/amend usage | At least 1 cancel or amend exercised | Usage of lifecycle management tools |
 
 ### Updated Unfair Advantage
 
 The original unfair advantages hold, with one addition:
 
-5. **Emergent protocol evolution** -- The protocol adapts to real usage patterns. thread_id, attachments, and short_id were not designed in discovery but emerged from building. The protocol is simple enough that new primitives can be added without breaking existing usage. This is evidence that the type-agnostic, skill-driven design was the right call.
+5. **Emergent protocol evolution** -- The protocol adapts to real usage patterns. thread_id, attachments, and short_id were not designed in discovery but emerged from building. The protocol is simple enough that new primitives can be added without breaking existing usage. This is evidence that the type-agnostic, pact-driven design was the right call.

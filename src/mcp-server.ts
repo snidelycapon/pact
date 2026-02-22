@@ -1,9 +1,9 @@
 /**
- * MCP server factory for GARP.
+ * MCP server factory for PACT.
  *
- * Creates an McpServer instance with the 2 collapsed GARP tools registered:
- *   - garp_discover: skill + team discovery
- *   - garp_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread)
+ * Creates an McpServer instance with the 2 collapsed PACT tools registered:
+ *   - pact_discover: pact + team discovery
+ *   - pact_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread)
  *
  * Used by:
  * - src/index.ts (production: connects to StdioServerTransport)
@@ -18,9 +18,9 @@ import { GitAdapter } from "./adapters/git-adapter.ts";
 import { ConfigAdapter } from "./adapters/config-adapter.ts";
 import { FileAdapter } from "./adapters/file-adapter.ts";
 import { log } from "./logger.ts";
-import { handleGarpDiscover } from "./tools/garp-discover.ts";
-import type { GarpDiscoverParams } from "./tools/garp-discover.ts";
-import { handleGarpDo } from "./tools/garp-do.ts";
+import { handlePactDiscover } from "./tools/pact-discover.ts";
+import type { PactDiscoverParams } from "./tools/pact-discover.ts";
+import { handlePactDo } from "./tools/pact-do.ts";
 
 export interface McpServerConfig {
   repoPath: string;
@@ -28,14 +28,14 @@ export interface McpServerConfig {
 }
 
 /**
- * Creates and returns an McpServer with the 2 collapsed GARP tools registered.
+ * Creates and returns an McpServer with the 2 collapsed PACT tools registered.
  * Adapters are created lazily on first tool call.
  */
 export function createMcpServer(config: McpServerConfig): McpServer {
   if (!config.repoPath) throw new Error("repoPath is required");
   if (!config.userId) throw new Error("userId is required");
 
-  const server = new McpServer({ name: "GARP", version: "1.0.0" });
+  const server = new McpServer({ name: "PACT", version: "1.0.0" });
 
   // Lazily-initialized adapters (git validates directory at construction)
   let git: GitAdapter | undefined;
@@ -59,9 +59,9 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     return { content: [{ type: "text" as const, text: message }], isError: true };
   }
 
-  // -- garp_discover --
+  // -- pact_discover --
   server.tool(
-    "garp_discover",
+    "pact_discover",
     "Discover available request types, team members, and their capabilities",
     {
       query: z.string().optional().describe("Optional keyword to filter by name, description, or usage"),
@@ -69,27 +69,27 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     async (params) => {
       ensureAdapters();
       const start = Date.now();
-      log("info", "tool invocation start", { tool: "garp_discover" });
+      log("info", "tool invocation start", { tool: "pact_discover" });
       try {
-        const result = await handleGarpDiscover(params as GarpDiscoverParams, {
+        const result = await handlePactDiscover(params as PactDiscoverParams, {
           userId: config.userId,
           repoPath: config.repoPath,
           git: git!,
           config: configAdapter!,
           file: file!,
         });
-        log("info", "tool invocation complete", { tool: "garp_discover", skill_count: result.skills.length, duration_ms: Date.now() - start });
+        log("info", "tool invocation complete", { tool: "pact_discover", pact_count: result.pacts.length, duration_ms: Date.now() - start });
         return formatResult(result);
       } catch (err) {
-        log("error", "tool invocation failed", { tool: "garp_discover", error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        log("error", "tool invocation failed", { tool: "pact_discover", error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
         return formatError(err);
       }
     },
   );
 
-  // -- garp_do --
+  // -- pact_do --
   server.tool(
-    "garp_do",
+    "pact_do",
     "Perform an action (send, respond, cancel, amend, check_status, inbox, view_thread)",
     {
       action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread"),
@@ -112,19 +112,19 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     async (params) => {
       ensureAdapters();
       const start = Date.now();
-      log("info", "tool invocation start", { tool: "garp_do", action: params.action });
+      log("info", "tool invocation start", { tool: "pact_do", action: params.action });
       try {
-        const result = await handleGarpDo(params as Record<string, unknown>, {
+        const result = await handlePactDo(params as Record<string, unknown>, {
           userId: config.userId,
           repoPath: config.repoPath,
           git: git!,
           config: configAdapter!,
           file: file!,
         });
-        log("info", "tool invocation complete", { tool: "garp_do", action: params.action, duration_ms: Date.now() - start });
+        log("info", "tool invocation complete", { tool: "pact_do", action: params.action, duration_ms: Date.now() - start });
         return formatResult(result);
       } catch (err) {
-        log("error", "tool invocation failed", { tool: "garp_do", action: params.action, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        log("error", "tool invocation failed", { tool: "pact_do", action: params.action, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
         return formatError(err);
       }
     },

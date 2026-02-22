@@ -4,7 +4,7 @@
 
 ## Context
 
-The GARP MCP server needs a runtime language and a strategy for executing git operations. The user has built Craft Agents in TypeScript and the BWG Engine MCP server in Python. Both are viable.
+The PACT MCP server needs a runtime language and a strategy for executing git operations. The user has built Craft Agents in TypeScript and the BWG Engine MCP server in Python. Both are viable.
 
 ## Decision
 
@@ -15,8 +15,8 @@ TypeScript (Node.js 20+) as the implementation language. `simple-git` (MIT licen
 ### Python with GitPython
 
 - **Pro**: User has built MCP servers in Python (BWG Engine). GitPython is mature. Python MCP SDK exists.
-- **Con**: Craft Agents ecosystem is TypeScript. Source config, skill format, session tools are all TypeScript-native. Python introduces a runtime dependency that may not be present on all target machines (Node.js is more commonly pre-installed for developers). Two languages in the stack increases maintenance burden.
-- **Rejection rationale**: The GARP MCP server will be configured and distributed alongside Craft Agents. Staying in the same language ecosystem reduces friction for the user (who maintains both) and for future contributors.
+- **Con**: Craft Agents ecosystem is TypeScript. Source config, pact format, session tools are all TypeScript-native. Python introduces a runtime dependency that may not be present on all target machines (Node.js is more commonly pre-installed for developers). Two languages in the stack increases maintenance burden.
+- **Rejection rationale**: The PACT MCP server will be configured and distributed alongside Craft Agents. Staying in the same language ecosystem reduces friction for the user (who maintains both) and for future contributors.
 
 ### TypeScript with Raw child_process
 

@@ -12,7 +12,7 @@ phases:
     description: >
       Add AmendmentEntrySchema to schemas.ts. Extend RequestEnvelopeSchema
       with optional amendments array and cancel_reason string. Add
-      requests/cancelled/ with .gitkeep to garp-init.sh. Update
+      requests/cancelled/ with .gitkeep to pact-init.sh. Update
       createTestRepos() to include requests/cancelled/ directory.
     time_estimate_hours: 1
     dependencies: []
@@ -21,7 +21,7 @@ phases:
       - 'When AmendmentEntrySchema receives input missing amended_at or amended_by, parsing fails'
       - 'When RequestEnvelopeSchema parses an envelope with amendments array, the array is preserved'
       - 'When RequestEnvelopeSchema parses an envelope without amendments or cancel_reason, parsing succeeds (backward compatible)'
-      - 'When garp-init.sh creates a new repo, requests/cancelled/ exists with .gitkeep'
+      - 'When pact-init.sh creates a new repo, requests/cancelled/ exists with .gitkeep'
     test_scenarios:
       files:
         - file: tests/unit/schemas.test.ts
@@ -31,16 +31,16 @@ phases:
       files_to_create: []
       files_to_modify:
         - src/schemas.ts
-        - scripts/garp-init.sh
+        - scripts/pact-init.sh
         - tests/acceptance/helpers/setup-test-repos.ts
         - tests/unit/schemas.test.ts
   - id: 01-02
-    name: 'garp_cancel tool (US-013)'
+    name: 'pact_cancel tool (US-013)'
     description: >
       New tool handler: validate request_id, pull, find in pending/,
       read envelope, verify caller is sender, set status=cancelled
       and cancel_reason, git mv to cancelled/, commit with
-      [garp] cancelled: prefix, push. Wire into server.ts and
+      [pact] cancelled: prefix, push. Wire into server.ts and
       mcp-server.ts.
     time_estimate_hours: 3
     dependencies:
@@ -50,26 +50,26 @@ phases:
       - 'When a non-sender attempts to cancel, the tool returns an authorization error'
       - 'When the request is already completed or cancelled, the tool returns an appropriate error'
       - 'When cancel includes a reason, the cancel_reason field is persisted in the envelope'
-      - 'When cancel commits, the message matches [garp] cancelled: {request_id}'
+      - 'When cancel commits, the message matches [pact] cancelled: {request_id}'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-cancel.test.ts
+        - file: tests/acceptance/pact-cancel.test.ts
           enable: 'Create all 5 BDD scenarios'
           expected_new: 5
     implementation_scope:
       files_to_create:
-        - src/tools/garp-cancel.ts
-        - tests/acceptance/garp-cancel.test.ts
+        - src/tools/pact-cancel.ts
+        - tests/acceptance/pact-cancel.test.ts
       files_to_modify:
         - src/server.ts
         - src/mcp-server.ts
   - id: 01-03
-    name: 'garp_amend tool (US-014)'
+    name: 'pact_amend tool (US-014)'
     description: >
       New tool handler: validate request_id, pull, find in pending/,
       read envelope, verify caller is sender, append amendment entry
       to amendments array, write updated envelope, git add + commit
-      with [garp] amended: prefix, push. Wire into server.ts and
+      with [pact] amended: prefix, push. Wire into server.ts and
       mcp-server.ts.
     time_estimate_hours: 3
     dependencies:
@@ -79,23 +79,23 @@ phases:
       - 'When a request is amended multiple times, each amendment appends without overwriting prior amendments'
       - 'When a non-sender attempts to amend, the tool returns an authorization error'
       - 'When the request is completed or cancelled, the tool returns an error'
-      - 'When amend commits, the message matches [garp] amended: {request_id}'
+      - 'When amend commits, the message matches [pact] amended: {request_id}'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-amend.test.ts
+        - file: tests/acceptance/pact-amend.test.ts
           enable: 'Create all 5 BDD scenarios'
           expected_new: 5
     implementation_scope:
       files_to_create:
-        - src/tools/garp-amend.ts
-        - tests/acceptance/garp-amend.test.ts
+        - src/tools/pact-amend.ts
+        - tests/acceptance/pact-amend.test.ts
       files_to_modify:
         - src/server.ts
         - src/mcp-server.ts
   - id: 01-04
-    name: 'garp_respond status consistency (US-015)'
+    name: 'pact_respond status consistency (US-015)'
     description: >
-      Update garp_respond handler to set envelope status field to
+      Update pact_respond handler to set envelope status field to
       "completed" before git mv to completed/ directory. Add assertion
       to existing respond test that verifies status field in completed
       envelope.
@@ -106,22 +106,22 @@ phases:
       - 'When the completed envelope is read back, status is "completed" not "pending"'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-respond.test.ts
+        - file: tests/acceptance/pact-respond.test.ts
           enable: 'Add status field assertion to existing happy-path test'
           expected_new: 1
     implementation_scope:
       files_to_create: []
       files_to_modify:
-        - src/tools/garp-respond.ts
-        - tests/acceptance/garp-respond.test.ts
+        - src/tools/pact-respond.ts
+        - tests/acceptance/pact-respond.test.ts
 - id: '02'
   name: 'Read-Side Enhancements (Wave 2 Completion)'
   steps:
   - id: 02-01
-    name: 'garp_status cancelled scan and type update (US-013/US-015 partial)'
+    name: 'pact_status cancelled scan and type update (US-013/US-015 partial)'
     description: >
-      Extend garp_status to scan requests/cancelled/ directory.
-      Return "cancelled" status when found. Update GarpStatusResult
+      Extend pact_status to scan requests/cancelled/ directory.
+      Return "cancelled" status when found. Update PactStatusResult
       type union to include "cancelled".
     time_estimate_hours: 1.5
     dependencies:
@@ -129,17 +129,17 @@ phases:
     criteria:
       - 'When a cancelled request is queried, status returns "cancelled" with the envelope including cancel_reason'
       - 'When scanning for a request, cancelled/ is checked after completed/ and before "not found"'
-      - 'When GarpStatusResult is used, the status type accepts "pending", "active", "completed", and "cancelled"'
+      - 'When PactStatusResult is used, the status type accepts "pending", "active", "completed", and "cancelled"'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-status.test.ts
+        - file: tests/acceptance/pact-status.test.ts
           enable: 'Add cancelled status and cancelled scan scenarios'
           expected_new: 2
     implementation_scope:
       files_to_create: []
       files_to_modify:
-        - src/tools/garp-status.ts
-        - tests/acceptance/garp-status.test.ts
+        - src/tools/pact-status.ts
+        - tests/acceptance/pact-status.test.ts
   - id: 02-02
     name: 'Attachment and amendment surfacing in inbox (US-012 partial)'
     description: >
@@ -156,18 +156,18 @@ phases:
       - 'When a thread group aggregates entries, amendment_count sums across all entries in the group'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-inbox.test.ts
+        - file: tests/acceptance/pact-inbox.test.ts
           enable: 'Add amendment_count and attachments metadata scenarios'
           expected_new: 2
     implementation_scope:
       files_to_create: []
       files_to_modify:
-        - src/tools/garp-inbox.ts
-        - tests/acceptance/garp-inbox.test.ts
+        - src/tools/pact-inbox.ts
+        - tests/acceptance/pact-inbox.test.ts
   - id: 02-03
     name: 'Attachment paths in status (US-012 partial)'
     description: >
-      Add optional attachment_paths array to GarpStatusResult.
+      Add optional attachment_paths array to PactStatusResult.
       When a request has attachments, resolve absolute file paths
       from repoPath + attachments directory convention and return
       them in the status result.
@@ -179,64 +179,64 @@ phases:
       - 'When attachment_paths are returned, each path follows {repoPath}/attachments/{request_id}/{filename} format'
     test_scenarios:
       files:
-        - file: tests/acceptance/garp-status.test.ts
+        - file: tests/acceptance/pact-status.test.ts
           enable: 'Add attachment_paths scenarios'
           expected_new: 2
     implementation_scope:
       files_to_create: []
       files_to_modify:
-        - src/tools/garp-status.ts
-        - tests/acceptance/garp-status.test.ts
+        - src/tools/pact-status.ts
+        - tests/acceptance/pact-status.test.ts
 - id: '03'
-  name: 'Skills + Convention (Wave 3)'
+  name: 'Pacts + Convention (Wave 3)'
   steps:
   - id: 03-01
-    name: 'Sanity-check SKILL.md (US-017)'
+    name: 'Sanity-check PACT.md (US-017)'
     description: >
-      Create sanity-check skill contract in examples/skills/.
+      Create sanity-check pact in examples/pacts/.
       Fields: customer, product, issue_summary, involved_files,
       investigation_so_far, question, zendesk_ticket. Response:
       answer, evidence, concerns, recommendation.
     time_estimate_hours: 0.5
     dependencies: []
     criteria:
-      - 'When examples/skills/sanity-check/SKILL.md is read, it contains When To Use, Context Bundle Fields, and Response Structure sections'
+      - 'When examples/pacts/sanity-check/PACT.md is read, it contains When To Use, Context Bundle Fields, and Response Structure sections'
       - 'When the context bundle table is inspected, it lists customer, product, issue_summary, involved_files, investigation_so_far, and question as required'
     test_scenarios:
-      note: 'Markdown-only artifact. Validated by manual inspection. Existing skill-contract tests cover skill directory presence at runtime.'
+      note: 'Markdown-only artifact. Validated by manual inspection. Existing pact-contract tests cover pact directory presence at runtime.'
     implementation_scope:
       files_to_create:
-        - examples/skills/sanity-check/SKILL.md
+        - examples/pacts/sanity-check/PACT.md
       files_to_modify: []
   - id: 03-02
-    name: 'Code-review SKILL.md (US-018)'
+    name: 'Code-review PACT.md (US-018)'
     description: >
-      Create code-review skill contract with Expected Attachments
+      Create code-review pact with Expected Attachments
       section. Fields: branch_or_pr, language, description,
       areas_of_concern. Attachments: diff file. Response: verdict,
       blocking_feedback, advisory_feedback, questions.
     time_estimate_hours: 0.5
     dependencies: []
     criteria:
-      - 'When examples/skills/code-review/SKILL.md is read, it contains When To Use, Context Bundle Fields, Expected Attachments, and Response Structure sections'
+      - 'When examples/pacts/code-review/PACT.md is read, it contains When To Use, Context Bundle Fields, Expected Attachments, and Response Structure sections'
       - 'When the Expected Attachments section is inspected, it specifies at least one attachment type with filename convention and description'
     test_scenarios:
       note: 'Markdown-only artifact. Validated by manual inspection.'
     implementation_scope:
       files_to_create:
-        - examples/skills/code-review/SKILL.md
+        - examples/pacts/code-review/PACT.md
       files_to_modify: []
   - id: 03-03
     name: 'Inbox auto-poll convention doc (US-016)'
     description: >
       Create convention document describing how MCP hosts should
-      auto-invoke garp_inbox at session start. Cover Claude Code
+      auto-invoke pact_inbox at session start. Cover Claude Code
       (system prompt instruction) and Craft Agents (hook pattern).
     time_estimate_hours: 0.5
     dependencies: []
     criteria:
       - 'When docs/conventions/inbox-autopoll.md is read, it describes auto-poll configuration for at least 2 MCP hosts'
-      - 'When the convention is inspected, it requires no code changes to GARP itself'
+      - 'When the convention is inspected, it requires no code changes to PACT itself'
     test_scenarios:
       note: 'Documentation-only artifact. No automated tests.'
     implementation_scope:

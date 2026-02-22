@@ -8,7 +8,7 @@ journey:
   summary: >
     A user investigating a bug with their agent composes a structured
     sanity-check request, reviews it, sends it to a colleague via the
-    GARP repo, and later receives a structured response.
+    PACT repo, and later receives a structured response.
 
   actors:
     - id: cory
@@ -27,9 +27,9 @@ journey:
       end: validated_by_response
 
   preconditions:
-    - Cory has a working MCP server configured for the GARP repo
-    - Alex is a member of the GARP repo
-    - The sanity-check SKILL.md exists in the repo
+    - Cory has a working MCP server configured for the PACT repo
+    - Alex is a member of the PACT repo
+    - The sanity-check PACT.md exists in the repo
     - Cory is in an active agent session investigating a bug
 
   steps:
@@ -47,20 +47,20 @@ journey:
       action: Decides to ask Alex for a sanity check
       trigger: uncertainty_about_finding
       invocation_methods:
-        - direct: "Use the sanity-check skill to ask Alex about this"
+        - direct: "Use the sanity-check pact to ask Alex about this"
         - inferred: "Can you ask Alex if this matches what she saw last month?"
       emotion: need_for_validation
 
-    - id: load-skill
+    - id: load-pact
       actor: agent
-      action: Agent loads SKILL.md for the sanity-check request type
-      tool: filesystem (reads from repo skills/ directory)
+      action: Agent loads PACT.md for the sanity-check request type
+      tool: filesystem (reads from repo pacts/ directory)
       consumes:
-        - artifact: skill-file
-          file: skills/sanity-check/SKILL.md
+        - artifact: pact-file
+          file: pacts/sanity-check/PACT.md
       automatic: true
       description: >
-        The skill file tells the agent what fields to gather,
+        The pact file tells the agent what fields to gather,
         how to structure the request, and what a good request looks like.
 
     - id: gather-context
@@ -89,8 +89,8 @@ journey:
 
     - id: submit-request
       actor: cory
-      action: Approves the request; agent calls garp_request
-      tool: garp_request
+      action: Approves the request; agent calls pact_request
+      tool: pact_request
       consumes:
         - artifact: request-draft
       produces:
@@ -98,7 +98,7 @@ journey:
           file: requests/pending/req-{id}.json
       git_operations:
         - git add requests/pending/req-{id}.json
-        - git commit -m "[garp] new request: req-{id} (sanity-check) -> alex"
+        - git commit -m "[pact] new request: req-{id} (sanity-check) -> alex"
         - git push
       emotion: relieved
       description: >
@@ -117,7 +117,7 @@ journey:
     - id: check-status
       actor: cory
       action: Checks on the request status (any session)
-      tool: garp_status
+      tool: pact_status
       consumes:
         - artifact: request-file
         - artifact: response-file (if exists)
@@ -148,7 +148,7 @@ journey:
       description: >
         Cory applies the fix, escalates the bug, files a ticket,
         or whatever the response suggests. This step is outside
-        the GARP.
+        the PACT.
 
   postconditions:
     - Request file exists in requests/completed/ (moved by Alex's respond step)
@@ -157,11 +157,11 @@ journey:
     - Cory has actionable information from Alex
 
   shared_artifacts:
-    - id: skill-file
-      type: skill_md
-      file: skills/sanity-check/SKILL.md
+    - id: pact-file
+      type: pact_md
+      file: pacts/sanity-check/PACT.md
       source: repo (pre-existing)
-      consumed_by: [load-skill]
+      consumed_by: [load-pact]
     - id: request-file
       type: request_json
       file: requests/pending/req-{id}.json
@@ -175,7 +175,7 @@ journey:
         - status
         - created_at
         - deadline (optional)
-        - context_bundle (flexible, defined by skill)
+        - context_bundle (flexible, defined by pact)
         - expected_response
     - id: response-file
       type: response_json
@@ -190,10 +190,10 @@ journey:
         Response display uses Plan-style presentation.
         Nothing leaves the machine without explicit human approval.
 
-    - name: single_skill_file
+    - name: single_pact_file
       description: >
-        Both sender and receiver load the same SKILL.md.
-        The skill defines the contract: what fields to gather
+        Both sender and receiver load the same PACT.md.
+        The pact defines the contract: what fields to gather
         (sender) and how to interpret/respond (receiver).
 
     - name: session_decoupling
@@ -205,5 +205,5 @@ journey:
     - name: agent_context_assembly
       description: >
         The agent assembles the context bundle from session state
-        and SKILL.md field requirements. This replaces the manual
+        and PACT.md field requirements. This replaces the manual
         markdown composition that is the current pain point.

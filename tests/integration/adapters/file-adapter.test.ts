@@ -17,7 +17,7 @@ describe("FileAdapter", () => {
   let repoPath: string;
 
   beforeEach(() => {
-    repoPath = mkdtempSync(join(tmpdir(), "garp-file-"));
+    repoPath = mkdtempSync(join(tmpdir(), "pact-file-"));
   });
 
   afterEach(() => {

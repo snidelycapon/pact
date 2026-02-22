@@ -2,7 +2,7 @@
 
 **Research Date**: 2026-02-21
 **Researcher**: Nova (Evidence-Driven Knowledge Researcher)
-**Scope**: Deep analysis of the Beads ecosystem (Beads, MCP Agent Mail, Gas Town) with focus on patterns transferable to a git-backed agent GARP server with inbox UX
+**Scope**: Deep analysis of the Beads ecosystem (Beads, MCP Agent Mail, Gas Town) with focus on patterns transferable to a git-backed agent PACT server with inbox UX
 **Source Count**: 19 sources across 5 topic areas
 **Confidence Distribution**: 5 High, 3 Medium, 1 Low
 
@@ -17,7 +17,7 @@
 5. [Inbox and Workflow Patterns](#5-inbox-and-workflow-patterns)
 6. [Structured Request/Response: The "Bead" Protocol](#6-structured-requestresponse-the-bead-protocol)
 7. [Context Chaining Between Agent Instances](#7-context-chaining-between-agent-instances)
-8. [Skill/Contract/Template Patterns](#8-skillcontracttemplate-patterns)
+8. [Pact/Contract/Template Patterns](#8-pactcontracttemplate-patterns)
 9. [UI Patterns for Agent Coordination](#9-ui-patterns-for-agent-coordination)
 10. [Transferable Patterns for Craft Agents Integration](#10-transferable-patterns-for-craft-agents-integration)
 11. [Knowledge Gaps](#11-knowledge-gaps)
@@ -41,7 +41,7 @@ The three systems address different coordination concerns and are designed to co
 - **Agent Mail** owns communication: messages, threads, decisions, audit trails, file leases.
 - **Gas Town** owns orchestration: who works on what, dispatch, supervision, merge queues.
 
-The parallels to the Craft Agents GARP server vision are substantial. Both architectures share the same foundational insight: **git is the right transport for agent coordination data**, and **agent work should be structured as addressable, dependency-aware units rather than unstructured conversation**. The specific patterns below are directly transferable.
+The parallels to the Craft Agents PACT server vision are substantial. Both architectures share the same foundational insight: **git is the right transport for agent coordination data**, and **agent work should be structured as addressable, dependency-aware units rather than unstructured conversation**. The specific patterns below are directly transferable.
 
 **Confidence: HIGH** -- Based on 19 sources including primary documentation (GitHub repos, official docs site), community analysis (DeepWiki, ianbull.com, paddo.dev), and the author's own writings.
 
@@ -80,7 +80,7 @@ Additionally, the production system supports **Dolt** (a version-controlled SQL 
 
 An **EphemeralStore** (SQLite-backed) handles temporary issues ("wisps") that should not clutter version history. [Source: DeepWiki]
 
-**Transferable pattern**: The dual-storage model (fast queryable local store + git-tracked serialization format) directly maps to the GARP server architecture. Sessions in Craft Agents already persist as JSONL. The Beads pattern validates this approach and adds the synchronization daemon concept.
+**Transferable pattern**: The dual-storage model (fast queryable local store + git-tracked serialization format) directly maps to the PACT server architecture. Sessions in Craft Agents already persist as JSONL. The Beads pattern validates this approach and adds the synchronization daemon concept.
 
 ### 2.3 Identity: Hash-Based IDs
 
@@ -88,7 +88,7 @@ Issue IDs use SHA-256 hashing of content (title + description + timestamp + salt
 
 Hierarchical IDs support task decomposition: `bd-a3f8` (epic) -> `bd-a3f8.1` (task) -> `bd-a3f8.1.1` (sub-task).
 
-**Transferable pattern**: Any GARP server handling concurrent agent actions needs collision-resistant identifiers. Content-addressed hashing is the right approach for git-backed systems.
+**Transferable pattern**: Any PACT server handling concurrent agent actions needs collision-resistant identifiers. Content-addressed hashing is the right approach for git-backed systems.
 
 ### 2.4 Dependency Graph
 
@@ -121,7 +121,7 @@ The system enforces DAG structure via recursive CTE cycle detection limited to 1
 
 The `bd ready` command is the critical interface: it calculates which tasks have no open blockers and presents them to agents as available work. This is the "what should I do next?" query that replaces human-directed task selection. [Source: GitHub README, DeepWiki, paddo.dev, ianbull.com]
 
-**Transferable pattern**: The dependency graph with blocking vs. non-blocking relationship types maps directly to GARP server needs. A "tick" dispatch system benefits from the same `ready` computation: "what context bundles should be dispatched because their prerequisites are met?"
+**Transferable pattern**: The dependency graph with blocking vs. non-blocking relationship types maps directly to PACT server needs. A "tick" dispatch system benefits from the same `ready` computation: "what context bundles should be dispatched because their prerequisites are met?"
 
 ---
 
@@ -152,7 +152,7 @@ The recommended integrated workflow:
 7. send_message("Final summary")           # Post completion in Mail
 ```
 
-**Transferable pattern**: The clean separation between "work state" (what exists, what blocks what) and "communication state" (who said what, who reserved what) is directly applicable. Craft Agents sessions are communication; the GARP server manages work state. Keeping them separate but linked by shared identifiers is the correct architecture.
+**Transferable pattern**: The clean separation between "work state" (what exists, what blocks what) and "communication state" (who said what, who reserved what) is directly applicable. Craft Agents sessions are communication; the PACT server manages work state. Keeping them separate but linked by shared identifiers is the correct architecture.
 
 ### 3.2 Gas Town: Orchestration Layer
 
@@ -195,7 +195,7 @@ gt convoy list
 
 They provide single visibility into in-flight work, cross-rig tracking, auto-notifications, and historical records. [Source: Gas Town overview.md]
 
-**Transferable pattern**: The role taxonomy (coordinator, supervisor, worker) and the distinction between persistent workers (crew) and transient workers (polecats) maps to how a GARP server might manage different types of agent sessions. The "hook" metaphor (find work on your hook, execute immediately) is an elegant dispatch pattern that avoids polling overhead.
+**Transferable pattern**: The role taxonomy (coordinator, supervisor, worker) and the distinction between persistent workers (crew) and transient workers (polecats) maps to how a PACT server might manage different types of agent sessions. The "hook" metaphor (find work on your hook, execute immediately) is an elegant dispatch pattern that avoids polling overhead.
 
 ---
 
@@ -222,13 +222,13 @@ The handoff prompt is the critical output: "a ready-to-paste summary that the ne
 
 **Why this works**: Yegge's observation that "their reward function biases them for checklists and acceptance criteria. Landing the plane, even if they're low on context, they're going to do a good job with it." The structured protocol leverages LLM strengths rather than fighting their weaknesses. [Source: paddo.dev]
 
-**Transferable pattern**: The "land the plane" concept maps directly to session completion in a GARP server. When a Craft Agents session completes work on a tick/turn, it should: (a) persist results to shared state, (b) file follow-up work items, (c) generate a context summary for the next agent that picks up related work. The handoff prompt is essentially a "context bundle" for the next session.
+**Transferable pattern**: The "land the plane" concept maps directly to session completion in a PACT server. When a Craft Agents session completes work on a tick/turn, it should: (a) persist results to shared state, (b) file follow-up work items, (c) generate a context summary for the next agent that picks up related work. The handoff prompt is essentially a "context bundle" for the next session.
 
 ### 4.2 Atomic Claim Operations
 
 Beads provides `bd update <id> --claim` which atomically sets both the assignee and status to `in_progress`. This prevents race conditions where two agents both start the same task. Combined with hash-based IDs, this enables safe concurrent multi-agent operation on the same codebase. [Source: GitHub README, DeepWiki]
 
-**Transferable pattern**: Any GARP server dispatching work to multiple agents needs atomic claim semantics. The GARP server's "tick" dispatch should include a claim mechanism that prevents duplicate work.
+**Transferable pattern**: Any PACT server dispatching work to multiple agents needs atomic claim semantics. The PACT server's "tick" dispatch should include a claim mechanism that prevents duplicate work.
 
 ### 4.3 Gas Town's Hook-Based Dispatch
 
@@ -287,7 +287,7 @@ Agent Mail implements a full **inbox/outbox architecture** for agent communicati
 
 **Acknowledgment Protocol**: Messages can require explicit acknowledgment, creating confirmation workflows. This is more structured than email -- it is closer to a ticketing system's "accept/reject assignment" pattern. [Source: MCP Agent Mail README]
 
-**Transferable pattern**: The inbox metaphor with threading, importance levels, and acknowledgment requirements maps directly to the GARP server's "tick" delivery. A tick is essentially a high-importance message with structured content (context bundle), a thread_id linking it to a workflow, and an expectation of acknowledgment (the agent's response/action).
+**Transferable pattern**: The inbox metaphor with threading, importance levels, and acknowledgment requirements maps directly to the PACT server's "tick" delivery. A tick is essentially a high-importance message with structured content (context bundle), a thread_id linking it to a workflow, and an expectation of acknowledgment (the agent's response/action).
 
 ### 5.2 Human Overseer Pattern
 
@@ -300,7 +300,7 @@ Agent Mail provides a dedicated "Human Overseer" channel:
 
 [Source: MCP Agent Mail README, mcpagentmail.com]
 
-**Transferable pattern**: The human overseer as a first-class participant with special privileges (bypass queues, high priority, pause-current-work semantics) maps to the Craft Agents vision where every client node has a human operator. The GARP server should support human-originated messages that override normal agent workflow.
+**Transferable pattern**: The human overseer as a first-class participant with special privileges (bypass queues, high priority, pause-current-work semantics) maps to the Craft Agents vision where every client node has a human operator. The PACT server should support human-originated messages that override normal agent workflow.
 
 ### 5.3 File Reservation Leases
 
@@ -325,7 +325,7 @@ Properties:
 
 [Source: MCP Agent Mail README]
 
-**Transferable pattern**: Advisory file reservations with TTL and task linkage are directly applicable to a GARP server managing shared state. When a tick dispatches context to a client node, the server can create an advisory reservation on the state segments being modified, preventing conflicting concurrent edits.
+**Transferable pattern**: Advisory file reservations with TTL and task linkage are directly applicable to a PACT server managing shared state. When a tick dispatches context to a client node, the server can create an advisory reservation on the state segments being modified, preventing conflicting concurrent edits.
 
 ### 5.4 Gas Town's Mail System
 
@@ -360,7 +360,7 @@ A Beads issue contains approximately 81 fields organized into groups. The core f
 
 Every command supports `--json` output for programmatic consumption, achieving "97% token reduction" through `BriefIssue` and `BriefDep` models that strip unnecessary fields. [Source: DeepWiki, GitHub README]
 
-**Transferable pattern**: The structured issue format maps to a "tick" or "context bundle" schema. A GARP server dispatch should carry: identity (hash ID, title), classification (type, priority), lifecycle state, dependency context, execution context (the actual work payload), and audit metadata. The brief/full distinction for token optimization is important -- agents should receive minimal context by default with the ability to expand.
+**Transferable pattern**: The structured issue format maps to a "tick" or "context bundle" schema. A PACT server dispatch should carry: identity (hash ID, title), classification (type, priority), lifecycle state, dependency context, execution context (the actual work payload), and audit metadata. The brief/full distinction for token optimization is important -- agents should receive minimal context by default with the ability to expand.
 
 ### 6.2 The `bd prime` Context Injection
 
@@ -372,13 +372,13 @@ The `bd prime` command generates an optimized workflow context (~1-2k tokens) su
 
 This is injected at session start, giving the agent immediate orientation without consuming excessive context window. [Source: DeepWiki, FAQ]
 
-**Transferable pattern**: Context injection at session start is the "tick" concept. When the GARP server dispatches a turn to a client node, it should assemble a compact context summary analogous to `bd prime` output -- just enough orientation for the agent to begin productive work.
+**Transferable pattern**: Context injection at session start is the "tick" concept. When the PACT server dispatches a turn to a client node, it should assemble a compact context summary analogous to `bd prime` output -- just enough orientation for the agent to begin productive work.
 
 ### 6.3 JSON-First Agent Interface
 
 All Beads commands support `--json` for structured output. The FAQ explicitly recommends CLI over MCP when shell access is available due to "lower context overhead (~1-2k vs 10-50k tokens)" and faster execution. [Source: FAQ, AGENT_INSTRUCTIONS.md]
 
-This design decision reflects a broader principle: **minimize token cost of coordination overhead**. The GARP should be cheap to query and cheap to update, preserving the context window for actual reasoning.
+This design decision reflects a broader principle: **minimize token cost of coordination overhead**. The PACT should be cheap to query and cheap to update, preserving the context window for actual reasoning.
 
 ---
 
@@ -406,13 +406,13 @@ Session N+1:
 
 The recommended cadence is "one task per session, land the plane, kill it, start fresh." This prevents context rot -- the gradual degradation of agent reasoning as conversation history grows. Short, focused sessions with clean handoffs outperform long sessions that accumulate noise. [Source: paddo.dev, ianbull.com]
 
-**Transferable pattern**: This directly validates the "tick" model. Each tick is a focused unit of work. The agent starts a session, receives context, completes one thing, persists results, and terminates. The next tick starts clean. This is the async play-by-post cadence the GARP server is designed for.
+**Transferable pattern**: This directly validates the "tick" model. Each tick is a focused unit of work. The agent starts a session, receives context, completes one thing, persists results, and terminates. The next tick starts clean. This is the async play-by-post cadence the PACT server is designed for.
 
 ### 7.2 Semantic Compaction
 
 Beads performs "semantic memory decay" -- summarizing closed tasks to preserve context window budget. Instead of carrying the full history of 100 completed tasks, the system produces compact summaries of completed work, preserving the decision rationale without the execution detail. [Source: GitHub README, DeepWiki]
 
-**Transferable pattern**: As coordination workflows grow long (an RPG campaign spanning months, a project spanning hundreds of sessions), the GARP server needs a similar compaction strategy. Completed ticks should be summarized and archived, not carried as full context indefinitely.
+**Transferable pattern**: As coordination workflows grow long (an RPG campaign spanning months, a project spanning hundreds of sessions), the PACT server needs a similar compaction strategy. Completed ticks should be summarized and archived, not carried as full context indefinitely.
 
 ### 7.3 Dependency-Driven Context Discovery
 
@@ -424,11 +424,11 @@ When an agent picks up a task, it can traverse the dependency graph to understan
 
 This graph traversal replaces the need for the agent to have seen the prior conversation. Context is reconstructed from persistent state, not recalled from memory. [Source: DeepWiki, MOLECULES.md]
 
-**Transferable pattern**: Context bundles should not just carry the immediate task but should include traversable links to related completed work, decisions, and discussions. The GARP server's state graph enables context reconstruction for any agent at any time.
+**Transferable pattern**: Context bundles should not just carry the immediate task but should include traversable links to related completed work, decisions, and discussions. The PACT server's state graph enables context reconstruction for any agent at any time.
 
 ---
 
-## 8. Skill/Contract/Template Patterns
+## 8. Pact/Contract/Template Patterns
 
 ### 8.1 Formulas: Declarative Workflow Templates
 
@@ -449,7 +449,7 @@ Architecture stack:
 
 Most users need only the bottom two layers. Protos and formulas are for advanced composition -- repeatable patterns like "deploy pipeline" or "feature development cycle" that should be instantiated consistently. [Source: MOLECULES.md, FAQ, DeepWiki]
 
-**Transferable pattern**: The formula/proto/molecule stack maps to "workflow templates" in a GARP server. A formula defines a coordination workflow type (RPG session, PR review, brainstorm). A proto is a frozen template. A molecule is an active instance with live state. This three-level abstraction (template -> frozen -> active) is cleaner than a single "workflow definition" concept.
+**Transferable pattern**: The formula/proto/molecule stack maps to "workflow templates" in a PACT server. A formula defines a coordination workflow type (RPG session, PR review, brainstorm). A proto is a frozen template. A molecule is an active instance with live state. This three-level abstraction (template -> frozen -> active) is cleaner than a single "workflow definition" concept.
 
 ### 8.2 Molecules: Executable Work Graphs
 
@@ -491,7 +491,7 @@ Gates enable workflows to wait on external conditions:
 
 Gates are "non-polling" -- the gate system handles monitoring, batching checks and respecting rate limits, rather than having agents poll for completion. [Source: DeepWiki, MOLECULES.md]
 
-**Transferable pattern**: Gates map directly to the GARP server's "human-in-the-loop" approval pattern. When a tick requires human approval before proceeding, a gate issue blocks the downstream work. When the human approves (via the inbox UI), the gate closes and dependent ticks become ready. The non-polling architecture is important -- the GARP server should push state changes rather than having agents poll.
+**Transferable pattern**: Gates map directly to the PACT server's "human-in-the-loop" approval pattern. When a tick requires human approval before proceeding, a gate issue blocks the downstream work. When the human approves (via the inbox UI), the gate closes and dependent ticks become ready. The non-polling architecture is important -- the PACT server should push state changes rather than having agents poll.
 
 ---
 
@@ -509,11 +509,11 @@ The Beads ecosystem has generated 25+ community tools across every interface cat
 
 **Native Apps**: Beadster (macOS), Parade (Electron, workflow orchestration), Beadbox (Tauri + Next.js, real-time sync)
 
-**GARP Tools**: BeadHub (GARP server for agent teams), Foolery (control surface with wave planning), beads-orchestration (multi-agent orchestration for Claude Code)
+**PACT Tools**: BeadHub (PACT server for agent teams), Foolery (control surface with wave planning), beads-orchestration (multi-agent orchestration for Claude Code)
 
 [Source: COMMUNITY_TOOLS.md]
 
-**Transferable pattern**: The explosion of community UIs validates the approach of exposing structured data through simple, standard interfaces. Craft Agents already has a rich UI. The GARP server should prioritize clean data APIs (JSON, JSONL, SQLite) that enable the existing UI to present coordination data naturally.
+**Transferable pattern**: The explosion of community UIs validates the approach of exposing structured data through simple, standard interfaces. Craft Agents already has a rich UI. The PACT server should prioritize clean data APIs (JSON, JSONL, SQLite) that enable the existing UI to present coordination data naturally.
 
 ### 9.2 Agent Mail Web UI
 
@@ -537,7 +537,7 @@ The Agent Mail web UI provides:
 
 Gas Town includes a web dashboard providing single-page overview of: agents, convoys, hooks, queues, issues, and escalations. The Mayor uses `gt convoy list` as its primary dashboard for monitoring work across all rigs. [Source: Gas Town overview.md]
 
-**Transferable pattern**: A GARP server needs a dashboard view showing: active workflows, dispatched ticks, agent status, pending approvals, and escalations. This is essentially the "GARP inbox" view that sits above individual session inboxes.
+**Transferable pattern**: A PACT server needs a dashboard view showing: active workflows, dispatched ticks, agent status, pending approvals, and escalations. This is essentially the "PACT inbox" view that sits above individual session inboxes.
 
 ---
 
@@ -569,27 +569,27 @@ Gas Town includes a web dashboard providing single-page overview of: agents, con
 
 ### 10.2 Recommended Design Principles from Beads
 
-**Principle 1: Execution over planning**. Beads succeeds because it focuses on "what should I do right now?" not "what is the grand plan?" The GARP server should prioritize `ready` computation (what ticks are unblocked) over workflow visualization.
+**Principle 1: Execution over planning**. Beads succeeds because it focuses on "what should I do right now?" not "what is the grand plan?" The PACT server should prioritize `ready` computation (what ticks are unblocked) over workflow visualization.
 
-**Principle 2: Token economy as architecture**. Every design decision in Beads is filtered through "how many tokens does this cost?" The `BriefIssue` model, the `bd prime` command, the CLI-over-MCP recommendation -- all optimize for minimal context consumption. The GARP server should adopt the same discipline.
+**Principle 2: Token economy as architecture**. Every design decision in Beads is filtered through "how many tokens does this cost?" The `BriefIssue` model, the `bd prime` command, the CLI-over-MCP recommendation -- all optimize for minimal context consumption. The PACT server should adopt the same discipline.
 
-**Principle 3: Git is the database**. Beads validates that git-backed JSONL with local SQLite caching is a viable architecture for agent coordination data. No external database service needed. The GARP server can follow the same pattern.
+**Principle 3: Git is the database**. Beads validates that git-backed JSONL with local SQLite caching is a viable architecture for agent coordination data. No external database service needed. The PACT server can follow the same pattern.
 
 **Principle 4: Short sessions, clean handoffs**. "One task per session, land the plane, kill it, start fresh." This maps to focused ticks with completion protocols. Context rot is the enemy; clean boundaries are the solution.
 
-**Principle 5: Advisory over enforced**. File reservations are advisory, not enforced locks. Contact policies guide behavior but trust agent discipline. This avoids deadlocks and keeps the system flexible. The GARP server should prefer advisory coordination over strict enforcement.
+**Principle 5: Advisory over enforced**. File reservations are advisory, not enforced locks. Contact policies guide behavior but trust agent discipline. This avoids deadlocks and keeps the system flexible. The PACT server should prefer advisory coordination over strict enforcement.
 
-**Principle 6: Structured data, flexible UIs**. Beads exposes data through CLI + JSON + JSONL + SQLite. 25+ community UIs emerged. The GARP server should expose structured APIs and let the Craft Agents UI present them, rather than coupling coordination logic to any specific view.
+**Principle 6: Structured data, flexible UIs**. Beads exposes data through CLI + JSON + JSONL + SQLite. 25+ community UIs emerged. The PACT server should expose structured APIs and let the Craft Agents UI present them, rather than coupling coordination logic to any specific view.
 
 ### 10.3 What the Beads Ecosystem Does NOT Solve (Gaps Relevant to the Vision)
 
 | Gap | Notes |
 |-----|-------|
-| **Domain-agnostic shared state schema** | Beads tracks issues/tasks. It does not model arbitrary domain state (RPG worlds, project boards, brainstorm canvases). The GARP server needs a more flexible state schema. |
-| **Central LLM reasoning at the server** | Gas Town's Mayor is an agent, but the system does not have a "server brain" that reasons about dispatch strategy. The GARP server's LLM-powered dispatch logic has no direct precedent in Beads. |
-| **Turn/tick as temporal concept** | Beads has tasks and dependencies but no concept of "cadence" or "it is your turn to act by this deadline." The GARP server needs time-awareness beyond simple timers. |
-| **Human-at-every-node as mandatory architecture** | Beads treats human involvement as optional (gates, overseer). The GARP server vision requires human-at-every-node as the default pattern. |
-| **Cross-organization federation** | Gas Town manages one workspace. The GARP server envisions multiple organizations/users coordinating. Federation is not addressed. |
+| **Domain-agnostic shared state schema** | Beads tracks issues/tasks. It does not model arbitrary domain state (RPG worlds, project boards, brainstorm canvases). The PACT server needs a more flexible state schema. |
+| **Central LLM reasoning at the server** | Gas Town's Mayor is an agent, but the system does not have a "server brain" that reasons about dispatch strategy. The PACT server's LLM-powered dispatch logic has no direct precedent in Beads. |
+| **Turn/tick as temporal concept** | Beads has tasks and dependencies but no concept of "cadence" or "it is your turn to act by this deadline." The PACT server needs time-awareness beyond simple timers. |
+| **Human-at-every-node as mandatory architecture** | Beads treats human involvement as optional (gates, overseer). The PACT server vision requires human-at-every-node as the default pattern. |
+| **Cross-organization federation** | Gas Town manages one workspace. The PACT server envisions multiple organizations/users coordinating. Federation is not addressed. |
 
 ---
 
@@ -600,7 +600,7 @@ Gas Town includes a web dashboard providing single-page overview of: agents, con
 | What I Searched For | What I Found | Assessment |
 |--------------------|-------------|------------|
 | Detailed formula/proto TOML schema and examples | References to the formula system in MOLECULES.md and FAQ, but no standalone schema documentation | **Partial gap**: The concept is documented but concrete examples are sparse |
-| Gas Town's internal communication protocol between Mayor, Witness, and Refinery | Role templates describe responsibilities, but the inter-agent message format is not publicly documented | **True gap**: The internal GARP between Gas Town components is not exposed |
+| Gas Town's internal communication protocol between Mayor, Witness, and Refinery | Role templates describe responsibilities, but the inter-agent message format is not publicly documented | **True gap**: The internal PACT between Gas Town components is not exposed |
 | Performance data on JSONL merge conflicts at scale | Qualitative mentions that "AI is required to work around edge cases" with JSONL merge | **True gap**: No quantitative data on merge conflict frequency or resolution cost |
 | Beads usage in non-coding domains | All examples are software development | **True gap**: No evidence of Beads being used for the kind of domain-agnostic coordination the Craft Agents vision requires |
 

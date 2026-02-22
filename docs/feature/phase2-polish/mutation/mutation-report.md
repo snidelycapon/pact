@@ -21,12 +21,12 @@
 | File | Total % | Covered % | Killed | Survived | No Cov | Verdict |
 |------|---------|-----------|--------|----------|--------|---------|
 | schemas.ts | 100.00 | 100.00 | 7 | 0 | 0 | PASS |
-| garp-respond.ts | 78.57 | 89.80 | 44 | 5 | 7 | WARN |
-| garp-amend.ts | 76.92 | 83.33 | 20 | 4 | 2 | WARN |
-| garp-inbox.ts | 75.00 | 80.60 | 54 | 13 | 5 | WARN |
+| pact-respond.ts | 78.57 | 89.80 | 44 | 5 | 7 | WARN |
+| pact-amend.ts | 76.92 | 83.33 | 20 | 4 | 2 | WARN |
+| pact-inbox.ts | 75.00 | 80.60 | 54 | 13 | 5 | WARN |
 | find-pending-request.ts | 74.07 | 90.91 | 20 | 2 | 5 | WARN |
-| garp-cancel.ts | 70.00 | 73.68 | 14 | 5 | 1 | WARN |
-| garp-status.ts | 65.00 | 86.67 | 52 | 8 | 20 | FAIL |
+| pact-cancel.ts | 70.00 | 73.68 | 14 | 5 | 1 | WARN |
+| pact-status.ts | 65.00 | 86.67 | 52 | 8 | 20 | FAIL |
 
 ## Surviving Mutants Analysis
 
@@ -36,12 +36,12 @@ These mutants disable `if (!params.request_id)` or `if (!params.fields)` guards 
 
 | File | Line | Mutation |
 |------|------|----------|
-| garp-amend.ts | 31 | `if (!params.request_id)` -> `if (false)` |
-| garp-amend.ts | 32 | `if (!params.fields)` -> `if (false)` |
-| garp-cancel.ts | 30 | `if (!params.request_id)` -> `if (false)` |
-| garp-respond.ts | 31 | `if (!params.request_id)` -> `if (false)` |
-| garp-status.ts | 76 | `if (!params.request_id)` -> `if (false)` |
-| garp-respond.ts | 60 | `if (!parsed.success)` -> `if (false)` (schema validation guard) |
+| pact-amend.ts | 31 | `if (!params.request_id)` -> `if (false)` |
+| pact-amend.ts | 32 | `if (!params.fields)` -> `if (false)` |
+| pact-cancel.ts | 30 | `if (!params.request_id)` -> `if (false)` |
+| pact-respond.ts | 31 | `if (!params.request_id)` -> `if (false)` |
+| pact-status.ts | 76 | `if (!params.request_id)` -> `if (false)` |
+| pact-respond.ts | 60 | `if (!parsed.success)` -> `if (false)` (schema validation guard) |
 
 **Risk:** LOW. MCP SDK validates required fields before handlers are called. These guards are defense-in-depth.
 
@@ -53,13 +53,13 @@ Mutations replace error message strings or return message strings with empty str
 
 | File | Line | Mutation |
 |------|------|----------|
-| garp-amend.ts | 39 | `"amended"` -> `""` (action string in findPendingRequest) |
-| garp-amend.ts | 74 | `message: "Request amended"` -> `message: ""` |
-| garp-cancel.ts | 37 | `"cancelled"` -> `""` (action string in findPendingRequest) |
-| garp-cancel.ts | 57 | `message: "Request cancelled"` -> `message: ""` |
-| garp-respond.ts | 97 | `message: "Response submitted"` -> `message: ""` |
-| garp-cancel.ts | 49 | filename template literal -> `""` |
-| garp-status.ts | 97 | `"requests/active"` directory string -> `""` |
+| pact-amend.ts | 39 | `"amended"` -> `""` (action string in findPendingRequest) |
+| pact-amend.ts | 74 | `message: "Request amended"` -> `message: ""` |
+| pact-cancel.ts | 37 | `"cancelled"` -> `""` (action string in findPendingRequest) |
+| pact-cancel.ts | 57 | `message: "Request cancelled"` -> `message: ""` |
+| pact-respond.ts | 97 | `message: "Response submitted"` -> `message: ""` |
+| pact-cancel.ts | 49 | filename template literal -> `""` |
+| pact-status.ts | 97 | `"requests/active"` directory string -> `""` |
 
 **Risk:** LOW-MEDIUM. The action strings ("amended", "cancelled") affect error messages for already-completed/cancelled requests, which are tested but only match on prefix. The return `message` fields are informational only.
 
@@ -72,12 +72,12 @@ Mutations disable `if (!parsed.success)` checks, allowing malformed envelopes to
 | File | Line | Mutation |
 |------|------|----------|
 | find-pending-request.ts | 52 | `if (!parsed.success)` -> `if (false)` |
-| garp-respond.ts | 60 | `if (!parsed.success)` -> `if (false)` |
-| garp-status.ts | 37 | `if (!parsed.success)` -> `if (false)` (parseRequestEnvelope) |
-| garp-status.ts | 46 | `if (!parsed.success)` -> `if (false)` (parseResponseEnvelope) |
-| garp-status.ts | 56 | `if (parsed.success)` -> `if (true)` (tryParseEnvelope) |
+| pact-respond.ts | 60 | `if (!parsed.success)` -> `if (false)` |
+| pact-status.ts | 37 | `if (!parsed.success)` -> `if (false)` (parseRequestEnvelope) |
+| pact-status.ts | 46 | `if (!parsed.success)` -> `if (false)` (parseResponseEnvelope) |
+| pact-status.ts | 56 | `if (parsed.success)` -> `if (true)` (tryParseEnvelope) |
 
-**Risk:** LOW. All tests use well-formed envelopes, so the malformed-envelope path is never exercised. In production, Zod schema validation provides protection. The `parseRequestEnvelope` and `parseResponseEnvelope` functions in garp-status.ts are graceful degradation (return raw data), so bypassing them does not change behavior for valid data.
+**Risk:** LOW. All tests use well-formed envelopes, so the malformed-envelope path is never exercised. In production, Zod schema validation provides protection. The `parseRequestEnvelope` and `parseResponseEnvelope` functions in pact-status.ts are graceful degradation (return raw data), so bypassing them does not change behavior for valid data.
 
 **Recommendation:** Accept for status/find-pending -- these are resilience paths. Consider a malformed-envelope acceptance test for respond if the feature is safety-critical.
 
@@ -87,9 +87,9 @@ Mutations disable or reverse sort comparators. The sort-order test passes becaus
 
 | File | Line | Mutation |
 |------|------|----------|
-| garp-inbox.ts | 130-131 | Thread group internal sort disabled/reversed |
-| garp-inbox.ts | 131 | Sort comparator `a - b` -> `a + b` |
-| garp-inbox.ts | 153-157 | Final sort disabled entirely / `aTime - bTime` -> `aTime + bTime` |
+| pact-inbox.ts | 130-131 | Thread group internal sort disabled/reversed |
+| pact-inbox.ts | 131 | Sort comparator `a - b` -> `a + b` |
+| pact-inbox.ts | 153-157 | Final sort disabled entirely / `aTime - bTime` -> `aTime + bTime` |
 
 **Risk:** MEDIUM. Sorting mutations survive because test data is seeded in chronological order. If filesystem enumeration order changes, the test could mask a real sort bug.
 
@@ -101,11 +101,11 @@ Mutations break reduce callbacks for `attachment_count` and `amendment_count` in
 
 | File | Line | Mutation |
 |------|------|----------|
-| garp-inbox.ts | 146 | `attachment_count: group.reduce(...)` -> `() => undefined` |
-| garp-inbox.ts | 146 | `sum + e.attachment_count` -> `sum - e.attachment_count` |
-| garp-inbox.ts | 147 | `amendment_count: group.reduce(...)` -> `() => undefined` |
-| garp-inbox.ts | 147 | `sum + e.amendment_count` -> `sum - e.amendment_count` |
-| garp-inbox.ts | 101 | `envelope.attachments.length > 0` -> `true` / `>= 0` |
+| pact-inbox.ts | 146 | `attachment_count: group.reduce(...)` -> `() => undefined` |
+| pact-inbox.ts | 146 | `sum + e.attachment_count` -> `sum - e.attachment_count` |
+| pact-inbox.ts | 147 | `amendment_count: group.reduce(...)` -> `() => undefined` |
+| pact-inbox.ts | 147 | `sum + e.amendment_count` -> `sum - e.amendment_count` |
+| pact-inbox.ts | 101 | `envelope.attachments.length > 0` -> `true` / `>= 0` |
 
 **Risk:** MEDIUM. Thread group tests do not assert aggregated counts. The `> 0` vs `>= 0` / `true` mutations survive because tests never create a thread group where one request has attachments and another does not.
 
@@ -117,10 +117,10 @@ Mutations disable the active-directory search path in respond and status.
 
 | File | Line | Mutation |
 |------|------|----------|
-| garp-respond.ts | 45 | `"requests/active"` -> `""` |
-| garp-respond.ts | 46 | `if (activeFiles.includes(filename))` -> `if (false)` |
-| garp-status.ts | 97 | `"requests/active"` -> `""` |
-| garp-status.ts | 98 | `if (activeFiles.includes(...))` -> `if (false)` |
+| pact-respond.ts | 45 | `"requests/active"` -> `""` |
+| pact-respond.ts | 46 | `if (activeFiles.includes(filename))` -> `if (false)` |
+| pact-status.ts | 97 | `"requests/active"` -> `""` |
+| pact-status.ts | 98 | `if (activeFiles.includes(...))` -> `if (false)` |
 
 **Risk:** LOW. The active/ directory is a Tier 2 feature (brain service acknowledgment) that is not yet exercised by any test. All current tests use pending/ or completed/.
 
@@ -140,12 +140,12 @@ Mutations disable the active-directory search path in respond and status.
 
 These mutants are in code paths that no test reaches at all:
 
-- **garp-status.ts (20):** Primarily in the active/ directory code path and in graceful-degradation branches (malformed envelope fallback, warning propagation). Most relate to Tier 2 active-state or resilience edge cases.
-- **garp-respond.ts (7):** Active directory fallback path, schema validation error formatting.
+- **pact-status.ts (20):** Primarily in the active/ directory code path and in graceful-degradation branches (malformed envelope fallback, warning propagation). Most relate to Tier 2 active-state or resilience edge cases.
+- **pact-respond.ts (7):** Active directory fallback path, schema validation error formatting.
 - **find-pending-request.ts (5):** "Not found" error message text, malformed envelope error formatting.
-- **garp-inbox.ts (5):** Malformed envelope skip logic, "No summary" fallback text.
-- **garp-amend.ts (2):** Missing-field error message text.
-- **garp-cancel.ts (1):** Missing-field error message text.
+- **pact-inbox.ts (5):** Malformed envelope skip logic, "No summary" fallback text.
+- **pact-amend.ts (2):** Missing-field error message text.
+- **pact-cancel.ts (1):** Missing-field error message text.
 
 Most no-coverage mutants are in error-formatting code (string interpolation, log calls) or the Tier 2 active/ directory path.
 

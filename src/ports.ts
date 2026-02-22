@@ -1,5 +1,5 @@
 /**
- * Driven port interfaces for GARP.
+ * Driven port interfaces for PACT.
  *
  * These define the infrastructure boundaries the application logic
  * depends on. Adapters implement these interfaces. Test doubles

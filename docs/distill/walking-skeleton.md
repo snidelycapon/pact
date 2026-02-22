@@ -9,17 +9,17 @@ The walking skeleton is the first acceptance test to implement and the last one 
 A single round-trip through all 4 driving ports:
 
 ```
-Alice (garp_request)  -->  git push  -->  Bob (garp_inbox)
+Alice (pact_request)  -->  git push  -->  Bob (pact_inbox)
                                                |
-Bob (garp_respond)    -->  git push  -->  Alice (garp_status)
+Bob (pact_respond)    -->  git push  -->  Alice (pact_status)
 ```
 
 Specifically:
-1. **Repo structure works** -- directories, config.json, skill file all in place
-2. **garp_request works** -- writes valid envelope, commits, pushes
-3. **garp_inbox works** -- pulls, scans pending, filters by user, returns summary
-4. **garp_respond works** -- writes response, moves request via git mv, atomic commit, pushes
-5. **garp_status works** -- pulls, finds completed request, returns response
+1. **Repo structure works** -- directories, config.json, pact file all in place
+2. **pact_request works** -- writes valid envelope, commits, pushes
+3. **pact_inbox works** -- pulls, scans pending, filters by user, returns summary
+4. **pact_respond works** -- writes response, moves request via git mv, atomic commit, pushes
+5. **pact_status works** -- pulls, finds completed request, returns response
 6. **Git transport works** -- push/pull between two clones through a bare remote
 7. **Session independence works** -- no state held between tool calls
 
@@ -48,8 +48,8 @@ Skeleton 1 is the FIRST test to enable. Skeletons 2 and 3 are marked `it.skip` u
 ## What the Walking Skeleton Is NOT
 
 - It is not a performance test (git latency is acceptable for async work)
-- It is not a concurrent access test (that is a focused scenario in garp-request.test.ts)
-- It is not a skill content validation test (skills are agent-level, not server-level)
+- It is not a concurrent access test (that is a focused scenario in pact-request.test.ts)
+- It is not a pact content validation test (pacts are agent-level, not server-level)
 - It is not a Craft Agents integration test (we test the tool handlers, not the MCP protocol layer)
 
 ## Relationship to US-008

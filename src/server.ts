@@ -1,31 +1,31 @@
 /**
- * GARP MCP server factory.
+ * PACT MCP server factory.
  *
- * createGarpServer accepts configuration and returns an object with
+ * createPactServer accepts configuration and returns an object with
  * a callTool method that dispatches to the 2 collapsed tool handlers:
- *   - garp_discover
- *   - garp_do
+ *   - pact_discover
+ *   - pact_do
  */
 
 import { GitAdapter } from "./adapters/git-adapter.ts";
 import { ConfigAdapter } from "./adapters/config-adapter.ts";
 import { FileAdapter } from "./adapters/file-adapter.ts";
-import { handleGarpDiscover } from "./tools/garp-discover.ts";
-import type { GarpDiscoverParams } from "./tools/garp-discover.ts";
-import { handleGarpDo } from "./tools/garp-do.ts";
+import { handlePactDiscover } from "./tools/pact-discover.ts";
+import type { PactDiscoverParams } from "./tools/pact-discover.ts";
+import { handlePactDo } from "./tools/pact-do.ts";
 
-export interface GarpServerConfig {
+export interface PactServerConfig {
   repoPath: string;
   userId: string;
 }
 
-export interface GarpServer {
+export interface PactServer {
   callTool(name: string, params: Record<string, unknown>): Promise<unknown>;
 }
 
-export function createGarpServer(config: GarpServerConfig): GarpServer {
+export function createPactServer(config: PactServerConfig): PactServer {
   // Adapters are lazily created on first callTool invocation so that
-  // createGarpServer itself remains a pure factory (simple-git validates
+  // createPactServer itself remains a pure factory (simple-git validates
   // the directory exists at construction time).
   let git: GitAdapter | undefined;
   let configAdapter: ConfigAdapter | undefined;
@@ -42,18 +42,18 @@ export function createGarpServer(config: GarpServerConfig): GarpServer {
   return {
     async callTool(name: string, params: Record<string, unknown>): Promise<unknown> {
       switch (name) {
-        case "garp_discover":
+        case "pact_discover":
           ensureAdapters();
-          return handleGarpDiscover(params as unknown as GarpDiscoverParams, {
+          return handlePactDiscover(params as unknown as PactDiscoverParams, {
             userId: config.userId,
             repoPath: config.repoPath,
             git: git!,
             config: configAdapter!,
             file: file!,
           });
-        case "garp_do":
+        case "pact_do":
           ensureAdapters();
-          return handleGarpDo(params, {
+          return handlePactDo(params, {
             userId: config.userId,
             repoPath: config.repoPath,
             git: git!,

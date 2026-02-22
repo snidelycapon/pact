@@ -2,18 +2,18 @@
 
 **Date**: 2026-02-22
 **Project ID**: phase2-polish
-**Scope**: Wave 2 (Lifecycle + Attachments) and Wave 3 (Skills + Convention)
+**Scope**: Wave 2 (Lifecycle + Attachments) and Wave 3 (Pacts + Convention)
 **Baseline**: Phase 2 Wave 1 (thread foundation) at commit cde3be5
 
 ---
 
 ## Feature Summary
 
-Phase 2 Polish completes the GARP protocol's lifecycle and metadata capabilities. Wave 2 adds request cancellation, amendment, status consistency, and attachment/amendment surfacing to read-side tools. Wave 3 delivers two skill contract examples and a convention document for inbox auto-polling. Together they close out Phase 2's user stories US-012 through US-018.
+Phase 2 Polish completes the PACT protocol's lifecycle and metadata capabilities. Wave 2 adds request cancellation, amendment, status consistency, and attachment/amendment surfacing to read-side tools. Wave 3 delivers two pact examples and a convention document for inbox auto-polling. Together they close out Phase 2's user stories US-012 through US-018.
 
-**Before**: Requests had a one-way lifecycle (pending -> completed). No cancellation, no amendment, no attachment visibility in inbox/status. No skill contract examples beyond the initial ask skill.
+**Before**: Requests had a one-way lifecycle (pending -> completed). No cancellation, no amendment, no attachment visibility in inbox/status. No pact examples beyond the initial ask pact.
 
-**After**: Full lifecycle (pending -> completed | cancelled), amendments that preserve history, attachment metadata surfaced in inbox and status, two skill contracts demonstrating advanced patterns, and a convention for auto-poll adoption.
+**After**: Full lifecycle (pending -> completed | cancelled), amendments that preserve history, attachment metadata surfaced in inbox and status, two pacts demonstrating advanced patterns, and a convention for auto-poll adoption.
 
 ---
 
@@ -24,19 +24,19 @@ Phase 2 Polish completes the GARP protocol's lifecycle and metadata capabilities
 | Step | Story | What It Does |
 |------|-------|-------------|
 | 01-01 | Schema foundation | AmendmentEntrySchema, envelope extensions (amendments, cancel_reason), cancelled/ directory |
-| 01-02 | US-013: garp_cancel | Cancel pending requests with authorization check, moves to cancelled/ with status consistency |
-| 01-03 | US-014: garp_amend | Append amendments to pending requests, preserving original context and full history |
-| 01-04 | US-015: Status consistency | garp_respond sets status="completed" in JSON before git mv |
-| 02-01 | US-013/US-015: Cancelled scan | garp_status scans cancelled/ directory, returns "cancelled" status with cancel_reason |
+| 01-02 | US-013: pact_cancel | Cancel pending requests with authorization check, moves to cancelled/ with status consistency |
+| 01-03 | US-014: pact_amend | Append amendments to pending requests, preserving original context and full history |
+| 01-04 | US-015: Status consistency | pact_respond sets status="completed" in JSON before git mv |
+| 02-01 | US-013/US-015: Cancelled scan | pact_status scans cancelled/ directory, returns "cancelled" status with cancel_reason |
 | 02-02 | US-012: Attachment + amendment surfacing | Inbox shows attachment metadata and amendment_count for entries and thread groups |
-| 02-03 | US-012: Attachment paths in status | garp_status returns absolute file paths for attachments |
+| 02-03 | US-012: Attachment paths in status | pact_status returns absolute file paths for attachments |
 
-### Wave 3: Skills + Convention (3 stories)
+### Wave 3: Pacts + Convention (3 stories)
 
 | Step | Story | What It Does |
 |------|-------|-------------|
-| 03-01 | US-017: Sanity-check SKILL.md | Skill contract for bug investigation validation with structured context bundle |
-| 03-02 | US-018: Code-review SKILL.md | Skill contract with Expected Attachments section (diff file pattern) |
+| 03-01 | US-017: Sanity-check PACT.md | Pact for bug investigation validation with structured context bundle |
+| 03-02 | US-018: Code-review PACT.md | Pact with Expected Attachments section (diff file pattern) |
 | 03-03 | US-016: Auto-poll convention | Convention document for Claude Code (system prompt) and Craft Agents (hook pattern) |
 
 ---
@@ -47,8 +47,8 @@ Phase 2 Polish completes the GARP protocol's lifecycle and metadata capabilities
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `src/tools/garp-cancel.ts` | 58 | Cancel handler: authorization, status mutation, git mv to cancelled/ |
-| `src/tools/garp-amend.ts` | 76 | Amend handler: authorization, amendment append, envelope write-back |
+| `src/tools/pact-cancel.ts` | 58 | Cancel handler: authorization, status mutation, git mv to cancelled/ |
+| `src/tools/pact-amend.ts` | 76 | Amend handler: authorization, amendment append, envelope write-back |
 | `src/tools/find-pending-request.ts` | 59 | Shared helper: locate request in pending/, check completed/cancelled |
 
 ### Modified Production Files
@@ -56,16 +56,16 @@ Phase 2 Polish completes the GARP protocol's lifecycle and metadata capabilities
 | File | Change |
 |------|--------|
 | `src/schemas.ts` | +AmendmentEntrySchema, +amendments/cancel_reason to RequestEnvelopeSchema |
-| `src/server.ts` | +garp_cancel and garp_amend tool dispatch |
-| `src/mcp-server.ts` | +garp_cancel and garp_amend MCP tool registration |
-| `src/tools/garp-respond.ts` | Sets status="completed" before git mv |
-| `src/tools/garp-inbox.ts` | Surfaces attachment metadata and amendment_count |
-| `src/tools/garp-status.ts` | Scans cancelled/ directory, returns attachment_paths |
+| `src/server.ts` | +pact_cancel and pact_amend tool dispatch |
+| `src/mcp-server.ts` | +pact_cancel and pact_amend MCP tool registration |
+| `src/tools/pact-respond.ts` | Sets status="completed" before git mv |
+| `src/tools/pact-inbox.ts` | Surfaces attachment metadata and amendment_count |
+| `src/tools/pact-status.ts` | Scans cancelled/ directory, returns attachment_paths |
 
 ### Refactoring (RPP L1-L4)
 
-- **Extracted `find-pending-request.ts`**: garp_cancel, garp_amend, and garp_respond all shared identical logic to locate a pending request, check authorization, and detect already-completed/cancelled states. Extracted to a shared helper (L2 duplication elimination).
-- **Extracted `seedPendingRequest`**: Test helper factored out of garp-cancel and garp-amend test files into `setup-test-repos.ts` (test DRY).
+- **Extracted `find-pending-request.ts`**: pact_cancel, pact_amend, and pact_respond all shared identical logic to locate a pending request, check authorization, and detect already-completed/cancelled states. Extracted to a shared helper (L2 duplication elimination).
+- **Extracted `seedPendingRequest`**: Test helper factored out of pact-cancel and pact-amend test files into `setup-test-repos.ts` (test DRY).
 - **Net result**: -86 lines across the refactoring pass despite adding functionality.
 
 ### Structural Pattern
@@ -89,11 +89,11 @@ The new tools follow the same ports-and-adapters pattern established in Phase 1.
 
 | File | New Tests | What They Cover |
 |------|-----------|-----------------|
-| `garp-cancel.test.ts` | 5 | Happy path, auth check, already-completed, already-cancelled, cancel reason |
-| `garp-amend.test.ts` | 5 | Happy path, multiple amendments, auth check, already-completed, already-cancelled |
-| `garp-respond.test.ts` | 1 | Status field set to "completed" after respond |
-| `garp-status.test.ts` | 4 | Cancelled scan, cancelled with reason, attachment paths present, attachment paths absent |
-| `garp-inbox.test.ts` | 2 | Amendment count in entries, attachment metadata in entries |
+| `pact-cancel.test.ts` | 5 | Happy path, auth check, already-completed, already-cancelled, cancel reason |
+| `pact-amend.test.ts` | 5 | Happy path, multiple amendments, auth check, already-completed, already-cancelled |
+| `pact-respond.test.ts` | 1 | Status field set to "completed" after respond |
+| `pact-status.test.ts` | 4 | Cancelled scan, cancelled with reason, attachment paths present, attachment paths absent |
+| `pact-inbox.test.ts` | 2 | Amendment count in entries, attachment metadata in entries |
 | `schemas.test.ts` | 3 | AmendmentEntrySchema valid, missing fields, backward compatibility |
 | Mutation-driven | 3 | Reverse-chronological sort, aggregated counts, error message content |
 
@@ -130,7 +130,7 @@ All 10 steps completed on 2026-02-22, spanning approximately 35 minutes of execu
 |-------|-------|------------------|----------|
 | 01: Schema + Cancel + Amend | 01-01 through 01-04 | 02:34 - 02:50 | ~16 min |
 | 02: Read-Side Enhancements | 02-01 through 02-03 | 02:52 - 03:03 | ~11 min |
-| 03: Skills + Convention | 03-01 through 03-03 | 02:52 - 03:05 | ~13 min |
+| 03: Pacts + Convention | 03-01 through 03-03 | 02:52 - 03:05 | ~13 min |
 
 Phases 02 and 03 ran with significant parallelism -- steps from both phases were interleaved in the execution log.
 
@@ -140,7 +140,7 @@ Phases 02 and 03 ran with significant parallelism -- steps from both phases were
 
 ### Shared Helper Extraction Over Inheritance
 
-garp_cancel, garp_amend, and garp_respond all need to: pull, find a pending request, verify authorization, and detect already-terminal states. Rather than introducing a base class or middleware pattern, a pure function (`findPendingRequest`) was extracted. This keeps tool handlers as standalone functions consistent with the existing architecture.
+pact_cancel, pact_amend, and pact_respond all need to: pull, find a pending request, verify authorization, and detect already-terminal states. Rather than introducing a base class or middleware pattern, a pure function (`findPendingRequest`) was extracted. This keeps tool handlers as standalone functions consistent with the existing architecture.
 
 ### Amendment as Append-Only Array
 
@@ -170,11 +170,11 @@ Rather than inferring status from directory location, the respond handler now ex
 
 ### What Was Tricky
 
-**Cancelled scan ordering.** garp_status scans pending/, completed/, and cancelled/ directories. The scan order matters because a request ID should never exist in multiple directories, but if it does (data corruption), the first match wins. The chosen order (pending -> completed -> cancelled) prioritizes the most actionable state.
+**Cancelled scan ordering.** pact_status scans pending/, completed/, and cancelled/ directories. The scan order matters because a request ID should never exist in multiple directories, but if it does (data corruption), the first match wins. The chosen order (pending -> completed -> cancelled) prioritizes the most actionable state.
 
-**Thread group aggregation complexity.** Summing amendment_count and attachment_count across thread group entries added complexity to garp_inbox. The mutation testing confirmed this -- several surviving mutants were in the reduce callbacks. The thread group aggregation is the most complex single function in the codebase.
+**Thread group aggregation complexity.** Summing amendment_count and attachment_count across thread group entries added complexity to pact_inbox. The mutation testing confirmed this -- several surviving mutants were in the reduce callbacks. The thread group aggregation is the most complex single function in the codebase.
 
-**No-coverage mutants for active/ directory.** 20 of the 40 no-coverage mutants are in the active/ directory code path in garp_status, which is infrastructure for the Tier 2 brain service feature. These paths exist but are untested because the feature is not yet implemented. This is accepted debt.
+**No-coverage mutants for active/ directory.** 20 of the 40 no-coverage mutants are in the active/ directory code path in pact_status, which is infrastructure for the Tier 2 brain service feature. These paths exist but are untested because the feature is not yet implemented. This is accepted debt.
 
 ---
 
@@ -183,27 +183,27 @@ Rather than inferring status from directory location, the respond handler now ex
 ### Production (22 files changed, +1673 / -104 lines)
 
 New files:
-- `src/tools/garp-cancel.ts` (58 lines)
-- `src/tools/garp-amend.ts` (76 lines)
+- `src/tools/pact-cancel.ts` (58 lines)
+- `src/tools/pact-amend.ts` (76 lines)
 - `src/tools/find-pending-request.ts` (59 lines)
-- `examples/skills/sanity-check/SKILL.md`
-- `examples/skills/code-review/SKILL.md`
+- `examples/pacts/sanity-check/PACT.md`
+- `examples/pacts/code-review/PACT.md`
 - `docs/conventions/inbox-autopoll.md`
 
 Modified files:
 - `src/schemas.ts`, `src/server.ts`, `src/mcp-server.ts`
-- `src/tools/garp-respond.ts`, `src/tools/garp-inbox.ts`, `src/tools/garp-status.ts`
-- `scripts/garp-init.sh`
+- `src/tools/pact-respond.ts`, `src/tools/pact-inbox.ts`, `src/tools/pact-status.ts`
+- `scripts/pact-init.sh`
 
 ### Tests
 
 New files:
-- `tests/acceptance/garp-cancel.test.ts`
-- `tests/acceptance/garp-amend.test.ts`
+- `tests/acceptance/pact-cancel.test.ts`
+- `tests/acceptance/pact-amend.test.ts`
 
 Modified files:
-- `tests/acceptance/garp-respond.test.ts`, `tests/acceptance/garp-inbox.test.ts`
-- `tests/acceptance/garp-status.test.ts`, `tests/acceptance/helpers/setup-test-repos.ts`
+- `tests/acceptance/pact-respond.test.ts`, `tests/acceptance/pact-inbox.test.ts`
+- `tests/acceptance/pact-status.test.ts`, `tests/acceptance/helpers/setup-test-repos.ts`
 - `tests/unit/schemas.test.ts`, `tests/unit/mcp-server.test.ts`
 
 ### Feature Documentation
@@ -220,15 +220,15 @@ Modified files:
 816ddf7  test(phase2-polish): strengthen tests to improve mutation kill rate
 8f6e818  refactor(phase2-polish): L1-L4 RPP sweep on Wave 2 implementation
 026ee0f  fix(phase2-polish): correct invalid RED_UNIT log entries for 01-02 and 02-01
-348a56b  feat(garp-inbox): add amendment_count and attachment metadata to inbox - step 02-02
-185a3c1  feat(phase2-polish): garp_status cancelled scan and type update - step 02-01
+348a56b  feat(pact-inbox): add amendment_count and attachment metadata to inbox - step 02-02
+185a3c1  feat(phase2-polish): pact_status cancelled scan and type update - step 02-01
 0409c79  feat(phase2-polish): attachment paths in status (US-012 partial) - step 02-03
 1f958bf  docs(phase2-polish): inbox auto-poll convention (US-016) - step 03-03
-385b1dc  feat(phase2-polish): code-review SKILL.md (US-018) - step 03-02
-dbe3c87  feat(phase2-polish): sanity-check SKILL.md (US-017) - step 03-01
-e54c230  feat(phase2-polish): garp_respond status consistency (US-015) - step 01-04
-57a8e46  feat(phase2-polish): garp_amend tool (US-014) - step 01-03
-f5cad78  feat(phase2-polish): garp_cancel tool (US-013) - step 01-02
+385b1dc  feat(phase2-polish): code-review PACT.md (US-018) - step 03-02
+dbe3c87  feat(phase2-polish): sanity-check PACT.md (US-017) - step 03-01
+e54c230  feat(phase2-polish): pact_respond status consistency (US-015) - step 01-04
+57a8e46  feat(phase2-polish): pact_amend tool (US-014) - step 01-03
+f5cad78  feat(phase2-polish): pact_cancel tool (US-013) - step 01-02
 4e18c5f  feat(phase2-polish): add AmendmentEntrySchema and cancelled directory - step 01-01
 ```
 

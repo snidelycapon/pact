@@ -12,26 +12,26 @@
 
 | File | Purpose | Dependencies |
 |------|---------|-------------|
-| `src/skill-loader.ts` | Parse YAML frontmatter from SKILL.md files. Returns typed skill metadata including context/response field definitions and optional brain_processing rules. Replaces `src/skill-parser.ts`. | `FilePort`, `yaml` package |
+| `src/pact-loader.ts` | Parse YAML frontmatter from PACT.md files. Returns typed pact metadata including context/response field definitions and optional hooks rules. Replaces `src/pact-parser.ts`. | `FilePort`, `yaml` package |
 | `src/action-dispatcher.ts` | Accept an action string and params, validate the action, delegate to the appropriate handler module. Single switch/map dispatch. | All handler modules in `src/tools/` |
 
 ### MCP Surface
 
 | File | Purpose | Dependencies |
 |------|---------|-------------|
-| `src/tools/garp-discover.ts` | Handler for `garp_discover`. Reads skills directory, parses metadata via skill-loader, reads team config, returns catalog. | `skill-loader.ts`, `ConfigPort`, `FilePort`, `GitPort` |
-| `src/tools/garp-do.ts` | Handler for `garp_do`. Receives action + params, delegates to action-dispatcher. Thin wrapper providing adapter context. | `action-dispatcher.ts`, all existing handler modules |
+| `src/tools/pact-discover.ts` | Handler for `pact_discover`. Reads pacts directory, parses metadata via pact-loader, reads team config, returns catalog. | `pact-loader.ts`, `ConfigPort`, `FilePort`, `GitPort` |
+| `src/tools/pact-do.ts` | Handler for `pact_do`. Receives action + params, delegates to action-dispatcher. Thin wrapper providing adapter context. | `action-dispatcher.ts`, all existing handler modules |
 
-### Skill Contracts (new format)
+### Pacts (new format)
 
 | File | Purpose | Notes |
 |------|---------|-------|
-| `skills/ask/SKILL.md` | Ask skill in unified format | YAML frontmatter + markdown body |
-| `skills/code-review/SKILL.md` | Code review skill in unified format | YAML frontmatter + markdown body |
-| `skills/design-skill/SKILL.md` | Design-skill in unified format | YAML frontmatter + markdown body |
-| `skills/sanity-check/SKILL.md` | Sanity check skill in unified format | YAML frontmatter + markdown body |
+| `pacts/ask/PACT.md` | Ask pact in unified format | YAML frontmatter + markdown body |
+| `pacts/code-review/PACT.md` | Code review pact in unified format | YAML frontmatter + markdown body |
+| `pacts/design-pact/PACT.md` | Design-pact in unified format | YAML frontmatter + markdown body |
+| `pacts/sanity-check/PACT.md` | Sanity check pact in unified format | YAML frontmatter + markdown body |
 
-Note: Skills move from `examples/skills/` to `skills/` in the shared repo. The `examples/` prefix was appropriate when skills were documentation-only; with the new format they are functional artifacts read by the server.
+Note: Pacts move from `examples/pacts/` to `pacts/` in the shared repo. The `examples/` prefix was appropriate when pacts were documentation-only; with the new format they are functional artifacts read by the server.
 
 ---
 
@@ -41,30 +41,30 @@ Note: Skills move from `examples/skills/` to `skills/` in the shared repo. The `
 
 | File | Current Lines | Change Description |
 |------|--------------|-------------------|
-| `src/mcp-server.ts` | 299 | Phase 1: Add `garp_discover` and `garp_do` registrations alongside existing 8. Phase 3: Remove the 8 old registrations, keep only the 2 new ones. Net reduction: ~200 lines. |
-| `src/server.ts` | 125 | Phase 3: Update `callTool` dispatch to support `garp_discover` and `garp_do`. Old tool names may be retained as aliases during transition or removed entirely. |
+| `src/mcp-server.ts` | 299 | Phase 1: Add `pact_discover` and `pact_do` registrations alongside existing 8. Phase 3: Remove the 8 old registrations, keep only the 2 new ones. Net reduction: ~200 lines. |
+| `src/server.ts` | 125 | Phase 3: Update `callTool` dispatch to support `pact_discover` and `pact_do`. Old tool names may be retained as aliases during transition or removed entirely. |
 
 ### Tool Handlers (Minor)
 
 | File | Current Lines | Change Description |
 |------|--------------|-------------------|
-| `src/tools/garp-request.ts` | 118 | Replace `getRequiredContextFields` import from old `skill-parser.ts` with equivalent from new `skill-loader.ts`. Behavioral contract unchanged. |
-| `src/tools/garp-inbox.ts` | 193 | Replace `parseSkillMetadata` import from old `skill-parser.ts` with equivalent from new `skill-loader.ts`. Behavioral contract unchanged. |
+| `src/tools/pact-request.ts` | 118 | Replace `getRequiredContextFields` import from old `pact-parser.ts` with equivalent from new `pact-loader.ts`. Behavioral contract unchanged. |
+| `src/tools/pact-inbox.ts` | 193 | Replace `parsePactMetadata` import from old `pact-parser.ts` with equivalent from new `pact-loader.ts`. Behavioral contract unchanged. |
 
 ### Test Files
 
 | File | Change Description |
 |------|-------------------|
-| `tests/acceptance/garp-skills.test.ts` | Phase 3: Migrate from `garp_skills` tool calls to `garp_discover` calls. Assertions on response shape will change to match new catalog format. |
-| `tests/acceptance/garp-request.test.ts` | Phase 3: Migrate from `garp_request` to `garp_do({ action: "send", ... })`. Handler assertions unchanged. |
-| `tests/acceptance/garp-inbox.test.ts` | Phase 3: Migrate from `garp_inbox` to `garp_do({ action: "inbox" })`. Handler assertions unchanged. |
-| `tests/unit/skill-parser.test.ts` | Phase 3: Replace entirely with `tests/unit/skill-loader.test.ts`. New tests validate YAML frontmatter parsing. |
+| `tests/acceptance/pact-pacts.test.ts` | Phase 3: Migrate from `pact_pacts` tool calls to `pact_discover` calls. Assertions on response shape will change to match new catalog format. |
+| `tests/acceptance/pact-request.test.ts` | Phase 3: Migrate from `pact_request` to `pact_do({ action: "send", ... })`. Handler assertions unchanged. |
+| `tests/acceptance/pact-inbox.test.ts` | Phase 3: Migrate from `pact_inbox` to `pact_do({ action: "inbox" })`. Handler assertions unchanged. |
+| `tests/unit/pact-parser.test.ts` | Phase 3: Replace entirely with `tests/unit/pact-loader.test.ts`. New tests validate YAML frontmatter parsing. |
 
-### Example Skills
+### Example Pacts
 
 | File | Change Description |
 |------|-------------------|
-| `examples/skills/*/SKILL.md` | Convert to YAML frontmatter format OR keep as legacy reference alongside new `skills/` directory. |
+| `examples/pacts/*/PACT.md` | Convert to YAML frontmatter format OR keep as legacy reference alongside new `pacts/` directory. |
 
 ---
 
@@ -72,9 +72,9 @@ Note: Skills move from `examples/skills/` to `skills/` in the shared repo. The `
 
 | File | Current Lines | Reason |
 |------|--------------|--------|
-| `src/skill-parser.ts` | 291 | Replaced by `src/skill-loader.ts`. Heuristic markdown parsing eliminated. |
-| `src/tools/garp-skills.ts` | 82 | Replaced by `src/tools/garp-discover.ts`. Enumerated skill listing eliminated. |
-| `examples/skills/*/schema.json` | 4 files | Schema content absorbed into SKILL.md YAML frontmatter. No longer separate files. |
+| `src/pact-parser.ts` | 291 | Replaced by `src/pact-loader.ts`. Heuristic markdown parsing eliminated. |
+| `src/tools/pact-pacts.ts` | 82 | Replaced by `src/tools/pact-discover.ts`. Enumerated pact listing eliminated. |
+| `examples/pacts/*/schema.json` | 4 files | Schema content absorbed into PACT.md YAML frontmatter. No longer separate files. |
 
 ---
 
@@ -82,30 +82,30 @@ Note: Skills move from `examples/skills/` to `skills/` in the shared repo. The `
 
 Implementation should proceed in this order. Each step is independently testable.
 
-### Step 1: Skill Loader (no MCP surface changes)
+### Step 1: Pact Loader (no MCP surface changes)
 
-Create `src/skill-loader.ts`. This module has no dependents yet -- it can be developed and unit-tested in isolation.
+Create `src/pact-loader.ts`. This module has no dependents yet -- it can be developed and unit-tested in isolation.
 
-- Accepts `FilePort` and skill directory name
-- Reads `SKILL.md`, extracts YAML frontmatter, parses it
-- Returns typed metadata: name, version, description, when_to_use, context_fields, response_fields, brain_processing
-- Returns undefined for missing or malformed SKILL.md files (same contract as old parser)
+- Accepts `FilePort` and pact directory name
+- Reads `PACT.md`, extracts YAML frontmatter, parses it
+- Returns typed metadata: name, version, description, when_to_use, context_fields, response_fields, hooks
+- Returns undefined for missing or malformed PACT.md files (same contract as old parser)
 - Target: >90% mutation score
 
-### Step 2: Skill Contracts Migration
+### Step 2: Pacts Migration
 
-Convert the 4 example skills to the new YAML frontmatter format. Place them in `skills/` (not `examples/skills/`).
+Convert the 4 example pacts to the new YAML frontmatter format. Place them in `pacts/` (not `examples/pacts/`).
 
-- Validate that skill-loader correctly parses each converted skill
-- Verify round-trip: old parser output matches new loader output for the same skill content
+- Validate that pact-loader correctly parses each converted pact
+- Verify round-trip: old parser output matches new loader output for the same pact content
 
 ### Step 3: Discovery Handler
 
-Create `src/tools/garp-discover.ts`.
+Create `src/tools/pact-discover.ts`.
 
-- Uses skill-loader to build the skills catalog
+- Uses pact-loader to build the pacts catalog
 - Uses ConfigPort to read team members
-- Returns the `{ skills, team }` response shape
+- Returns the `{ pacts, team }` response shape
 - Unit-testable with in-memory FilePort
 
 ### Step 4: Action Dispatcher
@@ -119,7 +119,7 @@ Create `src/action-dispatcher.ts`.
 
 ### Step 5: Do Handler
 
-Create `src/tools/garp-do.ts`.
+Create `src/tools/pact-do.ts`.
 
 - Extracts `action` from params
 - Delegates to action-dispatcher
@@ -127,7 +127,7 @@ Create `src/tools/garp-do.ts`.
 
 ### Step 6: MCP Registration (Additive)
 
-Modify `src/mcp-server.ts` to register `garp_discover` and `garp_do` alongside existing 8 tools.
+Modify `src/mcp-server.ts` to register `pact_discover` and `pact_do` alongside existing 8 tools.
 
 - All 10 tools registered
 - Existing tests pass
@@ -135,7 +135,7 @@ Modify `src/mcp-server.ts` to register `garp_discover` and `garp_do` alongside e
 
 ### Step 7: Handler Import Migration
 
-Update `garp-request.ts` and `garp-inbox.ts` to import from `skill-loader.ts` instead of `skill-parser.ts`.
+Update `pact-request.ts` and `pact-inbox.ts` to import from `pact-loader.ts` instead of `pact-parser.ts`.
 
 - Behavioral equivalence verified by existing tests
 - No test modifications needed at this step
@@ -144,13 +144,13 @@ Update `garp-request.ts` and `garp-inbox.ts` to import from `skill-loader.ts` in
 
 Migrate acceptance tests from old tool names to collapsed tool names.
 
-- `garp_request` calls become `garp_do({ action: "send", ... })`
-- `garp_skills` calls become `garp_discover`
+- `pact_request` calls become `pact_do({ action: "send", ... })`
+- `pact_pacts` calls become `pact_discover`
 - Handler assertions remain identical
 
 ### Step 9: Removal
 
-Delete old files: `skill-parser.ts`, `garp-skills.ts`, `schema.json` files.
+Delete old files: `pact-parser.ts`, `pact-pacts.ts`, `schema.json` files.
 
 - Remove 8 old tool registrations from `mcp-server.ts`
 - Update `server.ts` test factory
@@ -162,19 +162,19 @@ Delete old files: `skill-parser.ts`, `garp-skills.ts`, `schema.json` files.
 
 ```
 src/mcp-server.ts
-  --> src/tools/garp-discover.ts
-        --> src/skill-loader.ts --> FilePort
+  --> src/tools/pact-discover.ts
+        --> src/pact-loader.ts --> FilePort
         --> ConfigPort
         --> GitPort
-  --> src/tools/garp-do.ts
+  --> src/tools/pact-do.ts
         --> src/action-dispatcher.ts
-              --> src/tools/garp-request.ts --> GitPort, ConfigPort, FilePort, skill-loader
-              --> src/tools/garp-inbox.ts --> GitPort, FilePort, skill-loader
-              --> src/tools/garp-respond.ts --> GitPort, ConfigPort, FilePort
-              --> src/tools/garp-status.ts --> GitPort, FilePort
-              --> src/tools/garp-thread.ts --> GitPort, FilePort
-              --> src/tools/garp-cancel.ts --> GitPort, FilePort, find-pending-request
-              --> src/tools/garp-amend.ts --> GitPort, FilePort, find-pending-request
+              --> src/tools/pact-request.ts --> GitPort, ConfigPort, FilePort, pact-loader
+              --> src/tools/pact-inbox.ts --> GitPort, FilePort, pact-loader
+              --> src/tools/pact-respond.ts --> GitPort, ConfigPort, FilePort
+              --> src/tools/pact-status.ts --> GitPort, FilePort
+              --> src/tools/pact-thread.ts --> GitPort, FilePort
+              --> src/tools/pact-cancel.ts --> GitPort, FilePort, find-pending-request
+              --> src/tools/pact-amend.ts --> GitPort, FilePort, find-pending-request
 ```
 
 ### Preserved Modules (unchanged)

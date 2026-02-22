@@ -2,8 +2,8 @@
  * Test repository setup for acceptance tests.
  *
  * Creates a local bare git repo (simulating GitHub) plus two working
- * clones ("alice" and "bob") with the standard GARP directory
- * structure, config.json, and a sanity-check skill stub.
+ * clones ("alice" and "bob") with the standard PACT directory
+ * structure, config.json, and a sanity-check pact stub.
  *
  * This follows the Alice + Bob pattern from the testing strategy.
  * No network access -- everything is local filesystem git.
@@ -47,9 +47,9 @@ const TEST_CONFIG = {
 };
 
 /**
- * Minimal sanity-check skill file for tests.
+ * Minimal sanity-check pact file for tests.
  */
-const TEST_SKILL = `# Sanity Check
+const TEST_PACT = `# Sanity Check
 
 ## When To Use
 When you need a colleague to validate your findings on a bug investigation.
@@ -77,13 +77,13 @@ When you need a colleague to validate your findings on a bug investigation.
 /**
  * Create a complete test repo topology: bare remote + alice clone + bob clone.
  *
- * The repos are initialized with the GARP directory structure,
- * config.json, a sanity-check SKILL.md, and .gitkeep files.
+ * The repos are initialized with the PACT directory structure,
+ * config.json, a sanity-check PACT.md, and .gitkeep files.
  *
  * Call cleanup() when done to remove all temp directories.
  */
 export function createTestRepos(): TestRepoContext {
-  const basePath = mkdtempSync(join(tmpdir(), "garp-accept-"));
+  const basePath = mkdtempSync(join(tmpdir(), "pact-accept-"));
   const remotePath = join(basePath, "remote.git");
   const aliceRepo = join(basePath, "alice");
   const bobRepo = join(basePath, "bob");
@@ -102,7 +102,7 @@ export function createTestRepos(): TestRepoContext {
     "requests/completed",
     "requests/cancelled",
     "responses",
-    "skills/sanity-check",
+    "pacts/sanity-check",
   ];
   for (const dir of dirs) {
     mkdirSync(join(aliceRepo, dir), { recursive: true });
@@ -113,7 +113,7 @@ export function createTestRepos(): TestRepoContext {
     "requests/completed/.gitkeep",
     "requests/cancelled/.gitkeep",
     "responses/.gitkeep",
-    "skills/.gitkeep",
+    "pacts/.gitkeep",
   ]) {
     writeFileSync(join(aliceRepo, gk), "");
   }
@@ -121,7 +121,7 @@ export function createTestRepos(): TestRepoContext {
     join(aliceRepo, "config.json"),
     JSON.stringify(TEST_CONFIG, null, 2),
   );
-  writeFileSync(join(aliceRepo, "skills/sanity-check/SKILL.md"), TEST_SKILL);
+  writeFileSync(join(aliceRepo, "pacts/sanity-check/PACT.md"), TEST_PACT);
 
   execSync(
     [
@@ -129,7 +129,7 @@ export function createTestRepos(): TestRepoContext {
       `git config user.email "alice@test.local"`,
       `git config user.name "Alice"`,
       `git add -A`,
-      `git commit -m "Initialize GARP repo"`,
+      `git commit -m "Initialize PACT repo"`,
       `git push origin main`,
     ].join(" && "),
     { stdio: "pipe" },

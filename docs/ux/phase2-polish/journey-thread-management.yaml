@@ -31,15 +31,15 @@ journey:
       end: responds_with_full_history
 
   preconditions:
-    - Both users have configured MCP servers for the shared GARP repo
-    - The design-skill SKILL.md exists in the repo
+    - Both users have configured MCP servers for the shared PACT repo
+    - The design-pact PACT.md exists in the repo
     - At least one round of a multi-round conversation has occurred
 
   steps:
     - id: send-round-1
       actor: cory
       action: Sends first request in a new conversation
-      tool: garp_request
+      tool: pact_request
       produces:
         - artifact: request-round-1
           file: requests/pending/req-{id}.json
@@ -48,7 +48,7 @@ journey:
 
     - id: auto-thread-id
       actor: system
-      action: garp_request auto-assigns thread_id = request_id
+      action: pact_request auto-assigns thread_id = request_id
       produces:
         - artifact: thread-anchor
           field: thread_id (set to request_id value)
@@ -60,7 +60,7 @@ journey:
     - id: respond-round-1
       actor: dan
       action: Dan responds to round 1
-      tool: garp_respond
+      tool: pact_respond
       produces:
         - artifact: response-round-1
           file: responses/req-{id}.json
@@ -68,7 +68,7 @@ journey:
     - id: send-round-2
       actor: cory
       action: Sends follow-up request with thread_id
-      tool: garp_request
+      tool: pact_request
       consumes:
         - artifact: thread-anchor
       produces:
@@ -81,20 +81,20 @@ journey:
     - id: view-thread
       actor: cory
       action: Requests thread history
-      tool: garp_thread
+      tool: pact_thread
       consumes:
         - artifact: thread-anchor
       produces:
         - artifact: thread-view
       emotion: oriented
       description: >
-        Agent calls garp_thread with the thread_id. Returns chronological
+        Agent calls pact_thread with the thread_id. Returns chronological
         list of all requests and responses in the thread.
 
     - id: threaded-inbox
       actor: dan
       action: Checks inbox, sees grouped thread
-      tool: garp_inbox
+      tool: pact_inbox
       emotion: oriented
       description: >
         Inbox groups pending requests by thread_id. Dan sees one entry

@@ -4,7 +4,7 @@
 
 ## Context
 
-GARP currently registers 8 MCP tools: `garp_request`, `garp_inbox`, `garp_respond`, `garp_status`, `garp_thread`, `garp_cancel`, `garp_amend`, `garp_skills`. Each tool registration consumes ~200 tokens of agent context. At 8 tools this is manageable (~1,600 tokens), but the architecture scales O(tools) -- adding skills-related operations, brain controls, or team management tools would push context consumption past acceptable thresholds (projected ~6,000 tokens at 30 tools, ~20% of context at 100 skills).
+PACT currently registers 8 MCP tools: `pact_request`, `pact_inbox`, `pact_respond`, `pact_status`, `pact_thread`, `pact_cancel`, `pact_amend`, `pact_pacts`. Each tool registration consumes ~200 tokens of agent context. At 8 tools this is manageable (~1,600 tokens), but the architecture scales O(tools) -- adding pacts-related operations, brain controls, or team management tools would push context consumption past acceptable thresholds (projected ~6,000 tokens at 30 tools, ~20% of context at 100 pacts).
 
 The underlying handler logic is sound (179 passing tests, clean ports-and-adapters). The problem is the MCP registration surface, not the internal dispatch.
 
@@ -12,13 +12,13 @@ The underlying handler logic is sound (179 passing tests, clean ports-and-adapte
 
 Collapse from 8 enumerated MCP tools to 2 meta-tools:
 
-- **`garp_discover`** -- Read-only discovery and catalog retrieval. Returns available skills, team members, and optionally active thread summaries. Accepts an optional `query` parameter for keyword filtering. No side effects.
+- **`pact_discover`** -- Read-only discovery and catalog retrieval. Returns available pacts, team members, and optionally active thread summaries. Accepts an optional `query` parameter for keyword filtering. No side effects.
 
-- **`garp_do`** -- All operations. Accepts an `action` discriminator string (`send`, `respond`, `cancel`, `amend`, `check_status`, `inbox`, `view_thread`) plus action-specific parameters. Dispatches internally to the existing handler modules.
+- **`pact_do`** -- All operations. Accepts an `action` discriminator string (`send`, `respond`, `cancel`, `amend`, `check_status`, `inbox`, `view_thread`) plus action-specific parameters. Dispatches internally to the existing handler modules.
 
-The boundary between the two tools is: discovery (what can I do?) vs execution (do this). Read operations on live request state (`inbox`, `check_status`, `view_thread`) are placed in `garp_do` because they operate on mutable state via git pull, semantically grouping them with other stateful operations.
+The boundary between the two tools is: discovery (what can I do?) vs execution (do this). Read operations on live request state (`inbox`, `check_status`, `view_thread`) are placed in `pact_do` because they operate on mutable state via git pull, semantically grouping them with other stateful operations.
 
-Internal handler modules (`garp-request.ts`, `garp-inbox.ts`, etc.) are preserved unchanged. The collapse is at the MCP registration surface only.
+Internal handler modules (`pact-request.ts`, `pact-inbox.ts`, etc.) are preserved unchanged. The collapse is at the MCP registration surface only.
 
 ## Alternatives Considered
 
@@ -32,14 +32,14 @@ Split operations into discovery, read-only operations, and write operations.
 - **Con**: Three tool descriptions consume ~600 tokens vs ~400 for two. Marginal gain for additional conceptual overhead.
 - **Rejection rationale**: The discover/do split is preferred over read/write because: (a) the boundary is *intent-based* ("what can I do?" vs "do this"), not *side-effect-based* (read vs write), which avoids the git-pull classification problem that affects both designs equally; (b) agents follow a natural two-step workflow -- discover capabilities, then act -- matching REST resource discovery + CRUD and reducing cognitive load; (c) ~200 fewer tokens per session for marginal conceptual gain; (d) for a solo developer, fewer tools means less MCP registration boilerplate and a smaller test surface.
 
-### 1 Tool: garp
+### 1 Tool: pact
 
 A single uber-tool accepting an `operation` parameter that covers all functionality.
 
 - **Pro**: Absolute minimum context cost (~200 tokens for one tool description).
 - **Pro**: Simplest MCP registration (one call to `server.tool`).
 - **Con**: The tool description must document all operations (discovery, sending, responding, cancelling, etc.) in a single string. This description would be ~400+ tokens, negating the context savings.
-- **Con**: Loses the semantic signal that discovery and execution are different concerns. An agent would not know whether to call `garp` to learn about skills or to submit a request without parsing the full description.
+- **Con**: Loses the semantic signal that discovery and execution are different concerns. An agent would not know whether to call `pact` to learn about pacts or to submit a request without parsing the full description.
 - **Rejection rationale**: A single tool with 10+ operations stuffed into one description is worse for agent comprehension than two tools with clear purposes. The description bloat would offset the registration savings.
 
 ### Keep 8 Tools + Add Lazy Loading
@@ -56,13 +56,13 @@ Keep all 8 tools registered but implement MCP tool lazy-loading (if the SDK supp
 
 ### Positive
 
-- Context cost drops from ~1,600 tokens to ~400 tokens (2 tools vs 8). Scales O(1) as new actions are added to `garp_do`.
+- Context cost drops from ~1,600 tokens to ~400 tokens (2 tools vs 8). Scales O(1) as new actions are added to `pact_do`.
 - Adding new operations (e.g., `archive`, `reassign`, `bulk_respond`) requires adding a handler and a case in the dispatcher -- no new MCP tool registration, no new context cost.
 - Agents learn "discover then do" as a two-step workflow, which is a well-understood pattern (like REST resource discovery + CRUD).
 - Existing handler modules, port interfaces, and 179 tests are unaffected during the build phase (parallel registration).
 
 ### Negative
 
-- `garp_do` is a "god tool" in the MCP sense -- it handles 7+ operations through a single entry point. Agent reasoning about parameter requirements depends on the `action` value, which is less explicit than separate tool signatures.
+- `pact_do` is a "god tool" in the MCP sense -- it handles 7+ operations through a single entry point. Agent reasoning about parameter requirements depends on the `action` value, which is less explicit than separate tool signatures.
 - Error messages for missing parameters must include action context (e.g., "Missing 'request_id' for action 'respond'") since the parameter schema is a union across all actions.
 - Migration requires updating test call sites from old tool names to new action-based calls (mechanical but tedious for 179 tests).

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "pact_name": "ask",
+  "pact_version": "1.0.0",
+  "context_bundle": {
+    "type": "object",
+    "required": ["question"],
+    "properties": {
+      "question": {
+        "type": "string",
+        "description": "The question you're asking -- be specific"
+      },
+      "background": {
+        "type": "string",
+        "description": "Relevant context the recipient needs to answer well"
+      },
+      "options": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "If you've identified possible answers, list them here"
+      },
+      "urgency": {
+        "type": "string",
+        "enum": ["low", "normal", "high"],
+        "default": "normal",
+        "description": "low, normal, or high -- defaults to normal"
+      }
+    },
+    "additionalProperties": true
+  },
+  "response_bundle": {
+    "type": "object",
+    "required": ["answer"],
+    "properties": {
+      "answer": {
+        "type": "string",
+        "description": "Direct answer to the question"
+      },
+      "reasoning": {
+        "type": "string",
+        "description": "Why this answer, briefly"
+      },
+      "caveats": {
+        "type": "string",
+        "description": "Anything the sender should keep in mind"
+      }
+    },
+    "additionalProperties": true
+  }
+}

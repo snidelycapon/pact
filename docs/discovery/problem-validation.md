@@ -1,4 +1,4 @@
-# Problem Validation — Async Multi-Agent GARP (Product B)
+# Problem Validation — Async Multi-Agent PACT (Product B)
 
 ## Discovery Status: RE-DISCOVERY (Post-MVP) — Phase 2 Planning
 
@@ -26,7 +26,7 @@ During Phase 1 questioning about session frequency and play patterns, the user p
 
 ### Round 3: Explicit Product Choice
 
-**Key quote**: "The multi-agent GARP is absolutely what I want to focus on, that's *significantly* larger than just the RPG stuff. This is separate projects."
+**Key quote**: "The multi-agent PACT is absolutely what I want to focus on, that's *significantly* larger than just the RPG stuff. This is separate projects."
 
 **Explicit choice**: Product B — separate project from craft-gm.
 
@@ -48,7 +48,7 @@ The user provided concrete, lived workflow evidence from their actual job in tec
 
 > "I send that request from my agent session where I think I found the bug, it queues up a message to my colleague, she does her own agent session from that -- either by 'accepting' the incoming pre-constructed prompt for that type of request (something templated server side as a sanity check) [...] or by adding our own commentary to it and iterating on the Plan before it's Executed."
 
-> "Once she's got a response that matches the expected reply for this request, she asks to push it back to the GARP server, which pushes back to me and alerts me that there's a reply."
+> "Once she's got a response that matches the expected reply for this request, she asks to push it back to the PACT server, which pushes back to me and alerts me that there's a reply."
 
 > "From there, I can then pivot over to pushing out a new type of request with the additional validation / review trail context attached to the relevant engineering/product team to file the appropriate bug."
 
@@ -64,7 +64,7 @@ The user provided concrete, lived workflow evidence from their actual job in tec
 
 **Key quote**: "Every single ticket starts to become indexed and the orchestrator will be able to spot patterns, inject context and historical context or insights into sessions."
 
-This is the highest-value insight in the discovery. It reframes the GARP from "task dispatch" to "organizational intelligence that grows smarter with use."
+This is the highest-value insight in the discovery. It reframes the PACT from "task dispatch" to "organizational intelligence that grows smarter with use."
 
 ### Round 4 Evidence: The Workflow in Detail
 
@@ -82,19 +82,19 @@ This is the highest-value insight in the discovery. It reframes the GARP from "t
 
 **Minimal complete loop described** (from user): Human A works with agent to compose a structured request. Server validates against schema, resolves recipient, places in inbox. Client B sees it, Human B initiates agent session with pre-loaded context, composes response, submits back. Same notification chain fires in reverse. "It's async, the actual queues, requests, audit logs of who's asking for what, etc is all server-side."
 
-**Skill contract early shape** (from user): Fields like "customer context", "issue description", "involved files", "requested reply type", "deadline for reply" — but explicitly open-ended: "open-ended flexibility is ideal here."
+**Pact early shape** (from user): Fields like "customer context", "issue description", "involved files", "requested reply type", "deadline for reply" — but explicitly open-ended: "open-ended flexibility is ideal here."
 
 **Orchestration patterns confirmed non-prescriptive**: Ping-pong, ring, chain, broadcast (cron-triggered stand-up), hub-and-spoke all described as first-class. User specifically rejected rigid "tick" semantics.
 
 ---
 
-## Product B: Async Multi-Agent GARP (Refined)
+## Product B: Async Multi-Agent PACT (Refined)
 
 ### Core Concept (Updated)
 
-A self-hostable GARP server where:
+A self-hostable PACT server where:
 - Humans paired with local LLM agents form the node type
-- The server orchestrates async requests between nodes using templated, skill-based contracts
+- The server orchestrates async requests between nodes using templated, pact-based contracts
 - Context bundles accompany every request so the receiving agent starts with full situational awareness
 - The server accumulates institutional knowledge and can enrich future requests with historical context
 - Multiple orchestration patterns are first-class: ping-pong, ring, hub-and-spoke, cron-triggered
@@ -124,7 +124,7 @@ A self-hostable GARP server where:
         | Human+LLM |  | Human+LLM |  | Human+LLM |
         |           |  |           |  |           |
         | Local:    |  | Local:    |  | Local:    |
-        | - Skills  |  | - Skills  |  | - Skills  |
+        | - Pacts  |  | - Pacts  |  | - Pacts  |
         | - Sources |  | - Sources |  | - Sources |
         | - Context |  | - Context |  | - Context |
         +-----------+  +-----------+  +-----------+
@@ -132,21 +132,21 @@ A self-hostable GARP server where:
 
 ### Core Primitives (Emerging)
 
-1. **Request Types** — Templated, schema-validated, with skill contracts on both ends
+1. **Request Types** — Templated, schema-validated, with pacts on both ends
 2. **Context Bundles** — Structured data + pointers (repos, files, versions, history), not hardcoded fields
-3. **Skill Contracts** — Versioned skills synced between clients; define how agents handle request types
+3. **Pacts** — Versioned pacts synced between clients; define how agents handle request types
 4. **Orchestration Patterns** — Ping-pong, ring, hub-and-spoke, cron-triggered (all first-class, not hardcoded)
 5. **Institutional Memory** — Accumulated index of all interactions; pattern detection; context enrichment
 6. **Response Flow** — Structured responses that match expected schemas for each request type
 
-### The Skill Contract Pattern (Key Differentiator)
+### The Pact Contract Pattern (Key Differentiator)
 
-**Key quote**: "The actual system/protocol is an entry point akin to the Cloudflare Code Mode insights; and then the skills on each side of the client (versioned & synced with each other as part of 'connecting' as a team on that workspace, ideally) dictate how the agent utilizes that flexibility consistently as part of the shared contract defined through those skills."
+**Key quote**: "The actual system/protocol is an entry point akin to the Cloudflare Code Mode insights; and then the pacts on each side of the client (versioned & synced with each other as part of 'connecting' as a team on that workspace, ideally) dictate how the agent utilizes that flexibility consistently as part of the shared contract defined through those pacts."
 
 This is the Code Mode pattern applied to multi-agent coordination:
-- **Code Mode**: Few tools, flexible schemas, agent uses skill context to choose the right action
-- **GARP**: Flexible protocol, skill contracts define how each side handles a request type
-- **Implication**: The protocol is thin and generic; the intelligence lives in skills that are version-synced across team members
+- **Code Mode**: Few tools, flexible schemas, agent uses pact context to choose the right action
+- **PACT**: Flexible protocol, pacts define how each side handles a request type
+- **Implication**: The protocol is thin and generic; the intelligence lives in pacts that are version-synced across team members
 
 ### Orchestration Patterns (Explicitly Non-Prescriptive)
 
@@ -164,7 +164,7 @@ The user was clear that rigid "tick" semantics are wrong. Multiple patterns must
 ### What Makes This Novel (Refined)
 
 1. **Human + LLM agent is the mandatory node type** — not pure agent orchestration, not pure human task management
-2. **Skill contracts as GARP** — versioned, synced, define both sides of every interaction
+2. **Pacts as PACT** — versioned, synced, define both sides of every interaction
 3. **Institutional memory as first-class feature** — the server gets smarter with use
 4. **Pattern-agnostic orchestration** — not one interaction model, but a framework for many
 5. **Self-hostable, BYO API key** — not a SaaS platform, a tool you own
@@ -203,7 +203,7 @@ No existing framework combines:
 - Real human-in-the-loop as mandatory node type
 - Local LLM agent assistance at each node
 - Server-side LLM intelligence for coordination
-- Skill-based interaction contracts
+- Pact-based interaction contracts
 - Institutional memory that grows with use
 
 ---
@@ -218,7 +218,7 @@ No existing framework combines:
 - MCP server integration (stdio + HTTP)
 - Hooks system: event-driven automation
 - Session lifecycle: status workflow
-- Skills system: SKILL.md format, workspace-scoped
+- Pacts system: PACT.md format, workspace-scoped
 - Sources system: MCP, API, local filesystem
 - Permission modes per session
 - call_llm tool: secondary LLM invocation
@@ -229,7 +229,7 @@ No existing framework combines:
 | Pattern | In Craft Agents | Product B Application |
 |---------|----------------|----------------------|
 | Plan submission | SubmitPlan tool + UI review | Request review before execution |
-| Skills | SKILL.md, workspace-scoped | Skill contracts, team-synced |
+| Pacts | PACT.md, workspace-scoped | Pacts, team-synced |
 | Sources | MCP/API/local connections | Coordination server as source |
 | Hooks | Event-driven automation | Could trigger on incoming requests |
 | Sessions | Isolated conversation scopes | Local task sessions for requests |
@@ -259,7 +259,7 @@ Transferable design patterns:
 | B7 | Server-side LLM brain is necessary for MVP | HIGH | MED | LOW | TEST | Could start without institutional memory |
 | B8 | Craft Agents is the right first client | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
 | B9 | User will build and use this | LOW | HIGH | HIGH | UPGRADED | Strong workplace motivation |
-| B10 | Skill contracts are the right GARP | MED | HIGH | MED | DESIGN CRITICAL | Novel, needs prototyping |
+| B10 | Pacts are the right PACT | MED | HIGH | MED | DESIGN CRITICAL | Novel, needs prototyping |
 | B11 | Self-hostable + BYO API key is the right deployment model | LOW | MED | HIGH | RESOLVED | CONFIRMED |
 | B12 | Institutional memory (tribal knowledge brain) is achievable at MVP scale | HIGH | HIGH | LOW | DEFER to Phase 3 | May need to be Phase 2 feature |
 
@@ -308,15 +308,15 @@ These do not need to be formal — even a 15-minute conversation about "how do y
 
 ### Request Type Agnosticism
 
-**Decision**: Server is fully type-agnostic. Skills define everything.
+**Decision**: Server is fully type-agnostic. Pacts define everything.
 
-**Key quote**: "That's exactly it! The 'validation' on a per-request type will be a feature for once we're wiring up the brain. The skills can define steps or processes that the orchestrator will perform in between routing the request."
+**Key quote**: "That's exactly it! The 'validation' on a per-request type will be a feature for once we're wiring up the brain. The pacts can define steps or processes that the orchestrator will perform in between routing the request."
 
-**Phase 2 elaboration**: When the brain is wired up, skills will define orchestrator-side intermediate steps per request type. Example: "Search for historical tickets for this customer to ensure there are no other agents working on similar issues for them, do a parallel search of JIRA for existing filed tickets about this topic."
+**Phase 2 elaboration**: When the brain is wired up, pacts will define orchestrator-side intermediate steps per request type. Example: "Search for historical tickets for this customer to ensure there are no other agents working on similar issues for them, do a parallel search of JIRA for existing filed tickets about this topic."
 
 ---
 
-## Round 6: Architecture Pivot — Git as GARP Transport
+## Round 6: Architecture Pivot — Git as PACT Transport
 
 ### The Insight
 
@@ -328,7 +328,7 @@ The user recognized that the "dumb router" MVP they agreed to is exactly what gi
 
 **Before (Round 5)**: Central HTTP service as MVP. Server handles routing, validation, inbox management.
 
-**After (Round 6)**: Git repository IS the GARP. Local MCP server on each client wraps git operations into 4 tools. No server to build, deploy, or maintain.
+**After (Round 6)**: Git repository IS the PACT. Local MCP server on each client wraps git operations into 4 tools. No server to build, deploy, or maintain.
 
 ### The Tiered Architecture
 
@@ -338,7 +338,7 @@ Tier 1: Git Repository (always works, the base protocol)
   - Local MCP server per client wraps git operations
   - Directory structure = the protocol
   - git log = the audit trail
-  - Skills hosted in repo, synced via git pull
+  - Pacts hosted in repo, synced via git pull
 
 Tier 2: Brain Service (optional, watches repo, adds intelligence)
   - Runs as GitHub Action, CI pipeline, or standalone watcher
@@ -365,7 +365,7 @@ This is exactly the relationship between bare git and GitHub — GitHub adds int
 | Authentication | SSH keys / tokens |
 | Versioning | Every commit |
 | Hosting | GitHub/GitLab private repo (free) |
-| Skill distribution | Skills in repo, synced on pull |
+| Pact distribution | Pacts in repo, synced on pull |
 | Offline-first | Commit locally, push when ready |
 
 ### What This Supersedes
@@ -374,16 +374,16 @@ Round 5's "central HTTP service" decision is superseded. The HTTP service is now
 
 ### Key Architectural Property
 
-**The protocol (structured requests, context bundles, skill contracts) is completely independent of the transport.** If we design the file/directory conventions cleanly, the transport is swappable: git today, HTTP service tomorrow, both simultaneously. Tier 2 does not replace Tier 1 — it watches it and adds intelligence.
+**The protocol (structured requests, context bundles, pacts) is completely independent of the transport.** If we design the file/directory conventions cleanly, the transport is swappable: git today, HTTP service tomorrow, both simultaneously. Tier 2 does not replace Tier 1 — it watches it and adds intelligence.
 
 ---
 
-## Skill Evolution Path (Updated for Git Transport)
+## Pact Evolution Path (Updated for Git Transport)
 
-| Tier | Client Skills | Repo/Server Skills |
+| Tier | Client Pacts | Repo/Server Pacts |
 |------|--------------|-------------------|
-| Tier 1 (MVP) | Sender + Receiver skills hosted in GARP repo, synced via git pull | None — git is the transport |
-| Tier 2 (Brain) | Same | Orchestrator skills: per-request-type intermediate steps run by brain service |
+| Tier 1 (MVP) | Sender + Receiver pacts hosted in PACT repo, synced via git pull | None — git is the transport |
+| Tier 2 (Brain) | Same | Orchestrator pacts: per-request-type intermediate steps run by brain service |
 | Tier 3 (Memory) | Same + auto-generated context hints | Institutional memory: pattern detection, proactive enrichment |
 
 ---
@@ -401,9 +401,9 @@ Round 5's "central HTTP service" decision is superseded. The HTTP service is now
 | B7 | Dumb router is sufficient for MVP | LOW | MED | HIGH | RESOLVED | Git IS the dumb router |
 | B8 | Craft Agents is the right first client | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
 | B9 | User will build and use this | LOW | HIGH | HIGH | RESOLVED | Weekend build scope reduces barrier |
-| B10 | Skill contracts are the right protocol | MED | HIGH | MED | MUST TEST | Novel, needs prototyping |
+| B10 | Pacts are the right protocol | MED | HIGH | MED | MUST TEST | Novel, needs prototyping |
 | B11 | Self-hostable / zero infrastructure | LOW | MED | HIGH | RESOLVED | Git repo = zero infrastructure |
-| B12 | Git as GARP transport | LOW | HIGH | HIGH | RESOLVED | CONFIRMED — user's insight |
+| B12 | Git as PACT transport | LOW | HIGH | HIGH | RESOLVED | CONFIRMED — user's insight |
 | B13 | Type-agnostic protocol works in practice | MED | HIGH | MED | MUST TEST | Risk: agents produce invalid payloads |
 | B14 | Tiered architecture supports brain insertion | LOW | HIGH | HIGH | RESOLVED | Brain watches repo; completely decoupled |
 | B15 | Git conflicts are rare with append-only design | LOW | MED | HIGH | NEW | Requests are new files; conflicts unlikely |
@@ -411,9 +411,9 @@ Round 5's "central HTTP service" decision is superseded. The HTTP service is now
 
 ### Remaining Risks (Ranked)
 
-1. **B10 — Skill contract reliability**: Will paired skill files produce consistent, interoperable agent behavior? This is the single highest-risk assumption. Mitigation: prototype the "sanity check" skill pair and test 10 round-trips.
+1. **B10 — Pact reliability**: Will paired pact files produce consistent, interoperable agent behavior? This is the single highest-risk assumption. Mitigation: prototype the "sanity check" pact pair and test 10 round-trips.
 
-2. **B13 — Type-agnostic protocol works in practice**: Without centralized validation (at Tier 1), agents might produce garbage context bundles. Mitigation: local validation in MCP server; receiver skill must be robust to malformed input; optional JSON Schema per request type in repo.
+2. **B13 — Type-agnostic protocol works in practice**: Without centralized validation (at Tier 1), agents might produce garbage context bundles. Mitigation: local validation in MCP server; receiver pact must be robust to malformed input; optional JSON Schema per request type in repo.
 
 3. Both risks are testable with a working prototype and two users. The git transport architecture did not introduce new high risks — it eliminated several (no server deployment, no auth infrastructure, no hosting).
 
@@ -443,22 +443,22 @@ The MVP shipped. Every component described in the original discovery was deliver
 | Discovery Artifact | What Was Planned | What Was Built | Delta |
 |---|---|---|---|
 | Local MCP server | ~500 lines wrapping git into 4 tools | 14 source files, ~1,260 lines, ports-and-adapters architecture | EXCEEDED — cleaner architecture than planned |
-| 4 MCP tools | garp_request, garp_inbox, garp_respond, garp_status | All 4 implemented with full validation | EXACT MATCH |
+| 4 MCP tools | pact_request, pact_inbox, pact_respond, pact_status | All 4 implemented with full validation | EXACT MATCH |
 | Request envelope | Rigid envelope + flexible context_bundle | Zod schema validation, exact design | EXACT MATCH |
 | Directory lifecycle | pending -> active -> completed | Implemented. Active directory exists but is reserved (brain service) | EXACT MATCH |
-| Skill contracts | SKILL.md files per request type, repo-hosted | Two skills shipped: "ask" and "design-skill" | EXCEEDED — design-skill is a multi-round pattern not in original scope |
+| Pacts | PACT.md files per request type, repo-hosted | Two pacts shipped: "ask" and "design-pact" | EXCEEDED — design-pact is a multi-round pattern not in original scope |
 | Team config | config.json with member registry | TeamConfigSchema with Zod validation | EXACT MATCH |
-| Git transport | Shared repo as GARP, commit messages as audit | Implemented via simple-git with pull-rebase retry | EXACT MATCH |
-| Commit message format | `[garp] new request: ...` | `[garp] new request: {id} ({type}) -> {recipient}` | EXACT MATCH |
+| Git transport | Shared repo as PACT, commit messages as audit | Implemented via simple-git with pull-rebase retry | EXACT MATCH |
+| Commit message format | `[pact] new request: ...` | `[pact] new request: {id} ({type}) -> {recipient}` | EXACT MATCH |
 | Conflict handling | Push retry with pull-rebase | Single retry in GitAdapter.push() | EXACT MATCH |
 | Offline tolerance | git pull fails gracefully | Inbox and status fall back to local data with staleness warning | EXCEEDED — more graceful than planned |
-| Init tooling | Not explicitly planned | garp-init.sh with new/join commands, example skill seeding | BONUS |
+| Init tooling | Not explicitly planned | pact-init.sh with new/join commands, example pact seeding | BONUS |
 
 #### Planned but Deferred
 
 | Discovery Artifact | What Was Planned | Status | Notes |
 |---|---|---|---|
-| Sanity-check skill | First skill contract pair | REPLACED by "ask" skill | More generic starting point. Sanity-check is in test fixtures only. |
+| Sanity-check pact | First pact pair | REPLACED by "ask" pact | More generic starting point. Sanity-check is in test fixtures only. |
 | Craft Agents integration | Source configuration for Craft Agents specifically | GENERALIZED | README documents generic MCP host configuration (Claude Code, Cursor, VS Code, etc.) |
 | Second user testing | 2-week test with developer friend | PARTIALLY DONE | Dan onboarded. Two real requests completed (both "ask" type). Evidence of bidirectional flow. |
 
@@ -466,7 +466,7 @@ The MVP shipped. Every component described in the original discovery was deliver
 
 Three features were added during implementation that were not in the original discovery:
 
-**1. thread_id** — Optional field on the request envelope that groups related requests into conversation threads. This emerged from the design-skill contract's need for multi-round iteration. The original discovery discussed orchestration patterns (ping-pong, chain, ring) but did not identify the threading primitive needed to implement them.
+**1. thread_id** — Optional field on the request envelope that groups related requests into conversation threads. This emerged from the design-pact contract's need for multi-round iteration. The original discovery discussed orchestration patterns (ping-pong, chain, ring) but did not identify the threading primitive needed to implement them.
 
 **2. attachments** — Optional array on the request envelope for file attachments committed atomically with requests. Each attachment has filename + description. Files stored in `attachments/{request_id}/`. The original discovery discussed "context bundles" extensively but assumed all context would fit in JSON fields. Attachments handle the case where context includes actual files (logs, screenshots, configs).
 
@@ -476,15 +476,15 @@ Three features were added during implementation that were not in the original di
 
 | # | Original Assumption | Pre-Build Confidence | Post-Build Status | Evidence |
 |---|---|---|---|---|
-| B1 | Separate platform from Craft Agents | HIGH | CONFIRMED | GARP is a standalone repo; MCP server works with any host |
+| B1 | Separate platform from Craft Agents | HIGH | CONFIRMED | PACT is a standalone repo; MCP server works with any host |
 | B2 | Human+LLM as mandatory node type | HIGH | CONFIRMED | Both real requests show human decision-making + agent execution |
 | B3 | Multiple orchestration patterns needed | HIGH | PARTIALLY CONFIRMED | Only ping-pong tested. thread_id enables multi-round. Chain/ring/broadcast untested |
 | B4 | Second user will participate | HIGH | CONFIRMED | Dan completed 2 round-trips on day 1 |
 | B5 | Context bundles are key value-add | HIGH | UNCLEAR | Real requests ("y tho", "No U") used minimal context. Not yet used for the validated tech support workflow |
 | B7 | Dumb router sufficient for MVP | HIGH | CONFIRMED | Git transport works. No intelligence needed |
-| B10 | Skill contracts are the right protocol | MED | PARTIALLY CONFIRMED | "ask" skill works. "design-skill" proves multi-round contracts are viable. Schema compliance is agent-dependent |
+| B10 | Pacts are the right protocol | MED | PARTIALLY CONFIRMED | "ask" pact works. "design-pact" proves multi-round contracts are viable. Schema compliance is agent-dependent |
 | B12 | Git as transport | HIGH | CONFIRMED | Push/pull cycle works. Latency acceptable for async work |
-| B13 | Type-agnostic protocol works | MED | CONFIRMED | Same protocol handles "ask" (simple) and "design-skill" (multi-round) identically |
+| B13 | Type-agnostic protocol works | MED | CONFIRMED | Same protocol handles "ask" (simple) and "design-pact" (multi-round) identically |
 | B15 | Git conflicts rare with append-only | HIGH | CONFIRMED | Zero conflicts observed in testing or live usage |
 | B16 | Git latency acceptable for async | HIGH | CONFIRMED | Sub-second local operations |
 
@@ -494,11 +494,11 @@ Three features were added during implementation that were not in the original di
 
 The original discovery validated this assumption from the tech support handoff workflow: "repos, versions, product, deployment type, customer all written up manually." But the real requests so far have been lightweight "ask" queries with minimal context. The context bundle infrastructure is built and works, but the high-value use case (rich tech support handoffs) has not been exercised in production. This is the highest-priority thing to validate next.
 
-**B10 — Skill contracts produce consistent agent behavior: PARTIALLY CONFIRMED, RISK REMAINS**
+**B10 — Pacts produce consistent agent behavior: PARTIALLY CONFIRMED, RISK REMAINS**
 
-The "ask" skill is simple enough that agents follow it naturally. The "design-skill" contract is sophisticated (multi-round, phase-tracking, draft refinement) but has not been tested with two humans using it in practice. The original risk was "SKILL.md might be too imprecise" — this remains the highest-risk assumption for complex request types.
+The "ask" pact is simple enough that agents follow it naturally. The "design-pact" contract is sophisticated (multi-round, phase-tracking, draft refinement) but has not been tested with two humans using it in practice. The original risk was "PACT.md might be too imprecise" — this remains the highest-risk assumption for complex request types.
 
-**NEW ASSUMPTION — Agents will compose requests without excessive prompting**: Not in original tracker. When agents compose garp_request calls, they need to know what context_bundle fields to include. The skill file provides guidance, but the agent has to be in a context where it knows to read the skill and follow it. This is a UX/prompting challenge that was not anticipated.
+**NEW ASSUMPTION — Agents will compose requests without excessive prompting**: Not in original tracker. When agents compose pact_request calls, they need to know what context_bundle fields to include. The pact file provides guidance, but the agent has to be in a context where it knows to read the pact and follow it. This is a UX/prompting challenge that was not anticipated.
 
 ### New Pain Points Discovered During Build
 
@@ -508,7 +508,7 @@ The "ask" skill is simple enough that agents follow it naturally. The "design-sk
 
 3. **No request editing** — Context bundles are write-once. If you realize you left out critical context after sending, you cannot amend the request.
 
-4. **Inbox is pull-only** — The agent has to explicitly call garp_inbox. There is no notification that new requests have arrived. For async work this is acceptable, but it means requests can sit unnoticed.
+4. **Inbox is pull-only** — The agent has to explicitly call pact_inbox. There is no notification that new requests have arrived. For async work this is acceptable, but it means requests can sit unnoticed.
 
 5. **Status field not updated in place** — The request envelope keeps `"status": "pending"` even after being moved to `requests/completed/`. The status is determined by directory location, not the field value. This is a minor inconsistency but could confuse agents reading the completed request.
 
@@ -519,11 +519,11 @@ The "ask" skill is simple enough that agents follow it naturally. The "design-sk
 The real usage evidence is thin but genuine:
 
 - 2 completed round-trips with a second user (Dan) on day 1
-- Both used the "ask" skill type — no complex request types tested in production
+- Both used the "ask" pact type — no complex request types tested in production
 - Context bundles were minimal ("y tho" / "No U") — playful testing, not the validated tech support workflow
 - Bidirectional flow confirmed: Cory -> Dan and Dan -> Cory both worked
 - Response times: ~3 minutes (first request), ~4 minutes (second request) — well within async tolerance
 
 **What this validates**: The protocol works. Two humans with two agents can exchange structured requests through a shared git repo without manual git operations.
 
-**What this does NOT validate**: Whether rich context bundles are actually better than Slack for real work. Whether skill contracts produce consistent behavior for complex request types. Whether the system gets adopted for daily tech support handoffs.
+**What this does NOT validate**: Whether rich context bundles are actually better than Slack for real work. Whether pacts produce consistent behavior for complex request types. Whether the system gets adopted for daily tech support handoffs.

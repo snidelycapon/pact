@@ -4,7 +4,7 @@
 
 ## Context
 
-US-021 adds optional `schema.json` files alongside SKILL.md. When `garp_request` submits a request for a skill that has a schema.json, it should validate the context_bundle against the schema and return warnings for missing required fields. The validation must be WARN-not-REJECT (per requirements: "dumb router" philosophy, open-ended flexibility).
+US-021 adds optional `schema.json` files alongside PACT.md. When `pact_request` submits a request for a pact that has a schema.json, it should validate the context_bundle against the schema and return warnings for missing required fields. The validation must be WARN-not-REJECT (per requirements: "dumb router" philosophy, open-ended flexibility).
 
 Three approaches exist for implementing this validation. The critical constraint is: **no new runtime dependencies unless strongly justified**. Current runtime deps: `@modelcontextprotocol/sdk`, `simple-git`, `zod`.
 
@@ -16,7 +16,7 @@ No type checking, no nested object validation, no JSON Schema spec compliance be
 
 ### Validation logic (behavioral contract):
 
-1. After skill existence check, attempt to read `skills/{type}/schema.json` via FilePort
+1. After pact existence check, attempt to read `pacts/{type}/schema.json` via FilePort
 2. If schema.json does not exist or cannot be parsed: skip validation, no warnings
 3. If schema.json exists: extract `context_bundle.required` array
 4. Compare against submitted `context_bundle` keys

@@ -21,14 +21,14 @@ No tests assert the same value they set up. All assertions verify observable eff
 
 ### 2. Implementation Mirrors: NONE DETECTED
 Tests do not duplicate production code logic in assertions. They verify behavior through ports:
-- **skill-loader tests**: Use a test double (InMemoryFilePort) to supply YAML content; assertions verify parsing output matches expected structures without duplicating YAML parsing logic
+- **pact-loader tests**: Use a test double (InMemoryFilePort) to supply YAML content; assertions verify parsing output matches expected structures without duplicating YAML parsing logic
 - **action-dispatcher tests**: Mock all handlers; assertions verify the correct handler was called with correct context, without reimplementing dispatch logic
 - **Acceptance tests**: Invoke tools via real handlers against real git repos; assertions verify end-to-end behavior (files written, commits made, data structures returned) without reimplementing handler logic
 
 ### 3. Happy Path Bias: STRONG COVERAGE
 Error/edge case coverage by test file:
-- **skill-loader.test.ts**: 6 error cases of 14 total (43%)
-  - Missing SKILL.md, malformed YAML, empty frontmatter, missing delimiters
+- **pact-loader.test.ts**: 6 error cases of 14 total (43%)
+  - Missing PACT.md, malformed YAML, empty frontmatter, missing delimiters
   - when_to_use normalization (single string → array)
   - version field optional handling
 - **action-dispatcher.test.ts**: 4 error cases of 11 total (36%)
@@ -36,41 +36,41 @@ Error/edge case coverage by test file:
   - Context passing validation
 - **mcp-server.test.ts**: 2 error cases of 3 total (67%)
   - Empty repoPath, empty userId
-- **garp-inbox.test.ts**: 4+ edge cases of 18 total (22%)
+- **pact-inbox.test.ts**: 4+ edge cases of 18 total (22%)
   - Empty inbox, requests moved to completed, git pull failure with fallback, read-only operation
   - Thread grouping edge cases (auto-assigned thread_id, pre-Phase-2 requests without thread_id)
   - Summary fallback when no question/issue_summary
   - Amendment/attachment edge cases (empty array handling)
-- **garp-request.test.ts**: 6 error cases of 14 total (43%)
+- **pact-request.test.ts**: 6 error cases of 14 total (43%)
   - Missing recipient, missing request_type, missing context_bundle
-  - Unknown recipient, missing skill directory
+  - Unknown recipient, missing pact directory
   - Push rebase retry on conflict
-- **garp-discover.test.ts**: 6+ edge cases of 15 total (40%)
+- **pact-discover.test.ts**: 6+ edge cases of 15 total (40%)
   - Empty results for non-matching query
   - Hidden directory exclusion
-  - Broken skill directories (missing SKILL.md)
+  - Broken pact directories (missing PACT.md)
   - Git pull failure with fallback
   - Multi-space query handling
-  - schema.json preference over SKILL.md
+  - schema.json preference over PACT.md
 
 **Verdict**: ✓ Strong edge case coverage (40% median across acceptance tests)
 
 ### 4. Mock Soup: CLEAN PATTERN
 Mocks are used strategically, not excessively:
-- **skill-loader.test.ts**: Uses a real test double (InMemoryFilePort) that implements the FilePort interface fully; mocks provide controlled file content, not a maze of spy/stub setup
+- **pact-loader.test.ts**: Uses a real test double (InMemoryFilePort) that implements the FilePort interface fully; mocks provide controlled file content, not a maze of spy/stub setup
 - **action-dispatcher.test.ts**: Mocks all 7 handler modules (intentional—testing dispatch routing only); context is a real object with all fields; mocks only verify which handler was called
-- **garp-inbox.test.ts**: NO MOCKS. Uses real git repos, real file I/O, real handler invocation.
-- **garp-request.test.ts**: NO MOCKS. Real git repos, real file I/O.
-- **garp-discover.test.ts**: NO MOCKS. Real git repos, real file I/O.
+- **pact-inbox.test.ts**: NO MOCKS. Uses real git repos, real file I/O, real handler invocation.
+- **pact-request.test.ts**: NO MOCKS. Real git repos, real file I/O.
+- **pact-discover.test.ts**: NO MOCKS. Real git repos, real file I/O.
 
-The mocking strategy is clear: mock only when testing a routing layer (action-dispatcher), use real test doubles for file I/O (skill-loader), and use real integration tests for end-to-end behavior.
+The mocking strategy is clear: mock only when testing a routing layer (action-dispatcher), use real test doubles for file I/O (pact-loader), and use real integration tests for end-to-end behavior.
 
 ### 5. Test-per-Method: STRONG ORGANIZATION
 Tests are organized by *behavior*, not method names:
 
-**skill-loader.test.ts** (organized by parsing scenario):
-- "valid YAML frontmatter" (parsing ask skill metadata)
-- "brain_processing" (has_brain flag logic)
+**pact-loader.test.ts** (organized by parsing scenario):
+- "valid YAML frontmatter" (parsing ask pact metadata)
+- "hooks" (has_hooks flag logic)
 - "context_bundle with all 7 fields" (field extraction)
 - "response_bundle with required fields"
 - "error handling" (malformed, empty, missing frontmatter)
@@ -85,7 +85,7 @@ This is behavioral organization—each group describes a parsing scenario, not "
 - "Routing: each valid action calls the correct handler"
 - "Context passing"
 
-**garp-inbox.test.ts** (organized by feature):
+**pact-inbox.test.ts** (organized by feature):
 - "Happy Path" (basic functionality)
 - "Protocol Extensions" (short_id, thread_id, attachment_count)
 - "Thread Grouping" (multi-round threads)
@@ -94,22 +94,22 @@ This is behavioral organization—each group describes a parsing scenario, not "
 
 ### 6. Fragile Selectors: NONE DETECTED
 No tests coupled to UI selectors, CSS classes, or internal structure:
-- Acceptance tests operate on file system paths (e.g., `requests/pending`, `skills/`, `attachments/`)
+- Acceptance tests operate on file system paths (e.g., `requests/pending`, `pacts/`, `attachments/`)
 - These are architectural, not implementation details
 - Field names accessed in assertions (e.g., `inbox.requests[0].short_id`) are part of the public API contract, not internal structure
 - Example: `expect(inbox.requests[0].short_id).toBe("alice-a1b2")` tests the *contract*, not how short_id is computed internally
 
 ### 7. Missing Edge Cases: VERY WELL COVERED
 
-**skill-loader.ts**:
+**pact-loader.ts**:
 - ✓ Valid YAML parsing
-- ✓ Missing SKILL.md
+- ✓ Missing PACT.md
 - ✓ Malformed YAML
 - ✓ Empty frontmatter
 - ✓ Missing frontmatter delimiters
 - ✓ Single string when_to_use normalization
 - ✓ Optional version field
-- ✓ brain_processing section detection (has_brain flag)
+- ✓ hooks section detection (has_hooks flag)
 - ✓ context_bundle/response_bundle field extraction
 - ✓ Required field lists
 - ✓ getRequiredContextFieldsFromYaml convenience function
@@ -123,11 +123,11 @@ No tests coupled to UI selectors, CSS classes, or internal structure:
 - ✓ Context passing to handlers
 - ✓ Error messages list valid actions
 
-**garp-inbox.ts**:
+**pact-inbox.ts**:
 - ✓ Filter requests by recipient
 - ✓ Multiple requests to different recipients
 - ✓ Sort by created_at (oldest first)
-- ✓ skill_path included for agent auto-loading
+- ✓ pact_path included for agent auto-loading
 - ✓ summary field extraction (question → issue_summary → "No summary")
 - ✓ short_id derivation
 - ✓ thread_id present/absent
@@ -143,14 +143,14 @@ No tests coupled to UI selectors, CSS classes, or internal structure:
 - ✓ Git pull failure fallback with warning
 - ✓ Read-only operation (no commits by current user)
 
-**garp-request.ts**:
+**pact-request.ts**:
 - ✓ Request submission with envelope validation
 - ✓ Request ID format (req-YYYYMMDD-HHmmss-userid-random4hex)
-- ✓ Sender identity from GARP_USER, not tool input
+- ✓ Sender identity from PACT_USER, not tool input
 - ✓ Optional deadline field
 - ✓ Arbitrary context_bundle shape (no server validation)
 - ✓ Recipient validation against team config
-- ✓ Missing skill directory validation
+- ✓ Missing pact directory validation
 - ✓ Missing fields (recipient, request_type, context_bundle)
 - ✓ Explicit thread_id passthrough
 - ✓ Auto-assigned thread_id (default to request_id)
@@ -160,20 +160,20 @@ No tests coupled to UI selectors, CSS classes, or internal structure:
 - ✓ Push rebase retry on conflict
 - ✓ Validation warnings for missing required context fields
 
-**garp-discover.ts**:
-- ✓ List all skills with metadata
+**pact-discover.ts**:
+- ✓ List all pacts with metadata
 - ✓ Keyword search (OR semantics)
 - ✓ Search against when_to_use content
-- ✓ schema.json preference over SKILL.md
-- ✓ SKILL.md fallback parsing
+- ✓ schema.json preference over PACT.md
+- ✓ PACT.md fallback parsing
 - ✓ Empty query results
 - ✓ Multi-space query handling
 - ✓ Git pull latest before scanning
 - ✓ Fallback to local with warning on pull failure
 - ✓ Hidden directory exclusion (.startsWith)
-- ✓ Broken skill directories (missing SKILL.md)
+- ✓ Broken pact directories (missing PACT.md)
 - ✓ Alphabetical sorting by name
-- ✓ has_brain flag detection
+- ✓ has_hooks flag detection
 
 ---
 
@@ -189,18 +189,18 @@ The test suite consistently validates behavior through ports (interfaces), not i
 - Tests verify that handlers call the correct port methods and that data flows through correctly
 
 **2. Real Integration Tests**
-The acceptance tests (garp-inbox, garp-request, garp-discover) use real git repositories, real file I/O, and real handler invocations. This is the gold standard for integration testing and cannot be faked with mocks.
+The acceptance tests (pact-inbox, pact-request, pact-discover) use real git repositories, real file I/O, and real handler invocations. This is the gold standard for integration testing and cannot be faked with mocks.
 
 **3. Test Fixtures Are Data, Not Logic**
-Skill YAML fixtures (ASK_SKILL_MD, CODE_REVIEW_SKILL_MD, etc.) are pure data. Tests don't hide imperative logic inside setUp or factory methods. This makes assertions transparent and easy to trace.
+Pact YAML fixtures (ASK_PACT_MD, CODE_REVIEW_PACT_MD, etc.) are pure data. Tests don't hide imperative logic inside setUp or factory methods. This makes assertions transparent and easy to trace.
 
 **4. Clear Test Boundaries**
 Each test has one clear purpose:
-- skill-loader tests: "Can we parse YAML frontmatter into SkillMetadata?"
+- pact-loader tests: "Can we parse YAML frontmatter into PactMetadata?"
 - action-dispatcher tests: "Does dispatch route each action to the correct handler?"
-- garp-inbox tests: "Does the inbox handler correctly filter, sort, enrich, and group requests?"
-- garp-request tests: "Does the request handler validate inputs, build envelopes, and push to git?"
-- garp-discover tests: "Does discover correctly list, search, and pull latest skills?"
+- pact-inbox tests: "Does the inbox handler correctly filter, sort, enrich, and group requests?"
+- pact-request tests: "Does the request handler validate inputs, build envelopes, and push to git?"
+- pact-discover tests: "Does discover correctly list, search, and pull latest pacts?"
 
 **5. Comprehensive Assertion Coverage**
 Tests assert on:
@@ -217,11 +217,11 @@ Acceptance tests use helpers like `given()`, `when()`, `thenAssert()` for readab
 ## Minor Observations (Non-Blocking)
 
 ### 1. Test Naming Consistency
-Most tests use clear BDD-style names: "returns one pending request addressed to the current user". A few are slightly more implementation-focused: "includes skill_path so the agent can auto-load the skill file" (good detail, not a problem).
+Most tests use clear BDD-style names: "returns one pending request addressed to the current user". A few are slightly more implementation-focused: "includes pact_path so the agent can auto-load the pact file" (good detail, not a problem).
 
 ### 2. Test Coverage for Less Common Paths
-- garp-do.test.ts doesn't test the happy path of *all* 7 actions end-to-end, only verify that the dispatcher correctly routes. This is appropriate given action-dispatcher.test.ts covers routing thoroughly.
-- Thread grouping tests (garp-inbox) are thorough but could benefit from a test of the pathological case: 10+ rounds in a thread (verifies aggregation doesn't overflow or fail). **Not a blocker—coverage is already strong.**
+- pact-do.test.ts doesn't test the happy path of *all* 7 actions end-to-end, only verify that the dispatcher correctly routes. This is appropriate given action-dispatcher.test.ts covers routing thoroughly.
+- Thread grouping tests (pact-inbox) are thorough but could benefit from a test of the pathological case: 10+ rounds in a thread (verifies aggregation doesn't overflow or fail). **Not a blocker—coverage is already strong.**
 
 ### 3. Acceptance Test Latency
 Tests use real git repos and file I/O, so they're naturally slower than unit tests. This is the correct tradeoff for integration tests, not a Testing Theater issue. Test runtime suggests ~3-5 seconds per acceptance test, which is acceptable.
@@ -238,10 +238,10 @@ This test suite is production-ready. No Testing Theater issues detected.
 
 For maximum mutation testing coverage, consider adding:
 
-1. **skill-loader.test.ts**: "preserves field order from SKILL.md" (validates that field iteration order is stable—kills mutations that reorder fields)
-2. **garp-inbox.test.ts**: "assigns unique short_ids when multiple requests have colliding suffixes" (if short_id is derived naively, could collide; test verifies uniqueness)
-3. **garp-request.test.ts**: "validation warnings are returned in order of field appearance" (kills mutations that shuffle warning order)
-4. **garp-discover.test.ts**: "skill sorting is stable (preserves order for equal names)" (kills mutations that remove stable sort)
+1. **pact-loader.test.ts**: "preserves field order from PACT.md" (validates that field iteration order is stable—kills mutations that reorder fields)
+2. **pact-inbox.test.ts**: "assigns unique short_ids when multiple requests have colliding suffixes" (if short_id is derived naively, could collide; test verifies uniqueness)
+3. **pact-request.test.ts**: "validation warnings are returned in order of field appearance" (kills mutations that shuffle warning order)
+4. **pact-discover.test.ts**: "pact sorting is stable (preserves order for equal names)" (kills mutations that remove stable sort)
 
 These are **not required** for approval but would increase mutation detection.
 

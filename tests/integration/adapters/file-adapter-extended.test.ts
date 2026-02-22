@@ -4,7 +4,7 @@
  * Traces to: ADR-012 (FilePort readText and fileExists Extensions)
  *
  * Tests use real filesystem with temp directories. These tests verify
- * the two new FilePort methods required by the skill-parser module.
+ * the two new FilePort methods required by the pact-parser module.
  *
  * Scenarios:
  *   - readText reads a file as UTF-8 text and returns its content
@@ -27,7 +27,7 @@ describe("FileAdapter.readText", () => {
   let repoPath: string;
 
   beforeEach(() => {
-    repoPath = mkdtempSync(join(tmpdir(), "garp-file-ext-"));
+    repoPath = mkdtempSync(join(tmpdir(), "pact-file-ext-"));
   });
 
   afterEach(() => {
@@ -37,10 +37,10 @@ describe("FileAdapter.readText", () => {
   it("reads a markdown file as UTF-8 text", async () => {
     const adapter = new FileAdapter(repoPath);
     const content = `# Sanity Check\n\nValidate findings on a bug investigation.\n\n## When To Use\nWhen you need a second pair of eyes.\n`;
-    mkdirSync(join(repoPath, "skills", "sanity-check"), { recursive: true });
-    writeFileSync(join(repoPath, "skills", "sanity-check", "SKILL.md"), content);
+    mkdirSync(join(repoPath, "pacts", "sanity-check"), { recursive: true });
+    writeFileSync(join(repoPath, "pacts", "sanity-check", "PACT.md"), content);
 
-    const result = await adapter.readText("skills/sanity-check/SKILL.md");
+    const result = await adapter.readText("pacts/sanity-check/PACT.md");
 
     expect(result).toBe(content);
   });
@@ -48,10 +48,10 @@ describe("FileAdapter.readText", () => {
   it("preserves multi-line content with tables and special characters", async () => {
     const adapter = new FileAdapter(repoPath);
     const content = `# Test\n\n## Fields\n| Field | Required | Description |\n|-------|----------|-------------|\n| name | yes | User's full name |\n| email | no | Contact email (e.g. user@example.com) |\n`;
-    mkdirSync(join(repoPath, "skills", "test"), { recursive: true });
-    writeFileSync(join(repoPath, "skills", "test", "SKILL.md"), content);
+    mkdirSync(join(repoPath, "pacts", "test"), { recursive: true });
+    writeFileSync(join(repoPath, "pacts", "test", "PACT.md"), content);
 
-    const result = await adapter.readText("skills/test/SKILL.md");
+    const result = await adapter.readText("pacts/test/PACT.md");
 
     expect(result).toBe(content);
     expect(result).toContain("user@example.com");
@@ -62,7 +62,7 @@ describe("FileAdapter.readText", () => {
     const adapter = new FileAdapter(repoPath);
 
     await expect(
-      adapter.readText("skills/nonexistent/SKILL.md"),
+      adapter.readText("pacts/nonexistent/PACT.md"),
     ).rejects.toThrow();
   });
 });
@@ -71,7 +71,7 @@ describe("FileAdapter.fileExists", () => {
   let repoPath: string;
 
   beforeEach(() => {
-    repoPath = mkdtempSync(join(tmpdir(), "garp-file-ext-"));
+    repoPath = mkdtempSync(join(tmpdir(), "pact-file-ext-"));
   });
 
   afterEach(() => {
@@ -80,13 +80,13 @@ describe("FileAdapter.fileExists", () => {
 
   it("returns true when the file exists", async () => {
     const adapter = new FileAdapter(repoPath);
-    mkdirSync(join(repoPath, "skills", "sanity-check"), { recursive: true });
+    mkdirSync(join(repoPath, "pacts", "sanity-check"), { recursive: true });
     writeFileSync(
-      join(repoPath, "skills", "sanity-check", "schema.json"),
-      JSON.stringify({ skill_name: "sanity-check" }),
+      join(repoPath, "pacts", "sanity-check", "schema.json"),
+      JSON.stringify({ pact_name: "sanity-check" }),
     );
 
-    const result = await adapter.fileExists("skills/sanity-check/schema.json");
+    const result = await adapter.fileExists("pacts/sanity-check/schema.json");
 
     expect(result).toBe(true);
   });
@@ -94,16 +94,16 @@ describe("FileAdapter.fileExists", () => {
   it("returns false when the file does not exist", async () => {
     const adapter = new FileAdapter(repoPath);
 
-    const result = await adapter.fileExists("skills/nonexistent/schema.json");
+    const result = await adapter.fileExists("pacts/nonexistent/schema.json");
 
     expect(result).toBe(false);
   });
 
   it("returns false for a directory path (not a regular file)", async () => {
     const adapter = new FileAdapter(repoPath);
-    mkdirSync(join(repoPath, "skills", "sanity-check"), { recursive: true });
+    mkdirSync(join(repoPath, "pacts", "sanity-check"), { recursive: true });
 
-    const result = await adapter.fileExists("skills/sanity-check");
+    const result = await adapter.fileExists("pacts/sanity-check");
 
     // fileExists should check for files, not directories. A directory is not a file.
     // Note: If the implementation uses fs.access or fs.stat, the behavior depends

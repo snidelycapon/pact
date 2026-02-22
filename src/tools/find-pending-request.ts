@@ -1,7 +1,7 @@
 /**
  * Shared helper for locating a pending request by ID.
  *
- * Used by garp_amend and garp_cancel which both need the same
+ * Used by pact_amend and pact_cancel which both need the same
  * "find in pending, or produce a specific error if the request
  * is in completed/cancelled" logic.
  */

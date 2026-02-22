@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "garp": {
+    "pact": {
       "command": "node",
-      "args": ["/absolute/path/to/garp/dist/index.js"],
+      "args": ["/absolute/path/to/pact/dist/index.js"],
       "env": {
-        "GARP_REPO": "/absolute/path/to/local/garp-repo-clone",
-        "GARP_USER": "your-user-id"
+        "PACT_REPO": "/absolute/path/to/local/pact-repo-clone",
+        "PACT_USER": "your-user-id"
       }
     }
   }

@@ -1,9 +1,9 @@
 /**
- * Zod schemas for GARP protocol envelopes and team configuration.
+ * Zod schemas for PACT protocol envelopes and team configuration.
  *
  * These schemas define the rigid contract for request/response data
- * flowing through the GARP system. The context_bundle and response_bundle
- * fields are intentionally flexible (any object) -- the skill contract
+ * flowing through the PACT system. The context_bundle and response_bundle
+ * fields are intentionally flexible (any object) -- the pact
  * defines their structure, not the server.
  */
 

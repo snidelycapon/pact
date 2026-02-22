@@ -1,0 +1,270 @@
+roadmap:
+  project_id: pact
+  created_at: '2026-02-21T19:20:01Z'
+  total_steps: 10
+  phases: 4
+phases:
+- id: '01'
+  name: 'Foundation: scaffold, schemas, and driven port adapters'
+  steps:
+  - id: 01-01
+    name: 'Project scaffold, Zod schemas, and port interfaces'
+    description: >
+      Create src/ directory structure, TypeScript config, Zod schemas
+      for request/response envelopes and team config, driven port
+      interfaces (GitPort, ConfigPort, FilePort), and request ID
+      generator. Factory stub: createPactServer returns callTool.
+    time_estimate_hours: 3
+    dependencies: []
+    criteria:
+      - 'When createPactServer is called with repoPath and userId, it returns an object with a callTool method'
+      - 'When GitPort, ConfigPort, FilePort interfaces are imported, they define all methods from the architecture doc'
+      - 'When Zod schemas are applied to a valid request envelope, parsing succeeds'
+      - 'When generateRequestId is called with userId "alice", result matches req-YYYYMMDD-HHmmss-alice-4hex'
+    test_scenarios:
+      note: 'Foundation step - no acceptance test scenarios to enable. Schemas and ID generator are validated by unit tests and implicitly by tool handler tests in phase 02.'
+    implementation_scope:
+      files_to_create:
+        - src/schemas.ts
+        - src/ports.ts
+        - src/request-id.ts
+        - src/server.ts
+        - tsconfig.json
+      files_to_modify: []
+  - id: 01-02
+    name: 'Driven adapter implementations (Git, Config, File)'
+    description: >
+      Implement GitPort adapter using simple-git (pull, add, commit,
+      push, mv with pull-rebase retry on conflict). ConfigPort reads
+      config.json and resolves team members. FilePort reads/writes
+      JSON files and lists directories.
+    time_estimate_hours: 3
+    dependencies:
+      - 01-01
+    criteria:
+      - 'When git adapter commits and pushes, the commit appears on the remote bare repo'
+      - 'When push fails due to remote changes, adapter pulls with rebase and retries once successfully'
+      - 'When config adapter reads config.json, it returns team members with user_id and display_name'
+      - 'When config adapter looks up a valid user_id, it returns the matching member record'
+      - 'When file adapter writes JSON and reads it back, the content round-trips without loss'
+    implementation_scope:
+      files_to_create:
+        - src/adapters/git-adapter.ts
+        - src/adapters/config-adapter.ts
+        - src/adapters/file-adapter.ts
+      files_to_modify: []
+    test_scenarios:
+      note: 'Foundation step - adapter behavior validated by unit tests and implicitly by tool handler acceptance tests in phase 02.'
+- id: '02'
+  name: 'Tool handlers: the 4 driving ports'
+  parallelization_note: 'Steps 02-01, 02-02, 02-03 are all parallelizable after 01-02. They do not depend on each other.'
+  steps:
+  - id: 02-01
+    name: 'pact_request tool handler'
+    description: >
+      Validate input via Zod (recipient in config, pact directory
+      exists, required fields present). Generate request ID, build
+      envelope with sender from PACT_USER, write JSON to
+      requests/pending/, commit with [pact] tag, push.
+    time_estimate_hours: 3
+    dependencies:
+      - 01-02
+    criteria:
+      - 'When Alice submits a valid sanity-check request to Bob, a JSON file appears in requests/pending/ with correct envelope'
+      - 'When the recipient is not in config.json, the tool returns a structured error mentioning the unknown recipient'
+      - 'When the request_type has no matching pacts/{type}/PACT.md, the tool returns a "no pact found" error'
+      - 'When a required field (recipient, request_type, context_bundle) is omitted, the tool returns a missing-field error'
+      - 'When the remote has new commits, the push retries after pull-rebase and succeeds'
+    test_scenarios:
+      file: tests/acceptance/pact-request.test.ts
+      enable: 'all 11 scenarios (remove .skip, uncomment assertions)'
+      expected_pass: 11
+    implementation_scope:
+      files_to_create:
+        - src/tools/pact-request.ts
+      files_to_modify:
+        - tests/acceptance/pact-request.test.ts
+  - id: 02-02
+    name: 'pact_inbox tool handler'
+    description: >
+      Pull latest from remote, scan requests/pending/ directory, parse
+      each JSON envelope, filter by recipient matching PACT_USER, sort
+      by created_at ascending, return summaries with pact_path. Warn
+      on pull failure, return stale local data.
+    time_estimate_hours: 2
+    dependencies:
+      - 01-02
+    criteria:
+      - 'When Bob has one pending request addressed to him, pact_inbox returns exactly one summary with request_id, sender, and request_type'
+      - 'When pending/ has requests for both Alice and Bob, Bob sees only requests addressed to him'
+      - 'When multiple requests exist, they are returned sorted by created_at oldest-first'
+      - 'When the remote is unreachable, inbox returns locally-known requests with a staleness warning'
+      - 'When no pending requests exist for the user, inbox returns an empty list without error'
+    test_scenarios:
+      file: tests/acceptance/pact-inbox.test.ts
+      enable: 'all 9 scenarios (remove .skip, uncomment assertions)'
+      expected_pass: 9
+    implementation_scope:
+      files_to_create:
+        - src/tools/pact-inbox.ts
+      files_to_modify:
+        - tests/acceptance/pact-inbox.test.ts
+  - id: 02-03
+    name: 'pact_respond tool handler'
+    description: >
+      Validate request exists in pending/ and current user is the
+      designated recipient. Write response JSON to responses/, git mv
+      request from pending/ to completed/, atomic commit with [pact]
+      tag, push with rebase retry.
+    time_estimate_hours: 3
+    dependencies:
+      - 01-02
+    criteria:
+      - 'When Bob responds to a pending request, the request moves from pending/ to completed/ and a response file appears in responses/'
+      - 'When the response commit is inspected, both the move and the response file appear in a single atomic commit'
+      - 'When the current user is not the designated recipient, the tool returns a "not the recipient" error'
+      - 'When the request is already in completed/, the tool returns an "already completed" error'
+      - 'When the request_id does not exist in any directory, the tool returns a "not found" error'
+    test_scenarios:
+      file: tests/acceptance/pact-respond.test.ts
+      enable: 'all 10 scenarios (remove .skip, uncomment assertions)'
+      expected_pass: 10
+    implementation_scope:
+      files_to_create:
+        - src/tools/pact-respond.ts
+      files_to_modify:
+        - tests/acceptance/pact-respond.test.ts
+- id: '03'
+  name: 'Completion, MCP wiring, and integration'
+  steps:
+  - id: 03-01
+    name: 'pact_status tool handler'
+    description: >
+      Pull latest from remote, search requests/pending/ and
+      requests/completed/ for the given request_id. Return status
+      (pending or completed), original request data, and response
+      data if completed. Warn on pull failure.
+    time_estimate_hours: 2
+    dependencies:
+      - 01-02
+    criteria:
+      - 'When a completed request is queried, status returns "completed" with the full response including responder and response_bundle'
+      - 'When a pending request is queried, status returns "pending" with no response data'
+      - 'When a request_id exists in any lifecycle directory (pending or completed), it is found'
+      - 'When the request_id does not exist in any directory, the tool returns a "not found" error'
+      - 'When the remote is unreachable, status uses local data and includes a staleness warning'
+    test_scenarios:
+      file: tests/acceptance/pact-status.test.ts
+      enable: 'all 8 scenarios (remove .skip, uncomment assertions)'
+      expected_pass: 8
+    implementation_scope:
+      files_to_create:
+        - src/tools/pact-status.ts
+      files_to_modify:
+        - tests/acceptance/pact-status.test.ts
+  - id: 03-02
+    name: 'MCP server wiring (stdio transport, tool registration)'
+    description: >
+      Wire all 4 tool handlers into the MCP server using
+      @modelcontextprotocol/sdk stdio transport. Load PACT_REPO
+      and PACT_USER from env vars. Register pact_request,
+      pact_inbox, pact_respond, pact_status as MCP tools. Expose
+      createPactServer factory for tests.
+    time_estimate_hours: 2
+    dependencies:
+      - 02-01
+      - 02-02
+      - 02-03
+      - 03-01
+    criteria:
+      - 'When the server starts, it registers exactly 4 tools: pact_request, pact_inbox, pact_respond, pact_status'
+      - 'When PACT_REPO or PACT_USER env vars are missing, the server exits with a clear error message'
+      - 'When createPactServer is called with repoPath and userId, callTool dispatches to the correct handler'
+      - 'When an unknown tool name is passed to callTool, it returns an error'
+    implementation_scope:
+      files_to_create:
+        - src/index.ts
+      files_to_modify:
+        - src/server.ts
+  - id: 03-03
+    name: 'Walking skeleton and pact integration'
+    description: >
+      Enable all walking skeleton tests (3 scenarios) and pact
+      contract tests (7 scenarios). Uncomment assertions, fix
+      any integration issues. Verify the full round-trip and all
+      48 acceptance tests pass.
+    time_estimate_hours: 2
+    dependencies:
+      - 03-02
+    criteria:
+      - 'When the full round-trip is executed (request, inbox, respond, status), all 3 walking skeleton scenarios pass'
+      - 'When pact scenarios run, all 7 pass including pact existence validation and pact_path in inbox'
+      - 'When the complete test suite runs, all 48 acceptance tests pass green'
+    test_scenarios:
+      files:
+        - file: tests/acceptance/walking-skeleton.test.ts
+          enable: 'scenarios 2-3 (remove .skip, uncomment assertions); scenario 1 assertions already uncommented in prior steps'
+          expected_pass: 3
+        - file: tests/acceptance/pact-contract.test.ts
+          enable: 'all 7 scenarios (remove .skip, uncomment assertions)'
+          expected_pass: 7
+      total_suite_expected: 48
+    implementation_scope:
+      files_to_create: []
+      files_to_modify:
+        - tests/acceptance/walking-skeleton.test.ts
+        - tests/acceptance/pact-contract.test.ts
+- id: '04'
+  name: 'Build and distribution'
+  steps:
+  - id: 04-01
+    name: 'Build configuration (single-file bundle)'
+    description: >
+      Configure tsup or esbuild to produce dist/index.js as a
+      single-file Node.js bundle. Add build script to package.json.
+      Verify the bundle starts and responds to MCP protocol.
+    time_estimate_hours: 1
+    dependencies:
+      - 03-03
+    criteria:
+      - 'When "bun run build" is executed, it produces dist/index.js without errors'
+      - 'When "node dist/index.js" is run with PACT_REPO and PACT_USER set, the process starts and accepts MCP JSON-RPC on stdin'
+      - 'When the bundle is inspected, it is a single file with no external file dependencies beyond node_modules'
+    implementation_scope:
+      files_to_create:
+        - tsup.config.ts
+      files_to_modify:
+        - package.json
+  - id: 04-02
+    name: 'Craft Agents source config and README'
+    description: >
+      Create example Craft Agents source config JSON for PACT
+      MCP registration. Write README with setup instructions
+      covering clone, config, env vars, and source registration.
+    time_estimate_hours: 1
+    dependencies:
+      - 04-01
+    criteria:
+      - 'When the source config JSON is validated, it matches the Craft Agents MCP source schema (type, name, slug, mcp transport/command/args/env)'
+      - 'When a user follows README setup steps, they can register PACT as an MCP source in Craft Agents'
+    implementation_scope:
+      files_to_create:
+        - examples/source-config.json
+        - README.md
+      files_to_modify: []
+implementation_scope:
+  source_directories:
+  - src/
+  - src/tools/
+  - src/adapters/
+  test_directories:
+  - tests/acceptance/
+  - tests/acceptance/helpers/
+  excluded_patterns:
+  - node_modules/**
+  - dist/**
+validation:
+  status: approved
+  reviewer: nw-software-crafter-reviewer
+  approved_at: '2026-02-21T19:25:00Z'
+  revision_notes: 'Revised per review: simplified 01-01 criteria, added per-step test_scenarios with scenario counts and enablement instructions, added parallelization note to phase 02.'

@@ -1,26 +1,26 @@
-# Platform Readiness -- GARP MCP Server
+# Platform Readiness -- PACT MCP Server
 
 ## Scope
 
-This document covers project scaffolding, CI/CD, structured logging, and distribution for the GARP MCP server. The server is a standalone TypeScript/Node.js project (~500 lines) that runs as a stdio subprocess. There is no cloud infrastructure, no container orchestration, no deployment pipeline in the traditional sense.
+This document covers project scaffolding, CI/CD, structured logging, and distribution for the PACT MCP server. The server is a standalone TypeScript/Node.js project (~500 lines) that runs as a stdio subprocess. There is no cloud infrastructure, no container orchestration, no deployment pipeline in the traditional sense.
 
 ---
 
 ## 1. Project Structure
 
-The GARP MCP server is a **standalone repository**, not a workspace package inside the Craft Agents monorepo. Rationale: it is distributed independently (npm/git clone), configured as an external MCP source, and has no compile-time dependency on Craft Agents internals.
+The PACT MCP server is a **standalone repository**, not a workspace package inside the Craft Agents monorepo. Rationale: it is distributed independently (npm/git clone), configured as an external MCP source, and has no compile-time dependency on Craft Agents internals.
 
-The `craft-gm` repo holds design documents. The implementation repo (name TBD -- e.g., `garp-mcp` or `craft-garp`) holds the code.
+The `craft-gm` repo holds design documents. The implementation repo (name TBD -- e.g., `pact-mcp` or `craft-pact`) holds the code.
 
 ```
-garp-mcp/
+pact-mcp/
   src/
     index.ts              # Entry point: MCP server setup, stdio transport
     tools/
-      garp-request.ts    # garp_request handler
-      garp-inbox.ts      # garp_inbox handler
-      garp-respond.ts    # garp_respond handler
-      garp-status.ts     # garp_status handler
+      pact-request.ts    # pact_request handler
+      pact-inbox.ts      # pact_inbox handler
+      pact-respond.ts    # pact_respond handler
+      pact-status.ts     # pact_status handler
     ports/
       git-port.ts         # GitPort interface
       config-port.ts      # ConfigPort interface
@@ -45,7 +45,7 @@ garp-mcp/
     fixtures/
       config.json         # Test config
       valid-request.json  # Valid envelope fixture
-      skills/             # Test skill directories
+      pacts/             # Test pact directories
   package.json
   tsconfig.json
   .github/
@@ -72,13 +72,13 @@ garp-mcp/
 
 ```json
 {
-  "name": "garp-mcp",
+  "name": "pact-mcp",
   "version": "0.1.0",
-  "description": "Git-backed async GARP MCP server for agent-native workflows",
+  "description": "Git-backed async PACT MCP server for agent-native workflows",
   "type": "commonjs",
   "main": "dist/index.js",
   "bin": {
-    "garp-mcp": "./dist/index.js"
+    "pact-mcp": "./dist/index.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --target=node --format=cjs",
@@ -112,9 +112,9 @@ garp-mcp/
 ```
 
 **Notes:**
-- `zod` pinned to v3.x (the Craft Agents monorepo uses v4.x, but the GARP server is standalone and v3 is more widely compatible as of this writing -- upgrade when v4 stabilizes)
+- `zod` pinned to v3.x (the Craft Agents monorepo uses v4.x, but the PACT server is standalone and v3 is more widely compatible as of this writing -- upgrade when v4 stabilizes)
 - `"files": ["dist/"]` ensures only the built output is included in npm tarball
-- `"bin"` enables `npx garp-mcp` after global install or `npx` invocation
+- `"bin"` enables `npx pact-mcp` after global install or `npx` invocation
 
 ---
 
@@ -235,7 +235,7 @@ interface LogEntry {
   ts: string;        // ISO 8601
   level: LogLevel;
   msg: string;
-  tool?: string;     // Which MCP tool (garp_request, garp_inbox, etc.)
+  tool?: string;     // Which MCP tool (pact_request, pact_inbox, etc.)
   request_id?: string;
   duration_ms?: number;
   error?: string;
@@ -247,7 +247,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 const currentLevel: LogLevel =
-  (process.env.GARP_LOG_LEVEL as LogLevel) ?? "info";
+  (process.env.PACT_LOG_LEVEL as LogLevel) ?? "info";
 
 export function log(level: LogLevel, msg: string, fields?: Record<string, unknown>): void {
   if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[currentLevel]) return;
@@ -277,9 +277,9 @@ export function log(level: LogLevel, msg: string, fields?: Record<string, unknow
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `GARP_LOG_LEVEL` | `info` | Minimum log level: debug, info, warn, error |
-| `GARP_REPO` | (required) | Path to local GARP repo clone |
-| `GARP_USER` | (required) | Current user's ID for inbox filtering and sender attribution |
+| `PACT_LOG_LEVEL` | `info` | Minimum log level: debug, info, warn, error |
+| `PACT_REPO` | (required) | Path to local PACT repo clone |
+| `PACT_USER` | (required) | Current user's ID for inbox filtering and sender attribution |
 
 ---
 
@@ -290,8 +290,8 @@ Three installation paths, ordered by simplicity.
 ### Path A: Git Clone + Build (primary for MVP)
 
 ```bash
-git clone git@github.com:{org}/garp-mcp.git
-cd garp-mcp
+git clone git@github.com:{org}/pact-mcp.git
+cd pact-mcp
 npm install
 npm run build
 ```
@@ -302,10 +302,10 @@ Then configure in Craft Agents source config:
   "mcp": {
     "transport": "stdio",
     "command": "node",
-    "args": ["/absolute/path/to/garp-mcp/dist/index.js"],
+    "args": ["/absolute/path/to/pact-mcp/dist/index.js"],
     "env": {
-      "GARP_REPO": "/absolute/path/to/garp-repo-clone",
-      "GARP_USER": "cory"
+      "PACT_REPO": "/absolute/path/to/pact-repo-clone",
+      "PACT_USER": "cory"
     }
   }
 }
@@ -317,7 +317,7 @@ Then configure in Craft Agents source config:
 ### Path B: npm Global Install (post-MVP)
 
 ```bash
-npm install -g garp-mcp
+npm install -g pact-mcp
 ```
 
 Then configure:
@@ -325,11 +325,11 @@ Then configure:
 {
   "mcp": {
     "transport": "stdio",
-    "command": "garp-mcp",
+    "command": "pact-mcp",
     "args": [],
     "env": {
-      "GARP_REPO": "/absolute/path/to/garp-repo-clone",
-      "GARP_USER": "cory"
+      "PACT_REPO": "/absolute/path/to/pact-repo-clone",
+      "PACT_USER": "cory"
     }
   }
 }
@@ -345,10 +345,10 @@ Then configure:
   "mcp": {
     "transport": "stdio",
     "command": "npx",
-    "args": ["garp-mcp"],
+    "args": ["pact-mcp"],
     "env": {
-      "GARP_REPO": "/absolute/path/to/garp-repo-clone",
-      "GARP_USER": "cory"
+      "PACT_REPO": "/absolute/path/to/pact-repo-clone",
+      "PACT_USER": "cory"
     }
   }
 }
@@ -371,7 +371,7 @@ Include a `setup.sh` in the repo for first-time setup:
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Building garp-mcp..."
+echo "Building pact-mcp..."
 npm install
 npm run build
 
@@ -381,8 +381,8 @@ echo ""
 echo "  command: node"
 echo "  args: [\"$(pwd)/dist/index.js\"]"
 echo "  env:"
-echo "    GARP_REPO: <path-to-your-garp-repo-clone>"
-echo "    GARP_USER: <your-user-id>"
+echo "    PACT_REPO: <path-to-your-pact-repo-clone>"
+echo "    PACT_USER: <your-user-id>"
 ```
 
 ---
@@ -409,26 +409,26 @@ The MCP Inspector (`@modelcontextprotocol/inspector`) is the primary debugging t
 npm run build
 
 # Launch inspector with env vars
-GARP_REPO=/tmp/test-garp-repo GARP_USER=testuser \
+PACT_REPO=/tmp/test-pact-repo PACT_USER=testuser \
   npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
 ### Test Repo Setup (for development)
 
-Developers need a local GARP repo to test against:
+Developers need a local PACT repo to test against:
 
 ```bash
 # Create a bare remote (simulates GitHub)
-git init --bare /tmp/garp-remote.git
+git init --bare /tmp/pact-remote.git
 
 # Clone it as the working repo
-git clone /tmp/garp-remote.git /tmp/test-garp-repo
+git clone /tmp/pact-remote.git /tmp/test-pact-repo
 
 # Initialize structure
-cd /tmp/test-garp-repo
-mkdir -p requests/pending requests/active requests/completed responses skills
+cd /tmp/test-pact-repo
+mkdir -p requests/pending requests/active requests/completed responses pacts
 touch requests/pending/.gitkeep requests/active/.gitkeep \
-      requests/completed/.gitkeep responses/.gitkeep skills/.gitkeep
+      requests/completed/.gitkeep responses/.gitkeep pacts/.gitkeep
 
 # Create test config
 cat > config.json << 'EOF'
@@ -442,7 +442,7 @@ cat > config.json << 'EOF'
 }
 EOF
 
-git add -A && git commit -m "Initialize GARP repo" && git push origin main
+git add -A && git commit -m "Initialize PACT repo" && git push origin main
 ```
 
 This is documented in the README. Integration tests automate this setup.

@@ -1,9 +1,9 @@
 # US-003a: Short ID, Thread ID, and Attachment Count in Inbox (Protocol Extension)
 
-**Extends**: US-003 (Check GARP Inbox)
+**Extends**: US-003 (Check PACT Inbox)
 
 ## Problem (The Pain)
-Alex checks her GARP inbox and sees a list of pending requests. The request IDs are long and unwieldy (e.g., "req-20260221-143022-cory-a1b2") — hard for humans to reference in conversation. When requests are part of a multi-round thread, there's no way to see which ones are related without opening each envelope. And when requests include file attachments, Alex can't tell from the inbox listing whether files are attached or how many.
+Alex checks her PACT inbox and sees a list of pending requests. The request IDs are long and unwieldy (e.g., "req-20260221-143022-cory-a1b2") — hard for humans to reference in conversation. When requests are part of a multi-round thread, there's no way to see which ones are related without opening each envelope. And when requests include file attachments, Alex can't tell from the inbox listing whether files are attached or how many.
 
 ## Who (The User)
 - Alex, a tech support engineer triaging her inbox
@@ -12,7 +12,7 @@ Alex checks her GARP inbox and sees a list of pending requests. The request IDs 
 - Needs to know if attachments are included for triage prioritization
 
 ## Solution (What We Build)
-Extend `garp_inbox` to include three new fields in each inbox entry:
+Extend `pact_inbox` to include three new fields in each inbox entry:
 1. **short_id** — the last two segments of the request_id (e.g., "cory-a1b2"), derived at read time for human-friendly display
 2. **thread_id** — the thread_id from the request envelope, when present, so the agent can identify related requests
 3. **attachment_count** — the number of attachments on the request (0 when none)
@@ -32,27 +32,27 @@ Alex sees an inbox entry with "2 attachments". She knows this request has suppor
 
 ### Scenario: Inbox entry includes short_id derived from request_id
 Given a pending request "req-20260221-140000-alice-a1b2" addressed to Bob
-When Bob calls garp_inbox
+When Bob calls pact_inbox
 Then the inbox entry includes short_id "alice-a1b2"
 
 ### Scenario: Inbox entry includes thread_id when request has one
 Given a pending request addressed to Bob with thread_id "req-20260221-100000-cory-x1y2"
-When Bob calls garp_inbox
+When Bob calls pact_inbox
 Then the inbox entry includes thread_id "req-20260221-100000-cory-x1y2"
 
 ### Scenario: Inbox entry omits thread_id when request has none
 Given a pending request addressed to Bob with no thread_id in the envelope
-When Bob calls garp_inbox
+When Bob calls pact_inbox
 Then the inbox entry does not have a thread_id property
 
 ### Scenario: Inbox entry includes attachment_count
 Given a pending request addressed to Bob with 2 attachments in the envelope
-When Bob calls garp_inbox
+When Bob calls pact_inbox
 Then the inbox entry includes attachment_count 2
 
 ### Scenario: Inbox entry shows attachment_count 0 when no attachments
 Given a pending request addressed to Bob with no attachments
-When Bob calls garp_inbox
+When Bob calls pact_inbox
 Then the inbox entry includes attachment_count 0
 
 ## Acceptance Criteria
@@ -60,7 +60,7 @@ Then the inbox entry includes attachment_count 0
 - [ ] Each inbox entry includes thread_id when the request envelope has one
 - [ ] thread_id is omitted from the inbox entry when the request envelope has none
 - [ ] Each inbox entry includes attachment_count (integer, 0 when no attachments)
-- [ ] Existing inbox behavior (filtering, sorting, summary, skill_path) is unchanged
+- [ ] Existing inbox behavior (filtering, sorting, summary, pact_path) is unchanged
 - [ ] short_id derivation handles the standard request_id format: req-{date}-{time}-{userId}-{hex}
 
 ## Technical Notes

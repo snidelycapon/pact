@@ -4,7 +4,7 @@
 
 ## Context
 
-US-011 requires garp_inbox to group pending requests by thread_id so that multi-round conversations appear as a single inbox item. The grouping algorithm must handle: (1) threads where both parties send requests, (2) threads where some rounds are completed and only one is pending, and (3) pre-Phase-2 requests with no thread_id.
+US-011 requires pact_inbox to group pending requests by thread_id so that multi-round conversations appear as a single inbox item. The grouping algorithm must handle: (1) threads where both parties send requests, (2) threads where some rounds are completed and only one is pending, and (3) pre-Phase-2 requests with no thread_id.
 
 The inbox currently scans `requests/pending/`, filters by `recipient == userId`, and returns flat entries sorted by `created_at`.
 
@@ -14,7 +14,7 @@ Group by `thread_id` within the pending scan results only. After filtering by re
 
 The grouping operates ONLY on pending requests visible to the current user. No cross-directory joins (completed, cancelled) are performed during inbox scan.
 
-Thread groups expose a `request_ids: string[]` field so the agent can drill into individual rounds via `garp_status` or view the full history via `garp_thread`.
+Thread groups expose a `request_ids: string[]` field so the agent can drill into individual rounds via `pact_status` or view the full history via `pact_thread`.
 
 ## Alternatives Considered
 
@@ -24,11 +24,11 @@ Scan pending/, completed/, and cancelled/ for all requests in a thread, then pre
 
 - **Pro**: Agent sees complete thread context directly in inbox (e.g., "round 3 of 5, rounds 1-2 completed")
 - **Con**: Requires scanning 3 directories and reading many more JSON files per inbox call. Significantly increases latency and complexity. Mixes triage data (what needs my attention?) with context data (what is the full history?).
-- **Rejection rationale**: Inbox is a triage tool. Full thread context is the job of `garp_thread`. Adding cross-directory scanning to inbox would make it slower and more complex without a clear triage benefit. The round_count in the group reflects only pending rounds, which is what the user needs for triage.
+- **Rejection rationale**: Inbox is a triage tool. Full thread context is the job of `pact_thread`. Adding cross-directory scanning to inbox would make it slower and more complex without a clear triage benefit. The round_count in the group reflects only pending rounds, which is what the user needs for triage.
 
 ### No Grouping (Flat List + Thread ID Display)
 
-Keep inbox as a flat list but display thread_id on each entry. Let the agent group visually or use garp_thread.
+Keep inbox as a flat list but display thread_id on each entry. Let the agent group visually or use pact_thread.
 
 - **Pro**: Zero inbox logic changes. Simplest implementation.
 - **Con**: Defeats the purpose of US-011. Agent sees 3 separate items for a 3-round thread, must reason about grouping itself. The problem statement specifically describes this as the pain to solve.
@@ -46,7 +46,7 @@ Keep inbox as a flat list but display thread_id on each entry. Let the agent gro
 ### Negative
 
 - `InboxResult.requests` becomes a union type (`InboxEntry | InboxThreadGroup`) -- consumers must check `is_thread_group` discriminator
-- Round count reflects only pending rounds, not total thread rounds (agent must call garp_thread for full count)
+- Round count reflects only pending rounds, not total thread rounds (agent must call pact_thread for full count)
 - Bidirectional threads where the current user is sender on some rounds: those rounds are not in the user's inbox (they sent them), so round_count may be lower than expected
 
 ### Risks

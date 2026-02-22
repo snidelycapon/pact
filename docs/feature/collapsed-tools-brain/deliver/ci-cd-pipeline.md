@@ -9,7 +9,7 @@
 
 ## 1. Existing Pipeline Analysis
 
-GARP uses **GitHub Actions** via `.github/workflows/ci.yml`. The existing pipeline runs on every push to `main` and every pull request.
+PACT uses **GitHub Actions** via `.github/workflows/ci.yml`. The existing pipeline runs on every push to `main` and every pull request.
 
 ### Current Pipeline Stages
 
@@ -57,11 +57,11 @@ Stryker is configured for mutation testing but not run in CI. Current configurat
 ```json
 {
   "mutate": [
-    "src/tools/garp-cancel.ts",
-    "src/tools/garp-amend.ts",
-    "src/tools/garp-respond.ts",
-    "src/tools/garp-status.ts",
-    "src/tools/garp-inbox.ts",
+    "src/tools/pact-cancel.ts",
+    "src/tools/pact-amend.ts",
+    "src/tools/pact-respond.ts",
+    "src/tools/pact-status.ts",
+    "src/tools/pact-inbox.ts",
     "src/tools/find-pending-request.ts",
     "src/schemas.ts"
   ],
@@ -82,14 +82,14 @@ The collapsed-tools-brain feature introduces a **3-phase migration**. Each phase
 
 ### Phase 1: Additive Build (New Tools Alongside Old)
 
-**Goal**: Add `garp_discover` and `garp_do` without breaking existing functionality.
+**Goal**: Add `pact_discover` and `pact_do` without breaking existing functionality.
 
 **Quality Gates**:
 
 1. All 179 existing tests pass (no regressions)
 2. Type check passes (strict TypeScript)
 3. Build produces `dist/index.js` successfully
-4. New acceptance tests pass for `garp_discover` and `garp_do`
+4. New acceptance tests pass for `pact_discover` and `pact_do`
 5. Code coverage does not decrease (baseline: TBD from current coverage report)
 
 **CI Changes**: None required for Phase 1. Existing pipeline catches regressions automatically.
@@ -101,7 +101,7 @@ The collapsed-tools-brain feature introduces a **3-phase migration**. Each phase
 **Quality Gates**:
 
 1. Equivalence tests pass (new test suite in `tests/acceptance/equivalence/`)
-2. Mutation testing on new modules (`skill-loader.ts`, `action-dispatcher.ts`) achieves ≥90% mutation score
+2. Mutation testing on new modules (`pact-loader.ts`, `action-dispatcher.ts`) achieves ≥90% mutation score
 3. All existing tests continue to pass
 4. Manual testing checklist completed (see Section 5)
 
@@ -118,7 +118,7 @@ The collapsed-tools-brain feature introduces a **3-phase migration**. Each phase
 
 1. All migrated acceptance tests pass
 2. Zero legacy tool registrations remain in `src/mcp-server.ts`
-3. Deleted files verified: `skill-parser.ts`, `garp-skills.ts`, `schema.json` files
+3. Deleted files verified: `pact-parser.ts`, `pact-pacts.ts`, `schema.json` files
 4. Documentation updated (ADR-010, ADR-011 marked as Superseded)
 5. Mutation testing on full codebase achieves ≥85% mutation score (improvement from current ~70%)
 
@@ -275,7 +275,7 @@ jobs:
 | Phase | Pipeline Changes | Rationale |
 |-------|------------------|-----------|
 | Phase 1 (Build) | No changes; existing pipeline sufficient | Additive changes, no new quality gates needed |
-| Phase 2 (Validate) | Add mutation testing job for new modules only | Validate skill-loader and action-dispatcher quality |
+| Phase 2 (Validate) | Add mutation testing job for new modules only | Validate pact-loader and action-dispatcher quality |
 | Phase 3 (Remove) | Add full mutation testing gate | Ensure overall code quality meets 85% threshold |
 
 ---
@@ -289,7 +289,7 @@ Create `tests/acceptance/equivalence/` directory with tests that exercise both s
 ```typescript
 // tests/acceptance/equivalence/send-request.test.ts
 describe("Behavioral equivalence: send request", () => {
-  it("garp_request and garp_do(send) produce identical outcomes", async () => {
+  it("pact_request and pact_do(send) produce identical outcomes", async () => {
     const params = {
       request_type: "ask",
       recipient: "dan",
@@ -297,13 +297,13 @@ describe("Behavioral equivalence: send request", () => {
     };
 
     // Execute legacy surface
-    const legacyResult = await server.callTool("garp_request", params);
+    const legacyResult = await server.callTool("pact_request", params);
 
     // Reset repo to clean state
     await resetRepo();
 
     // Execute collapsed surface
-    const collapsedResult = await server.callTool("garp_do", {
+    const collapsedResult = await server.callTool("pact_do", {
       action: "send",
       ...params
     });
@@ -330,11 +330,11 @@ Run equivalence tests in Phase 2 only. They are not needed in Phase 3 (legacy su
 Update all acceptance tests from legacy tool calls to collapsed tool calls:
 
 ```diff
-- await server.callTool("garp_request", { ... });
-+ await server.callTool("garp_do", { action: "send", ... });
+- await server.callTool("pact_request", { ... });
++ await server.callTool("pact_do", { action: "send", ... });
 
-- await server.callTool("garp_skills");
-+ await server.callTool("garp_discover");
+- await server.callTool("pact_pacts");
++ await server.callTool("pact_discover");
 ```
 
 Assertions remain unchanged (handler behavior is identical).
@@ -345,15 +345,15 @@ Assertions remain unchanged (handler behavior is identical).
 
 Automated tests cannot cover all integration scenarios. Manual testing checklist:
 
-- [ ] Install GARP in a fresh directory and verify `bun install` succeeds
-- [ ] Configure GARP as an MCP server in Craft Agents
-- [ ] Invoke `garp_discover` and verify skill catalog returns all 4 example skills
-- [ ] Send a request using `garp_do` with action `send` and verify it appears in `requests/pending/`
-- [ ] Respond to the request using `garp_do` with action `respond` and verify it moves to `requests/completed/`
-- [ ] Check request status using `garp_do` with action `check_status`
-- [ ] View inbox using `garp_do` with action `inbox` and verify grouped threads display correctly
-- [ ] Cancel a request using `garp_do` with action `cancel`
-- [ ] Amend a request using `garp_do` with action `amend`
+- [ ] Install PACT in a fresh directory and verify `bun install` succeeds
+- [ ] Configure PACT as an MCP server in Craft Agents
+- [ ] Invoke `pact_discover` and verify pact catalog returns all 4 example pacts
+- [ ] Send a request using `pact_do` with action `send` and verify it appears in `requests/pending/`
+- [ ] Respond to the request using `pact_do` with action `respond` and verify it moves to `requests/completed/`
+- [ ] Check request status using `pact_do` with action `check_status`
+- [ ] View inbox using `pact_do` with action `inbox` and verify grouped threads display correctly
+- [ ] Cancel a request using `pact_do` with action `cancel`
+- [ ] Amend a request using `pact_do` with action `amend`
 - [ ] Verify that legacy tools still work (parallel registration check)
 
 All checklist items must pass before Phase 3 deletion.
@@ -375,16 +375,16 @@ Achieve **≥85% mutation score** on the full codebase (excluding test files, ad
 ```json
 {
   "mutate": [
-    "src/skill-loader.ts",        // New: Target ≥90%
+    "src/pact-loader.ts",        // New: Target ≥90%
     "src/action-dispatcher.ts",   // New: Target ≥90%
-    "src/tools/garp-discover.ts", // New: Target ≥85%
-    "src/tools/garp-do.ts",       // New: Target ≥85%
-    "src/tools/garp-request.ts",  // Existing
-    "src/tools/garp-inbox.ts",    // Existing
-    "src/tools/garp-respond.ts",  // Existing
-    "src/tools/garp-status.ts",   // Existing
-    "src/tools/garp-cancel.ts",   // Existing
-    "src/tools/garp-amend.ts",    // Existing
+    "src/tools/pact-discover.ts", // New: Target ≥85%
+    "src/tools/pact-do.ts",       // New: Target ≥85%
+    "src/tools/pact-request.ts",  // Existing
+    "src/tools/pact-inbox.ts",    // Existing
+    "src/tools/pact-respond.ts",  // Existing
+    "src/tools/pact-status.ts",   // Existing
+    "src/tools/pact-cancel.ts",   // Existing
+    "src/tools/pact-amend.ts",    // Existing
     "src/tools/find-pending-request.ts", // Existing
     "src/schemas.ts"              // Existing
   ],
@@ -454,7 +454,7 @@ Coverage reports uploaded to Codecov (or similar) for trend analysis.
 
 ## 8. Branching Strategy Alignment
 
-GARP uses **trunk-based development**:
+PACT uses **trunk-based development**:
 
 - Single `main` branch
 - All changes land on `main` via pull requests
@@ -497,9 +497,9 @@ All pipeline jobs must pass before merge.
 
 ## 9. Deployment Strategy
 
-GARP is not deployed to production infrastructure. "Deployment" is a manual developer action:
+PACT is not deployed to production infrastructure. "Deployment" is a manual developer action:
 
-1. Developer runs `git pull origin main` in their local GARP directory
+1. Developer runs `git pull origin main` in their local PACT directory
 2. Developer runs `bun install` to update dependencies (if `package.json` changed)
 3. Developer runs `bun run build` to rebuild `dist/index.js`
 4. Developer restarts their MCP host application (Craft Agents)
@@ -523,7 +523,7 @@ Tags are documentation only; they do not trigger automated processes.
 
 ## 10. Continuous Learning
 
-Not applicable. GARP is a local development tool with no telemetry, no user analytics, and no feedback loops beyond manual developer reports.
+Not applicable. PACT is a local development tool with no telemetry, no user analytics, and no feedback loops beyond manual developer reports.
 
 ---
 
@@ -579,7 +579,7 @@ Estimated pipeline duration (based on existing ci.yml):
 
 ### No Rollback
 
-Since GARP is not deployed to production, there is no rollback mechanism. If a bad commit lands on `main`, developers fix forward with a new PR.
+Since PACT is not deployed to production, there is no rollback mechanism. If a bad commit lands on `main`, developers fix forward with a new PR.
 
 ---
 

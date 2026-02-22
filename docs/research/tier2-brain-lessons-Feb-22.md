@@ -9,14 +9,14 @@
 
 ## Executive Summary
 
-This document captures a critical architectural insight for GARP's Tier 2 "brain service" evolution, informed by studying Beads' 8-phase refactoring that removed ~16,000 lines of legacy code. The key finding: **the brain should be skill-driven serverless orchestration, not a stateful daemon**.
+This document captures a critical architectural insight for PACT's Tier 2 "brain service" evolution, informed by studying Beads' 8-phase refactoring that removed ~16,000 lines of legacy code. The key finding: **the brain should be pact-driven serverless orchestration, not a stateful daemon**.
 
 **What the brain IS**:
 - Serverless functions triggered by git events
-- Reads SKILL.md contracts to determine behavior
-- Executes validation, enrichment, routing per skill
+- Reads PACT.md contracts to determine behavior
+- Executes validation, enrichment, routing per pact
 - Writes results back to git (stateless, idempotent)
-- Optional per skill, team-configurable
+- Optional per pact, team-configurable
 
 **What the brain is NOT**:
 - A stateful daemon managing connections
@@ -54,7 +54,7 @@ After the refactoring (v0.55.4):
 
 **Complexity added early to solve scaling problems often requires fundamental backend changes later.** All the daemon/sync/dual-backend complexity was built to make SQLite scale, but ultimately the solution was replacing SQLite entirely with Dolt.
 
-**Implication for GARP**: Don't add complexity (stateful services, sync layers) until the fundamental storage layer proves insufficient. Git → Dolt is a known migration path. Don't build complexity on top of git that will need to be removed later.
+**Implication for PACT**: Don't add complexity (stateful services, sync layers) until the fundamental storage layer proves insufficient. Git → Dolt is a known migration path. Don't build complexity on top of git that will need to be removed later.
 
 ---
 
@@ -82,25 +82,25 @@ Following Beads' experience:
 
 ---
 
-## Actual Vision: Skill-Driven Orchestration
+## Actual Vision: Pact-Driven Orchestration
 
 ### The Critical Clarification
 
-The "brain" is not a daemon. It's **serverless orchestration driven by SKILL.md contracts**.
+The "brain" is not a daemon. It's **serverless orchestration driven by PACT.md contracts**.
 
-> "The 'brain' is essentially just a server-side or 'switchboard operator' LLM that's sitting in between the human initiated GARP request and it reaching the recipient. Basically 'server-side processing' that's contextually handled based on the same skill contract for the request type as the humans are using."
+> "The 'brain' is essentially just a server-side or 'switchboard operator' LLM that's sitting in between the human initiated PACT request and it reaching the recipient. Basically 'server-side processing' that's contextually handled based on the same pact for the request type as the humans are using."
 
 ### Core Principles
 
-1. **Skill contract is executable** - Both humans and LLMs follow the same SKILL.md
+1. **Pact is executable** - Both humans and LLMs follow the same PACT.md
 2. **Stateless processing** - Functions triggered by git events, no persistent state
 3. **Git remains canonical** - Brain writes enrichments back to git
-4. **Skill-specific** - Each skill defines its own brain processing (or none)
-5. **Team-configurable** - Skills live in team repos, teams control behavior
+4. **Pact-specific** - Each pact defines its own brain processing (or none)
+5. **Team-configurable** - Pacts live in team repos, teams control behavior
 
 ---
 
-## Architecture: Skill-Driven Brain
+## Architecture: Pact-Driven Brain
 
 ### How It Works
 
@@ -113,14 +113,14 @@ sequenceDiagram
     participant LLM as LLM API
     participant Recipient as Recipient<br/>(Human + Agent)
 
-    Sender->>Git: garp_request (bug-triage)
+    Sender->>Git: pact_request (bug-triage)
     Note over Git: New file in requests/pending/
 
     Git->>Webhook: Push event
     Webhook->>Brain: Trigger function
 
-    Note over Brain: 1. Load skills/bug-triage/SKILL.md
-    Brain->>Brain: 2. Parse brain_processing{} section
+    Note over Brain: 1. Load pacts/bug-triage/PACT.md
+    Brain->>Brain: 2. Parse hooks{} section
 
     Brain->>LLM: 3. Execute validation rules
     LLM-->>Brain: Validated + severity classification
@@ -140,10 +140,10 @@ sequenceDiagram
     Note over Recipient: Receives enriched request<br/>with context, classification, docs
 ```
 
-### Example: Bug Triage Skill with Brain Processing
+### Example: Bug Triage Pact with Brain Processing
 
 ```markdown
-# skills/bug-triage/SKILL.md
+# pacts/bug-triage/PACT.md
 
 ## Request Context Bundle
 
@@ -268,9 +268,9 @@ When responding to this request, provide:
 |-----------|-----------|-----------|
 | **Trigger** | GitHub Webhooks | Native git integration, free |
 | **Functions** | AWS Lambda / Vercel / Cloudflare Workers | Serverless, auto-scale, pay-per-use |
-| **LLM** | Anthropic Claude API | Skill contract understanding, classification |
+| **LLM** | Anthropic Claude API | Pact understanding, classification |
 | **Storage** | Git repo (canonical) | No separate database, single source of truth |
-| **Notifications** | Slack API / SendGrid / Twilio | Per-skill routing configuration |
+| **Notifications** | Slack API / SendGrid / Twilio | Per-pact routing configuration |
 
 ### Serverless Function Structure
 
@@ -279,7 +279,7 @@ When responding to this request, provide:
 
 import { Octokit } from '@octokit/rest';
 import Anthropic from '@anthropic-ai/sdk';
-import { parseSkillContract } from '../lib/skill-parser';
+import { parsePactContract } from '../lib/pact-parser';
 import { executeValidation, executeEnrichment, executeRouting } from '../lib/processors';
 
 interface GitHubWebhookEvent {
@@ -301,18 +301,18 @@ export default async function handler(event: GitHubWebhookEvent) {
     // 3. Load request envelope
     const request = await loadRequest(repo, requestPath);
 
-    // 4. Load skill contract
-    const skillPath = `${repo}/skills/${request.request_type}/SKILL.md`;
-    const skill = await parseSkillContract(skillPath);
+    // 4. Load pact
+    const pactPath = `${repo}/pacts/${request.request_type}/PACT.md`;
+    const pact = await parsePactContract(pactPath);
 
-    // Skip if skill has no brain processing
-    if (!skill.brain_processing) {
-      console.log(`Skill ${request.request_type} has no brain processing`);
+    // Skip if pact has no brain processing
+    if (!pact.hooks) {
+      console.log(`Pact ${request.request_type} has no brain processing`);
       return;
     }
 
     // 5. Execute brain processing stages
-    const processor = new SkillProcessor(skill, request);
+    const processor = new PactProcessor(pact, request);
 
     try {
       // Validation
@@ -330,7 +330,7 @@ export default async function handler(event: GitHubWebhookEvent) {
       await processor.route();
 
       // Auto-response
-      if (skill.brain_processing.auto_response?.enabled) {
+      if (pact.hooks.auto_response?.enabled) {
         await autoRespond(repo, request, enrichment);
       }
 
@@ -344,14 +344,14 @@ export default async function handler(event: GitHubWebhookEvent) {
   }
 }
 
-class SkillProcessor {
+class PactProcessor {
   constructor(
-    private skill: SkillContract,
+    private pact: PactContract,
     private request: RequestEnvelope
   ) {}
 
   async validate(): Promise<ValidationResult> {
-    const rules = this.skill.brain_processing.validation || [];
+    const rules = this.pact.hooks.validation || [];
 
     for (const rule of rules) {
       if (rule.llm_classify_severity) {
@@ -380,7 +380,7 @@ class SkillProcessor {
   }
 
   async enrich(): Promise<Enrichment> {
-    const rules = this.skill.brain_processing.enrichment || [];
+    const rules = this.pact.hooks.enrichment || [];
     const enrichment: Enrichment = {
       similar_issues: [],
       slack_threads: [],
@@ -410,7 +410,7 @@ class SkillProcessor {
   }
 
   async route(): Promise<void> {
-    const rules = this.skill.brain_processing.routing || [];
+    const rules = this.pact.hooks.routing || [];
 
     for (const rule of rules) {
       const conditionMet = this.evaluateCondition(rule.condition);
@@ -471,8 +471,8 @@ Respond with VALID if appropriate, or INVALID: <reason> if not.`
 ### GitHub Actions Integration
 
 ```yaml
-# .github/workflows/garp-brain.yml
-name: GARP Brain Processing
+# .github/workflows/pact-brain.yml
+name: PACT Brain Processing
 
 on:
   push:
@@ -510,8 +510,8 @@ jobs:
 
       - name: Commit enrichments
         run: |
-          git config user.name "GARP Brain"
-          git config user.email "brain@garp.dev"
+          git config user.name "PACT Brain"
+          git config user.email "brain@pact.dev"
           git add -A
           git diff --staged --quiet || git commit -m "[brain] Processed new requests"
           git push
@@ -519,21 +519,21 @@ jobs:
 
 ---
 
-## Comparison: Daemon vs Skill-Driven
+## Comparison: Daemon vs Pact-Driven
 
-| Aspect | Daemon Pattern (Beads v0.49) | Skill-Driven Brain (GARP Tier 2) |
+| Aspect | Daemon Pattern (Beads v0.49) | Pact-Driven Brain (PACT Tier 2) |
 |--------|------------------------------|----------------------------------|
 | **State** | Stateful (DB, locks, queues) | Stateless (triggered functions) |
 | **Lifecycle** | Always-on process | Event-triggered, ephemeral |
-| **Configuration** | Hardcoded logic in daemon code | Declarative rules in SKILL.md |
-| **Coupling** | Tight (daemon owns coordination) | Loose (skill contracts define behavior) |
+| **Configuration** | Hardcoded logic in daemon code | Declarative rules in PACT.md |
+| **Coupling** | Tight (daemon owns coordination) | Loose (pacts define behavior) |
 | **Scaling** | Server capacity limits | Serverless auto-scale |
 | **Failure Mode** | Lost state, DB corruption | Retry function, idempotent |
 | **Testing** | Complex (need running daemon) | Simple (unit test functions) |
 | **Deployment** | Server provisioning, monitoring | Deploy functions, no ops |
-| **Customization** | Code changes, redeploy daemon | Edit SKILL.md, commit to git |
-| **Multi-team** | Shared daemon config | Per-team skill contracts |
-| **Version Control** | Config in DB or files | Skills in git, full history |
+| **Customization** | Code changes, redeploy daemon | Edit PACT.md, commit to git |
+| **Multi-team** | Shared daemon config | Per-team pacts |
+| **Version Control** | Config in DB or files | Pacts in git, full history |
 
 ---
 
@@ -543,42 +543,42 @@ jobs:
 
 **Beads' problem**: Daemon had state (in-memory, SQLite) that had to sync with JSONL files.
 
-**GARP solution**: Brain functions write directly to git. Git is the only state. No sync needed.
+**PACT solution**: Brain functions write directly to git. Git is the only state. No sync needed.
 
 ### 2. No Dual Backend
 
 **Beads' problem**: Supported both SQLite and Dolt, complex factory pattern, test matrix explosion.
 
-**GARP solution**: Git is canonical. Brain enriches git. No separate backend. Later migration to Dolt (if needed) is a backend swap, not a dual-support scenario.
+**PACT solution**: Git is canonical. Brain enriches git. No separate backend. Later migration to Dolt (if needed) is a backend swap, not a dual-support scenario.
 
 ### 3. No Always-On Process
 
 **Beads' problem**: Daemon lifecycle management, crash recovery, lock contention.
 
-**GARP solution**: Serverless functions. No process to manage. Triggered by git events. Crash = retry, not lost state.
+**PACT solution**: Serverless functions. No process to manage. Triggered by git events. Crash = retry, not lost state.
 
-### 4. Skill-Specific, Not Global
+### 4. Pact-Specific, Not Global
 
 **Beads' problem**: Daemon had global logic. Adding new behavior meant code changes.
 
-**GARP solution**: Each skill defines its own brain processing (or none). New behavior = new skill, zero code changes to brain infrastructure.
+**PACT solution**: Each pact defines its own brain processing (or none). New behavior = new pact, zero code changes to brain infrastructure.
 
 ### 5. Team-Configurable
 
 **Beads' problem**: Central daemon config affects all users.
 
-**GARP solution**: Skills live in team repos. Team A's bug-triage skill can differ from Team B's. Each team controls their workflow.
+**PACT solution**: Pacts live in team repos. Team A's bug-triage pact can differ from Team B's. Each team controls their workflow.
 
 ---
 
-## Skill Contract Schema Extensions
+## Pact Contract Schema Extensions
 
 ### Brain Processing Section
 
 ```yaml
-# Part of SKILL.md (YAML frontmatter or dedicated section)
+# Part of PACT.md (YAML frontmatter or dedicated section)
 
-brain_processing:
+hooks:
 
   # Validation rules (executed first)
   validation:
@@ -685,12 +685,12 @@ brain_processing:
       You will be notified when investigation begins.
 ```
 
-### Skill Parser Updates
+### Pact Parser Updates
 
 ```typescript
-// brain/lib/skill-parser.ts
+// brain/lib/pact-parser.ts
 
-interface SkillContract {
+interface PactContract {
   // Existing fields
   request_type: string;
   description: string;
@@ -698,7 +698,7 @@ interface SkillContract {
   expected_response: ResponseSchema;
 
   // New field for brain processing
-  brain_processing?: {
+  hooks?: {
     validation?: ValidationRule[];
     enrichment?: EnrichmentRule[];
     routing?: RoutingRule[];
@@ -760,9 +760,9 @@ interface AutoResponseConfig {
   template: string;
 }
 
-export function parseSkillContract(skillPath: string): SkillContract {
-  // Parse SKILL.md frontmatter + body
-  // Extract brain_processing section
+export function parsePactContract(pactPath: string): PactContract {
+  // Parse PACT.md frontmatter + body
+  // Extract hooks section
   // Validate schema
   // Return typed contract
 }
@@ -775,7 +775,7 @@ export function parseSkillContract(skillPath: string): SkillContract {
 ### Level 1: No Brain Processing (Current)
 
 ```markdown
-# skills/ask/SKILL.md
+# pacts/ask/PACT.md
 
 Simple question/answer workflow. No server-side processing needed.
 
@@ -788,14 +788,14 @@ Simple question/answer workflow. No server-side processing needed.
 - references: string[]
 ```
 
-No `brain_processing` section. Manual workflow only.
+No `hooks` section. Manual workflow only.
 
 ### Level 2: Auto-Acknowledgment
 
 ```markdown
-# skills/ask/SKILL.md
+# pacts/ask/PACT.md
 
-brain_processing:
+hooks:
   auto_response:
     enabled: true
     delay_seconds: 30
@@ -808,9 +808,9 @@ Adds automatic acknowledgment. No validation or enrichment yet.
 ### Level 3: Validation + Routing
 
 ```markdown
-# skills/code-review/SKILL.md
+# pacts/code-review/PACT.md
 
-brain_processing:
+hooks:
   validation:
     - check_required_fields: ["diff_url", "language", "focus_areas"]
 
@@ -833,9 +833,9 @@ Adds validation and smart routing. Still lightweight.
 ### Level 4: Full Enrichment (Complex)
 
 ```markdown
-# skills/bug-triage/SKILL.md
+# pacts/bug-triage/PACT.md
 
-brain_processing:
+hooks:
   validation: [...]
   enrichment: [...]
   routing: [...]
@@ -918,7 +918,7 @@ Claude 3.5 Sonnet:
   - Output: $15 / 1M tokens
 
 Typical request validation + classification:
-  - Input: 500 tokens (skill contract + request)
+  - Input: 500 tokens (pact + request)
   - Output: 100 tokens (validation result)
   - Cost: $0.0015 + $0.0015 = $0.003 per request
 
@@ -943,14 +943,14 @@ Typical request validation + classification:
 ## Migration Path
 
 ### Phase 1: Design (Current)
-- Define brain_processing schema
-- Update skill parser to handle new section
+- Define hooks schema
+- Update pact parser to handle new section
 - Document examples
 
 ### Phase 2: GitHub Actions Prototype
 - Build action that processes new requests
 - Implement validation + auto-response
-- Test with 1-2 skills
+- Test with 1-2 pacts
 
 ### Phase 3: Serverless Migration
 - Port logic to Lambda/Vercel function
@@ -971,7 +971,7 @@ Typical request validation + classification:
 
 ## Open Questions
 
-### 1. Skill Contract Format
+### 1. Pact Contract Format
 
 **Question**: YAML frontmatter or dedicated section?
 
@@ -979,17 +979,17 @@ Typical request validation + classification:
 - A) YAML frontmatter (like Hugo, Jekyll)
   ```markdown
   ---
-  brain_processing:
+  hooks:
     validation: [...]
   ---
 
-  # Skill Description
+  # Pact Description
   ...
   ```
 
 - B) Dedicated section in markdown
   ```markdown
-  # Skill Description
+  # Pact Description
   ...
 
   ## Brain Processing
@@ -1030,9 +1030,9 @@ Typical request validation + classification:
 - A) Fail silently, log error
 - B) Add comment to request with error details
 - C) Move request to requests/failed/ directory
-- D) Notify skill author
+- D) Notify pact author
 
-**Recommendation**: (B) add comment with error, (D) notify skill author. Don't block human workflow.
+**Recommendation**: (B) add comment with error, (D) notify pact author. Don't block human workflow.
 
 ### 5. Multi-Stage Processing
 
@@ -1040,7 +1040,7 @@ Typical request validation + classification:
 
 **Example**:
 ```yaml
-brain_processing:
+hooks:
   stages:
     - name: validate
       run: validation_rules
@@ -1062,7 +1062,7 @@ brain_processing:
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| **Skill adoption** | 50% of skills use brain processing | Count skills with brain_processing{} |
+| **Pact adoption** | 50% of pacts use brain processing | Count pacts with hooks{} |
 | **Processing latency** | <30 seconds (GitHub Actions) | Time from push to enrichment commit |
 | **Cost per request** | <$0.05 | LLM + infrastructure costs |
 | **Error rate** | <1% | Failed brain processing / total requests |
@@ -1083,7 +1083,7 @@ brain_processing:
 
 ### Internal
 
-- [GARP Architecture](../architecture/architecture.md)
+- [PACT Architecture](../architecture/architecture.md)
 - [Beads Ecosystem Analysis](./beads-ecosystem-analysis.md)
 - [Phase 2 Feature Plan](../discovery/phase2-feature-plan.md)
 - [ADR-001: Git as Transport](../adrs/adr-001-git-as-coordination-transport.md)
@@ -1092,23 +1092,23 @@ brain_processing:
 
 ## Conclusion
 
-The Tier 2 "brain service" for GARP should be **skill-driven serverless orchestration**, not a stateful daemon. This design:
+The Tier 2 "brain service" for PACT should be **pact-driven serverless orchestration**, not a stateful daemon. This design:
 
 ✅ **Avoids Beads' daemon mistakes** - No state synchronization, no lock contention
 ✅ **Leverages existing architecture** - Git remains canonical, no dual backend
 ✅ **Scales naturally** - Serverless functions auto-scale
-✅ **Team-configurable** - Skills define behavior declaratively
+✅ **Team-configurable** - Pacts define behavior declaratively
 ✅ **Cost-effective** - Free tier handles 1,000s of requests
-✅ **Progressive** - Skills opt-in to brain processing as needed
+✅ **Progressive** - Pacts opt-in to brain processing as needed
 
 **Next steps**:
-1. Finalize brain_processing schema
+1. Finalize hooks schema
 2. Build GitHub Actions prototype
-3. Test with 2-3 skills (bug-triage, code-review)
+3. Test with 2-3 pacts (bug-triage, code-review)
 4. Gather feedback, iterate
 5. Migrate to serverless functions for production
 
-**The key insight**: The skill contract should be executable by both humans and LLMs. The brain doesn't replace human judgment—it augments it with automated validation, enrichment, and routing based on rules the team defines.
+**The key insight**: The pact should be executable by both humans and LLMs. The brain doesn't replace human judgment—it augments it with automated validation, enrichment, and routing based on rules the team defines.
 
 ---
 

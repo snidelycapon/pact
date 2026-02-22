@@ -2,7 +2,7 @@
 
 **Research Date**: 2026-02-21
 **Researcher**: Nova (Evidence-Driven Knowledge Researcher)
-**Scope**: Frameworks, protocols, and architectural patterns matching the vision of an asynchronous multi-agent GARP with humans at each client node
+**Scope**: Frameworks, protocols, and architectural patterns matching the vision of an asynchronous multi-agent PACT with humans at each client node
 **Source Count**: 38 sources across 12 topic areas
 **Confidence Distribution**: 4 High, 6 Medium, 2 Low
 
@@ -27,7 +27,7 @@
 
 ## 1. Executive Summary
 
-No single existing framework fully implements the described vision of an asynchronous multi-agent GARP where each client node pairs a local LLM agent with a human operator, receiving context-bundled task dispatches ("ticks") from a central coordinating server. However, the landscape as of early 2026 provides strong building blocks at every layer of the stack.
+No single existing framework fully implements the described vision of an asynchronous multi-agent PACT where each client node pairs a local LLM agent with a human operator, receiving context-bundled task dispatches ("ticks") from a central coordinating server. However, the landscape as of early 2026 provides strong building blocks at every layer of the stack.
 
 **The gap is in composition, not in components.** The protocol layer (A2A, MCP), orchestration frameworks (AutoGen, LangGraph, CrewAI), and infrastructure platforms (Temporal, Inngest) each solve parts of the problem. What is missing is the specific integration pattern that combines:
 
@@ -577,7 +577,7 @@ The critical finding is that all the building blocks exist but have never been c
 
 **6. CrewAI** -- Good role-based metaphor, weak on async HITL and distribution
 **7. AWS Agent Squad** -- Good context scoping model, weak on async dispatch
-**8. OpenAI Agents SDK** -- Good for building client-side agent, not the GARP
+**8. OpenAI Agents SDK** -- Good for building client-side agent, not the PACT
 **9. Swarms Framework** -- Many patterns, but enterprise/production focus without HITL emphasis
 
 ---
@@ -589,7 +589,7 @@ The critical finding is that all the building blocks exist but have never been c
 | What I Searched For | What I Found | Assessment |
 |--------------------|-------------|------------|
 | Turn-based/tick-based async agent dispatch frameworks | General async task queues, game turn-based systems (Colyseus, Shephertz), but nothing combining AI agents + human operators + turn cadence | **True gap**: No framework models "turns" for AI+human async collaboration |
-| Play-by-post GARPs for AI-assisted play | Forum-based play-by-post game discussions; no AI-augmented protocols | **True gap**: Play-by-post is a human-only pattern with no AI GARP |
+| Play-by-post PACTs for AI-assisted play | Forum-based play-by-post game discussions; no AI-augmented protocols | **True gap**: Play-by-post is a human-only pattern with no AI PACT |
 | Domain-agnostic shared state schemas for multi-agent coordination | Framework-specific state models; event sourcing as a mechanism | **Partial gap**: The mechanism exists (event sourcing), but no standardized multi-agent state schema |
 | Frameworks explicitly designed for human+AI pair nodes | HITL as an optional feature in many frameworks; never as the mandatory node architecture | **True gap**: This is the most distinctive aspect of the vision and has no precedent |
 | "Git remote with a brain" concept in distributed AI systems | AgentGit (academic), Agent-MCP (Git-like commits for agents), Entire CLI (Git observability for agents) | **Partial coverage**: The concept is emerging but fragmented and not matched to the full vision |

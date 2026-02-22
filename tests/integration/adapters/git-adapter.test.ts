@@ -36,13 +36,13 @@ describe("GitAdapter", () => {
     writeFileSync(join(ctx.aliceRepo, "requests/pending/test.json"), '{"id":"1"}');
 
     await adapter.add(["requests/pending/test.json"]);
-    await adapter.commit("[garp] Test commit");
+    await adapter.commit("[pact] Test commit");
     await adapter.push();
 
     // Verify the commit is visible from the remote (clone bob and check)
     execSync(`cd "${ctx.bobRepo}" && git pull --rebase`, { stdio: "pipe" });
     const msg = lastCommitMessage(ctx.bobRepo);
-    expect(msg).toBe("[garp] Test commit");
+    expect(msg).toBe("[pact] Test commit");
   });
 
   it("retries push with pull-rebase when remote has diverged", async () => {
@@ -54,7 +54,7 @@ describe("GitAdapter", () => {
       [
         `cd "${ctx.bobRepo}"`,
         `git add requests/pending/bob-file.json`,
-        `git commit -m "[garp] Bob's commit"`,
+        `git commit -m "[pact] Bob's commit"`,
         `git push`,
       ].join(" && "),
       { stdio: "pipe" },
@@ -63,7 +63,7 @@ describe("GitAdapter", () => {
     // Alice commits locally (now behind remote)
     writeFileSync(join(ctx.aliceRepo, "requests/pending/alice-file.json"), '{"from":"alice"}');
     await aliceAdapter.add(["requests/pending/alice-file.json"]);
-    await aliceAdapter.commit("[garp] Alice's commit");
+    await aliceAdapter.commit("[pact] Alice's commit");
 
     // Push should succeed via retry (pull --rebase then push)
     await aliceAdapter.push();
@@ -71,7 +71,7 @@ describe("GitAdapter", () => {
     // Verify both commits appear on remote
     execSync(`cd "${ctx.bobRepo}" && git pull --rebase`, { stdio: "pipe" });
     const msg = lastCommitMessage(ctx.bobRepo);
-    expect(msg).toBe("[garp] Alice's commit");
+    expect(msg).toBe("[pact] Alice's commit");
   });
 
   it("pulls latest changes from remote", async () => {
@@ -83,7 +83,7 @@ describe("GitAdapter", () => {
       [
         `cd "${ctx.bobRepo}"`,
         `git add requests/pending/bob.json`,
-        `git commit -m "[garp] Bob pushed"`,
+        `git commit -m "[pact] Bob pushed"`,
         `git push`,
       ].join(" && "),
       { stdio: "pipe" },
@@ -93,7 +93,7 @@ describe("GitAdapter", () => {
     await aliceAdapter.pull();
 
     const msg = lastCommitMessage(ctx.aliceRepo);
-    expect(msg).toBe("[garp] Bob pushed");
+    expect(msg).toBe("[pact] Bob pushed");
   });
 
   it("moves a file with git mv", async () => {
@@ -102,13 +102,13 @@ describe("GitAdapter", () => {
     // Create and commit a file first
     writeFileSync(join(ctx.aliceRepo, "requests/pending/moveme.json"), '{"id":"move"}');
     await adapter.add(["requests/pending/moveme.json"]);
-    await adapter.commit("[garp] Add file to move");
+    await adapter.commit("[pact] Add file to move");
 
     // Move it
     await adapter.mv("requests/pending/moveme.json", "requests/completed/moveme.json");
-    await adapter.commit("[garp] Move to completed");
+    await adapter.commit("[pact] Move to completed");
 
     const msg = lastCommitMessage(ctx.aliceRepo);
-    expect(msg).toBe("[garp] Move to completed");
+    expect(msg).toBe("[pact] Move to completed");
   });
 });

@@ -1,15 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-core.schema.json",
   "mutate": [
-    "src/skill-loader.ts",
+    "src/pact-loader.ts",
     "src/action-dispatcher.ts",
-    "src/tools/garp-discover.ts",
-    "src/tools/garp-do.ts",
-    "src/tools/garp-cancel.ts",
-    "src/tools/garp-amend.ts",
-    "src/tools/garp-respond.ts",
-    "src/tools/garp-status.ts",
-    "src/tools/garp-inbox.ts",
+    "src/tools/pact-discover.ts",
+    "src/tools/pact-do.ts",
+    "src/tools/pact-cancel.ts",
+    "src/tools/pact-amend.ts",
+    "src/tools/pact-respond.ts",
+    "src/tools/pact-status.ts",
+    "src/tools/pact-inbox.ts",
     "src/tools/find-pending-request.ts",
     "src/schemas.ts"
   ],

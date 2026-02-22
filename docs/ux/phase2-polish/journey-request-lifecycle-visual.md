@@ -28,7 +28,7 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
       Cancel my last request."
      |
      v
- [2] Agent calls garp_cancel                ──>  requests/pending/
+ [2] Agent calls pact_cancel                ──>  requests/pending/
      (request_id: "req-20260222-...-a1b2")         req-20260222-...-a1b2.json
      |                                              |
      | Validates: sender == current user             | git mv -->
@@ -36,7 +36,7 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
      v                                              v
  [3] Request moved to cancelled/             ──>  requests/cancelled/
      Status field updated to "cancelled"            req-20260222-...-a1b2.json
-     Committed: "[garp] cancelled:                  (status: "cancelled")
+     Committed: "[pact] cancelled:                  (status: "cancelled")
        req-20260222-...-a1b2"
      |
      | Emotion: Recovered — "Fixed before Dan saw it"
@@ -56,7 +56,7 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
       request I sent Dan."
      |
      v
- [2] Agent calls garp_amend                 ──>  requests/pending/
+ [2] Agent calls pact_amend                 ──>  requests/pending/
      (request_id: "req-20260222-...-a1b2",          req-20260222-...-a1b2.json
       amendment: {zendesk_ticket: "ZD-4521",
                   note: "Added missing ticket ref"})
@@ -78,13 +78,13 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
          "note": "Added missing ticket ref"
        }]
      }
-     Committed: "[garp] amended:
+     Committed: "[pact] amended:
        req-20260222-...-a1b2"
      |
      | Emotion: Recovered — "Context is complete now"
      v
  [4] Dan sees the request with amendments
-     garp_inbox / garp_status shows both
+     pact_inbox / pact_status shows both
      original context and amendments
 ```
 
@@ -93,12 +93,12 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
 ```
  LIFECYCLE TRANSITIONS AND STATUS FIELD
 
- garp_request creates:     status: "pending"     in requests/pending/
- garp_respond completes:   status: "completed"   in requests/completed/
- garp_cancel cancels:      status: "cancelled"   in requests/cancelled/
+ pact_request creates:     status: "pending"     in requests/pending/
+ pact_respond completes:   status: "completed"   in requests/completed/
+ pact_cancel cancels:      status: "cancelled"   in requests/cancelled/
 
  The status field in JSON ALWAYS matches the directory location.
- Previously, garp_respond did not update the status field —
+ Previously, pact_respond did not update the status field —
  the request moved to completed/ but the JSON still said "pending".
 ```
 
@@ -107,25 +107,25 @@ Cory:  "Oh no" ──> "Can I fix this?" ──> Action ──> Recovered
 | # | Action | Tool | Gate | Emotion |
 |---|--------|------|------|---------|
 | Cancel-1 | Realize mistake | Natural language | - | "Oh no" |
-| Cancel-2 | Call garp_cancel | garp_cancel | sender == userId, status == pending | Hopeful |
+| Cancel-2 | Call pact_cancel | pact_cancel | sender == userId, status == pending | Hopeful |
 | Cancel-3 | Request moved to cancelled/ | git mv + commit | Atomic: mv + status update + commit | Recovered |
 | Amend-1 | Realize missing context | Natural language | - | "I forgot something" |
-| Amend-2 | Call garp_amend | garp_amend | sender == userId, status == pending | Hopeful |
+| Amend-2 | Call pact_amend | pact_amend | sender == userId, status == pending | Hopeful |
 | Amend-3 | Amendment appended | JSON update + commit | Append-only, original preserved | Recovered |
 
 ## Key Design Decisions
 
 ### Sender-Only Operations
-Only the original sender can cancel or amend. The recipient cannot cancel someone else's request. This is enforced by comparing the request's sender.user_id with the current GARP_USER.
+Only the original sender can cancel or amend. The recipient cannot cancel someone else's request. This is enforced by comparing the request's sender.user_id with the current PACT_USER.
 
 ### Pending-Only Gate
 Cancel and amend only work on requests in pending/. Once a request is completed or cancelled, it is immutable. This prevents race conditions where Cory cancels while Dan is responding.
 
 ### Append-Only Amendments
-garp_amend does NOT overwrite the original context_bundle. It appends to an amendments array. This preserves the audit trail -- you can always see what the original request said and what was changed later.
+pact_amend does NOT overwrite the original context_bundle. It appends to an amendments array. This preserves the audit trail -- you can always see what the original request said and what was changed later.
 
 ### Status Field Consistency
-Every lifecycle transition updates the status field in the JSON to match the directory. This is a fix to existing behavior where garp_respond moves to completed/ but leaves status as "pending" in the JSON.
+Every lifecycle transition updates the status field in the JSON to match the directory. This is a fix to existing behavior where pact_respond moves to completed/ but leaves status as "pending" in the JSON.
 
 ### Cancelled Directory
 A new requests/cancelled/ directory is added to the repo structure. Cancelled requests are preserved (not deleted) for audit trail purposes.

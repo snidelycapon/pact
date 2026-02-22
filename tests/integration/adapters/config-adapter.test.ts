@@ -26,7 +26,7 @@ describe("ConfigAdapter", () => {
   };
 
   beforeEach(() => {
-    repoPath = mkdtempSync(join(tmpdir(), "garp-config-"));
+    repoPath = mkdtempSync(join(tmpdir(), "pact-config-"));
     writeFileSync(join(repoPath, "config.json"), JSON.stringify(validConfig, null, 2));
   });
 

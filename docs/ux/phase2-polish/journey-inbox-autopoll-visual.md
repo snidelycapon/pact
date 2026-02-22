@@ -25,13 +25,13 @@ Dan:   Session start ──> Aware ──> Decides ──> Working
      (Opens Claude Code, starts Craft Agents, etc.)
      |
      v
- [2] Agent auto-invokes garp_inbox          <──  requests/pending/
+ [2] Agent auto-invokes pact_inbox          <──  requests/pending/
      (configured via CLAUDE.md or                  2 pending requests
       system prompt instruction)
      |
      v
  [3] Agent reports inbox summary
-     "You have 2 pending GARP requests:
+     "You have 2 pending PACT requests:
       - Code review from Cory (2 hours ago)
       - Sanity check from Maria (yesterday)
       Would you like to handle any of these?"
@@ -52,23 +52,23 @@ Dan:   Session start ──> Aware ──> Decides ──> Working
 # CLAUDE.md
 
 ## Session Start
-When starting a new session, check for pending GARP requests
-by calling garp_inbox. Report any pending items before proceeding
+When starting a new session, check for pending PACT requests
+by calling pact_inbox. Report any pending items before proceeding
 with the user's request.
 ```
 
-### Pattern B: Skill Contract Pattern
-A "session-start" skill or convention document that agents
-read at session start. Not a GARP code change -- a usage pattern.
+### Pattern B: Pact Contract Pattern
+A "session-start" pact or convention document that agents
+read at session start. Not a PACT code change -- a usage pattern.
 
 ### Pattern C: MCP Host Hook
 For platforms that support session-start hooks (e.g., Craft Agents
-custom sources), configure garp_inbox as an initialization action.
+custom sources), configure pact_inbox as an initialization action.
 
 ## Key Design Decisions
 
 ### No Code Changes Required
-This is entirely a convention/documentation improvement. The garp_inbox
+This is entirely a convention/documentation improvement. The pact_inbox
 tool already exists and works. The improvement is making agents call it
 automatically instead of waiting for the user to ask.
 
@@ -80,4 +80,4 @@ to handle requests before doing other work.
 ### Multiple Host Support
 The convention should be documented for at least Claude Code (CLAUDE.md)
 and Craft Agents (source config). Each host has a different mechanism,
-but the pattern is the same: "call garp_inbox at session start."
+but the pattern is the same: "call pact_inbox at session start."

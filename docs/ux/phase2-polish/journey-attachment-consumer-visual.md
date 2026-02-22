@@ -25,7 +25,7 @@ Dan:   Inbox ──> "There are files?" ──> "Where are they?" ──> Readin
  ====================                              ==================
 
  [1] Dan checks inbox
-     garp_inbox returns:
+     pact_inbox returns:
      +----------------------------------------------------------+
      |  COORDINATION INBOX — 1 pending request                   |
      +----------------------------------------------------------+
@@ -48,7 +48,7 @@ Dan:   Inbox ──> "There are files?" ──> "Where are they?" ──> Readin
      "Show me the status of that code review request"
      |
      v
- [3] Agent calls garp_status                <──  requests/pending/
+ [3] Agent calls pact_status                <──  requests/pending/
      Returns full request with attachment paths:     req-20260222-...-a1b2.json
      +----------------------------------------------------------+    attachments/
      |  CODE-REVIEW REQUEST — req-20260222-...-a1b2              |      req-20260222-...-a1b2/
@@ -87,19 +87,19 @@ Dan:   Inbox ──> "There are files?" ──> "Where are they?" ──> Readin
 
 | # | Action | Tool | What Changed (Phase 2) |
 |---|--------|------|----------------------|
-| 1 | Check inbox | garp_inbox | Shows attachment filenames + descriptions (not just count) |
+| 1 | Check inbox | pact_inbox | Shows attachment filenames + descriptions (not just count) |
 | 2 | Request details | Natural language | - |
-| 3 | Full request view | garp_status | Includes absolute file paths for each attachment |
-| 4 | Read attachments | Agent file read | Agent uses paths from garp_status output |
-| 5 | Investigate + respond | garp_respond | No change |
+| 3 | Full request view | pact_status | Includes absolute file paths for each attachment |
+| 4 | Read attachments | Agent file read | Agent uses paths from pact_status output |
+| 5 | Investigate + respond | pact_respond | No change |
 
 ## Key Design Decisions
 
 ### Inbox Shows Metadata, Status Shows Paths
-garp_inbox is a summary view -- it shows attachment filenames and descriptions for triage decisions. garp_status is the detail view -- it includes full absolute paths so the agent can read attachment content. This avoids bloating the inbox response.
+pact_inbox is a summary view -- it shows attachment filenames and descriptions for triage decisions. pact_status is the detail view -- it includes full absolute paths so the agent can read attachment content. This avoids bloating the inbox response.
 
 ### Absolute Paths
 Attachment paths are returned as absolute filesystem paths (repo_path + attachments/{request_id}/{filename}). This lets the agent read them directly without path assembly.
 
-### Skill Attachment Expectations
-Skill contracts can optionally document expected attachments in an "Expected Attachments" section. This tells the sender's agent what files to attach and tells the receiver's agent what to expect.
+### Pact Attachment Expectations
+Pacts can optionally document expected attachments in an "Expected Attachments" section. This tells the sender's agent what files to attach and tells the receiver's agent what to expect.

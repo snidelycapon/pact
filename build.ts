@@ -1,5 +1,5 @@
 /**
- * Build configuration for GARP MCP server.
+ * Build configuration for PACT MCP server.
  *
  * Produces dist/index.js as a single-file ESM bundle.
  * External dependencies (MCP SDK, simple-git, zod) are not bundled

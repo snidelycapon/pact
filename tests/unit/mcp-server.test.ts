@@ -1,5 +1,5 @@
 /**
- * Unit tests for GARP MCP server wiring.
+ * Unit tests for PACT MCP server wiring.
  *
  * Tests enter through the MCP protocol (driving port) using InMemoryTransport
  * to verify tool registration and env var validation.
@@ -13,7 +13,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../../src/mcp-server.ts";
 
 describe("MCP server wiring", () => {
-  it("registers all GARP tools", async () => {
+  it("registers all PACT tools", async () => {
     const mcpServer = createMcpServer({ repoPath: "/tmp/test-repo", userId: "alice" });
     const client = new Client({ name: "test-client", version: "1.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -24,7 +24,7 @@ describe("MCP server wiring", () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
-    expect(toolNames).toEqual(["garp_discover", "garp_do"]);
+    expect(toolNames).toEqual(["pact_discover", "pact_do"]);
 
     await client.close();
     await mcpServer.close();

@@ -6,7 +6,7 @@ journey:
   status: draft
 
   summary: >
-    A colleague receives a sanity-check request in their GARP inbox,
+    A colleague receives a sanity-check request in their PACT inbox,
     investigates with agent assistance using the pre-loaded context, composes
     a structured response, and pushes it back.
 
@@ -28,21 +28,21 @@ journey:
       end: done_task_complete
 
   preconditions:
-    - Alex has a working MCP server configured for the GARP repo
+    - Alex has a working MCP server configured for the PACT repo
     - Cory has submitted a sanity-check request addressed to Alex
-    - The sanity-check SKILL.md exists in the repo
+    - The sanity-check PACT.md exists in the repo
     - Alex has access to the repositories referenced in the context bundle
 
   steps:
     - id: check-inbox
       actor: alex
-      action: Start session or check GARP inbox
-      tool: garp_inbox
+      action: Start session or check PACT inbox
+      tool: pact_inbox
       git_operations:
         - git pull
       emotion: routine
       description: >
-        Alex asks their agent to check the GARP inbox.
+        Alex asks their agent to check the PACT inbox.
         The agent pulls latest from the repo and scans pending/
         for requests addressed to Alex.
 
@@ -63,14 +63,14 @@ journey:
       consumes:
         - artifact: request-file
           file: requests/pending/req-{id}.json
-        - artifact: skill-file
-          file: skills/sanity-check/SKILL.md
-      skill_auto_load: true
+        - artifact: pact-file
+          file: pacts/sanity-check/PACT.md
+      pact_auto_load: true
       emotion: oriented
       key_moment: true
       description: >
         Agent loads the full request JSON and auto-loads the
-        SKILL.md based on request_type. Alex sees the complete
+        PACT.md based on request_type. Alex sees the complete
         context bundle: customer, files, findings, question.
         Zero cold-start — the agent already has full context.
 
@@ -84,17 +84,17 @@ journey:
         Alex works with their agent to investigate the specific
         question. The agent reads the referenced files, compares
         patterns, and assists with analysis. This is a normal
-        agent conversation, not a special mode. The SKILL.md
+        agent conversation, not a special mode. The PACT.md
         provides guidance on what kind of answer is expected.
 
     - id: compose-response
       actor: agent + alex
-      action: Agent composes structured response per SKILL.md
+      action: Agent composes structured response per PACT.md
       produces:
         - artifact: response-draft
       description: >
         When Alex is satisfied with the investigation, the agent
-        composes a response using the SKILL.md response structure:
+        composes a response using the PACT.md response structure:
         answer, evidence, concerns, recommendation.
 
     - id: review-response
@@ -112,7 +112,7 @@ journey:
     - id: submit-response
       actor: alex
       action: Approve and push the response
-      tool: garp_respond
+      tool: pact_respond
       consumes:
         - artifact: response-draft (approved)
         - artifact: request-file
@@ -139,7 +139,7 @@ journey:
     - Response file exists at responses/req-{id}.json
     - Request file moved to requests/completed/
     - Git log shows the complete lifecycle (pending -> completed)
-    - Cory can now see the response via garp_status
+    - Cory can now see the response via pact_status
 
   shared_artifacts:
     - id: request-file
@@ -148,9 +148,9 @@ journey:
       source: sender journey (Cory)
       consumed_by: [open-request, submit-response]
 
-    - id: skill-file
-      type: skill_md
-      file: skills/sanity-check/SKILL.md
+    - id: pact-file
+      type: pact_md
+      file: pacts/sanity-check/PACT.md
       source: repo (pre-existing, synced via git pull)
       consumed_by: [open-request, investigate, compose-response]
 
@@ -158,7 +158,7 @@ journey:
       type: response_json
       file: responses/req-{id}.json
       source: step:submit-response
-      consumed_by: sender journey (Cory checks via garp_status)
+      consumed_by: sender journey (Cory checks via pact_status)
 
   key_design_decisions:
     - name: zero_cold_start
@@ -167,9 +167,9 @@ journey:
         No copy-paste, no re-explanation, no manual file loading.
         This is the primary value proposition.
 
-    - name: skill_auto_load
+    - name: pact_auto_load
       description: >
-        When a request is opened, the SKILL.md matching the request_type
+        When a request is opened, the PACT.md matching the request_type
         auto-loads. The agent knows how to handle this type of request
         without the user specifying.
 
@@ -177,7 +177,7 @@ journey:
       description: >
         The investigation phase is a normal agent conversation. The
         receiver is not in a constrained "coordination response" mode.
-        The skill provides guidance, not enforcement.
+        The pact provides guidance, not enforcement.
 
     - name: plan_submission_for_response
       description: >
@@ -201,7 +201,7 @@ journey:
         The protocol delivers context pointers, not the files themselves.
       mitigation: >
         Alex needs access to relevant repos independently.
-        The skill can note required repo access.
+        The pact can note required repo access.
 
   beads_parallels:
     note: >
@@ -209,4 +209,4 @@ journey:
       inbox/workflow patterns and multi-agent handoffs. The receiver
       journey parallels Beads' context handoff model. Key differences:
       this protocol is distributed (git transport), HITL is mandatory,
-      and the skill contract defines the interaction type.
+      and the pact defines the interaction type.

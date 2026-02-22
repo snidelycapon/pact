@@ -1,5 +1,5 @@
 /**
- * Request ID generator for GARP.
+ * Request ID generator for PACT.
  *
  * Format: req-{YYYYMMDD}-{HHmmss}-{user_id}-{random4hex}
  *
