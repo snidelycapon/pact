@@ -100,5 +100,100 @@ events:
   s: EXECUTED
   sid: 01-04
   t: '2026-02-22T02:49:19Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-04
+  t: '2026-02-22T02:50:46Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T02:52:14Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T02:52:17Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-22T02:52:44Z'
+- d: 'NOT_APPLICABLE: markdown-only artifact, no automated tests'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-22T02:52:48Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T02:52:49Z'
+- d: 'NOT_APPLICABLE: markdown-only artifact, no automated tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-22T02:52:49Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-02
+  t: '2026-02-22T02:52:52Z'
+- d: 'NOT_APPLICABLE: markdown-only artifact, no automated tests'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-02-22T02:52:56Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T02:53:00Z'
+- d: 'NOT_APPLICABLE: markdown-only artifact, no automated tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-02-22T02:53:00Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T02:53:04Z'
+- d: SKIP - acceptance tests are driving port tests; no additional unit tests needed
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T02:53:12Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-03
+  t: '2026-02-22T02:53:13Z'
+- d: 'NOT_APPLICABLE: documentation-only artifact, no automated tests'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-03
+  t: '2026-02-22T02:53:17Z'
+- d: 'NOT_APPLICABLE: documentation-only artifact, no automated tests'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-03
+  t: '2026-02-22T02:53:17Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-22T02:53:20Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T02:53:28Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T02:53:29Z'
 project_id: phase2-polish
 schema_version: '3.0'
