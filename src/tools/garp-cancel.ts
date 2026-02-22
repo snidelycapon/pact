@@ -8,7 +8,7 @@
  */
 
 import type { GitPort, FilePort } from "../ports.ts";
-import { RequestEnvelopeSchema } from "../schemas.ts";
+import { findPendingRequest } from "./find-pending-request.ts";
 
 export interface GarpCancelParams {
   request_id: string;
@@ -32,56 +32,26 @@ export async function handleGarpCancel(
   // 2. Pull latest
   await ctx.git.pull();
 
-  // 3. Find the request - check pending first, then completed/cancelled for errors
-  const filename = `${params.request_id}.json`;
+  // 3. Find and validate the pending request
+  const { envelope, pendingPath } = await findPendingRequest(
+    params.request_id, ctx.file, "cancelled",
+  );
 
-  const pendingFiles = await ctx.file.listDirectory("requests/pending");
-  if (!pendingFiles.includes(filename)) {
-    const completedFiles = await ctx.file.listDirectory("requests/completed");
-    if (completedFiles.includes(filename)) {
-      throw new Error(`Request ${params.request_id} is already completed`);
-    }
-    const cancelledFiles = await ctx.file.listDirectory("requests/cancelled");
-    if (cancelledFiles.includes(filename)) {
-      throw new Error(`Request ${params.request_id} is already cancelled`);
-    }
-    throw new Error(`Request ${params.request_id} not found`);
-  }
-
-  // 4. Read envelope, validate schema
-  const raw = await ctx.file.readJSON<unknown>(`requests/pending/${filename}`);
-  const parsed = RequestEnvelopeSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error(
-      `Malformed request envelope for ${params.request_id}: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
-    );
-  }
-  const envelope = parsed.data;
-
-  // 5. Verify sender: only the original sender can cancel
+  // 4. Verify sender: only the original sender can cancel
   if (envelope.sender.user_id !== ctx.userId) {
-    throw new Error(`Only the sender can cancel a request`);
+    throw new Error("Only the sender can cancel a request");
   }
 
-  // 6. Update envelope: set status and optional cancel_reason
-  const updated = { ...envelope, status: "cancelled" } as Record<string, unknown>;
-  if (params.reason) {
-    updated.cancel_reason = params.reason;
-  }
+  // 5. Update envelope: set status and optional cancel_reason
+  const updated = { ...envelope, status: "cancelled" as const, ...(params.reason ? { cancel_reason: params.reason } : {}) };
 
-  // 7. Write updated envelope back to pending/ location
-  await ctx.file.writeJSON(`requests/pending/${filename}`, updated);
-
-  // 8. Git mv from pending/ to cancelled/
-  await ctx.git.mv(`requests/pending/${filename}`, `requests/cancelled/${filename}`);
-
-  // 9. Git add the cancelled/ file
-  await ctx.git.add([`requests/cancelled/${filename}`]);
-
-  // 10. Git commit
+  // 6. Write updated envelope, git mv to cancelled/, commit, push
+  const filename = `${params.request_id}.json`;
+  const cancelledPath = `requests/cancelled/${filename}`;
+  await ctx.file.writeJSON(pendingPath, updated);
+  await ctx.git.mv(pendingPath, cancelledPath);
+  await ctx.git.add([cancelledPath]);
   await ctx.git.commit(`[garp] cancelled: ${params.request_id}`);
-
-  // 11. Push
   await ctx.git.push();
 
   return { status: "cancelled", request_id: params.request_id, message: "Request cancelled" };

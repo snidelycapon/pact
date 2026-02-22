@@ -20,6 +20,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
   createTestRepos,
+  seedPendingRequest,
   listDir,
   readRepoJSON,
   fileExists,
@@ -32,40 +33,6 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createGarpServer } from "../../src/server.ts";
-
-/** Seed a pending request directly (same pattern as garp-inbox tests). */
-function seedPendingRequest(
-  repoPath: string,
-  requestId: string,
-  recipient: string,
-  sender: string,
-): void {
-  const envelope = {
-    request_id: requestId,
-    request_type: "sanity-check",
-    sender: {
-      user_id: sender,
-      display_name: sender.charAt(0).toUpperCase() + sender.slice(1),
-    },
-    recipient: {
-      user_id: recipient,
-      display_name: recipient.charAt(0).toUpperCase() + recipient.slice(1),
-    },
-    status: "pending",
-    created_at: "2026-02-21T14:30:22.000Z",
-    context_bundle: {
-      question: "Does this make sense?",
-      customer: "Acme Corp",
-    },
-  };
-  writeFileSync(
-    join(repoPath, "requests", "pending", `${requestId}.json`),
-    JSON.stringify(envelope, null, 2),
-  );
-  execSync(`cd "${repoPath}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
-    stdio: "pipe",
-  });
-}
 
 describe("garp_respond: submit a response to a request", () => {
   let ctx: TestRepoContext;
