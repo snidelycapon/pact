@@ -5,7 +5,7 @@
  * automatically when writing. Directory listings exclude .gitkeep files.
  */
 
-import { readFile, writeFile, readdir, rename, mkdir } from "node:fs/promises";
+import { readFile, writeFile, readdir, rename, mkdir, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import type { FilePort } from "../ports.ts";
 
@@ -38,6 +38,21 @@ export class FileAdapter implements FilePort {
     const fullPath = join(this.repoPath, path);
     const entries = await readdir(fullPath);
     return entries.filter((name) => name !== ".gitkeep");
+  }
+
+  async readText(path: string): Promise<string> {
+    const fullPath = join(this.repoPath, path);
+    return readFile(fullPath, "utf-8");
+  }
+
+  async fileExists(path: string): Promise<boolean> {
+    const fullPath = join(this.repoPath, path);
+    try {
+      await access(fullPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async moveFile(from: string, to: string): Promise<void> {

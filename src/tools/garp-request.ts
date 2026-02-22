@@ -7,6 +7,7 @@
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
+import { getRequiredContextFields } from "../skill-parser.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -36,7 +37,7 @@ export interface GarpRequestContext {
 export async function handleGarpRequest(
   params: GarpRequestParams,
   ctx: GarpRequestContext,
-): Promise<{ request_id: string; thread_id: string; status: string; message: string }> {
+): Promise<{ request_id: string; thread_id: string; status: string; message: string; validation_warnings?: string[] }> {
   // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
   if (!params.recipient) throw new Error("Missing required field: recipient");
@@ -46,6 +47,17 @@ export async function handleGarpRequest(
   const skillPath = join(ctx.repoPath, "skills", params.request_type, "SKILL.md");
   if (!existsSync(skillPath)) {
     throw new Error(`No skill found for request type '${params.request_type}'`);
+  }
+
+  // 2b. Schema validation: warn on missing required context fields
+  let validationWarnings: string[] | undefined;
+  const requiredFields = await getRequiredContextFields(ctx.file, ctx.repoPath, params.request_type);
+  if (requiredFields) {
+    const submittedKeys = Object.keys(params.context_bundle);
+    const missing = requiredFields.filter((field) => !submittedKeys.includes(field));
+    if (missing.length > 0) {
+      validationWarnings = missing.map((field) => `Missing required field '${field}'`);
+    }
   }
 
   // 3. Validate recipient in config
@@ -96,5 +108,11 @@ export async function handleGarpRequest(
   );
   await ctx.git.push();
 
-  return { request_id: requestId, thread_id: threadId, status: "pending", message: "Request submitted" };
+  return {
+    request_id: requestId,
+    thread_id: threadId,
+    status: "pending",
+    message: "Request submitted",
+    ...(validationWarnings ? { validation_warnings: validationWarnings } : {}),
+  };
 }

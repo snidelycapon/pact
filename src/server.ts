@@ -21,6 +21,8 @@ import { handleGarpCancel } from "./tools/garp-cancel.ts";
 import type { GarpCancelParams } from "./tools/garp-cancel.ts";
 import { handleGarpAmend } from "./tools/garp-amend.ts";
 import type { GarpAmendParams } from "./tools/garp-amend.ts";
+import { handleGarpSkills } from "./tools/garp-skills.ts";
+import type { GarpSkillsParams } from "./tools/garp-skills.ts";
 
 export interface GarpServerConfig {
   repoPath: string;
@@ -104,6 +106,13 @@ export function createGarpServer(config: GarpServerConfig): GarpServer {
           ensureAdapters();
           return handleGarpCancel(params as unknown as GarpCancelParams, {
             userId: config.userId,
+            repoPath: config.repoPath,
+            git: git!,
+            file: file!,
+          });
+        case "garp_skills":
+          ensureAdapters();
+          return handleGarpSkills(params as unknown as GarpSkillsParams, {
             repoPath: config.repoPath,
             git: git!,
             file: file!,

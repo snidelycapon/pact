@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "skill_name": "design-skill",
+  "skill_version": "1.0.0",
+  "context_bundle": {
+    "type": "object",
+    "required": ["skill_name", "round", "phase"],
+    "properties": {
+      "skill_name": {
+        "type": "string",
+        "description": "Snake-case directory name for the skill (e.g. code-review)"
+      },
+      "round": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Round number -- start at 1, increment each cycle"
+      },
+      "phase": {
+        "type": "string",
+        "enum": ["propose", "refine", "finalize"],
+        "description": "propose (round 1), refine (rounds 2+), or finalize (last round)"
+      },
+      "idea": {
+        "type": "string",
+        "description": "What the skill is for, who uses it, when to reach for it. Required for propose phase."
+      },
+      "current_draft": {
+        "type": "string",
+        "description": "The full SKILL.md content being refined. Required for refine/finalize phases."
+      },
+      "changes_made": {
+        "type": "string",
+        "description": "What you changed since the last round, addressing prior feedback"
+      }
+    },
+    "additionalProperties": true
+  },
+  "response_bundle": {
+    "type": "object",
+    "required": ["status"],
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["needs_revision", "approved", "approved_with_changes"],
+        "description": "needs_revision -- keep going; approved -- done; approved_with_changes -- done, but use suggested_draft instead"
+      },
+      "feedback": {
+        "type": "string",
+        "description": "Questions to answer, concerns to address, or suggestions for the next round"
+      },
+      "suggested_draft": {
+        "type": ["string", "null"],
+        "description": "A revised SKILL.md if the respondent wants to propose specific wording"
+      }
+    },
+    "additionalProperties": true
+  }
+}

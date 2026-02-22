@@ -27,6 +27,8 @@ import { handleGarpCancel } from "./tools/garp-cancel.ts";
 import type { GarpCancelParams } from "./tools/garp-cancel.ts";
 import { handleGarpAmend } from "./tools/garp-amend.ts";
 import type { GarpAmendParams } from "./tools/garp-amend.ts";
+import { handleGarpSkills } from "./tools/garp-skills.ts";
+import type { GarpSkillsParams } from "./tools/garp-skills.ts";
 
 export interface McpServerConfig {
   repoPath: string;
@@ -262,6 +264,32 @@ export function createMcpServer(config: McpServerConfig): McpServer {
         return formatResult(result);
       } catch (err) {
         log("error", "tool invocation failed", { tool: "garp_cancel", request_id: params.request_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        return formatError(err);
+      }
+    },
+  );
+
+  // -- garp_skills --
+  server.tool(
+    "garp_skills",
+    "List available request types with descriptions and field information",
+    {
+      query: z.string().optional().describe("Optional keyword to filter skills by name, description, or when to use"),
+    },
+    async (params) => {
+      ensureAdapters();
+      const start = Date.now();
+      log("info", "tool invocation start", { tool: "garp_skills" });
+      try {
+        const result = await handleGarpSkills(params as GarpSkillsParams, {
+          repoPath: config.repoPath,
+          git: git!,
+          file: file!,
+        });
+        log("info", "tool invocation complete", { tool: "garp_skills", skill_count: result.skills.length, duration_ms: Date.now() - start });
+        return formatResult(result);
+      } catch (err) {
+        log("error", "tool invocation failed", { tool: "garp_skills", error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
         return formatError(err);
       }
     },

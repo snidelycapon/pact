@@ -10,6 +10,8 @@
 
 import type { GitPort, FilePort } from "../ports.ts";
 import { RequestEnvelopeSchema } from "../schemas.ts";
+import { parseSkillMetadata } from "../skill-parser.ts";
+import type { SkillMetadata } from "../skill-parser.ts";
 import { log } from "../logger.ts";
 
 export interface GarpInboxContext {
@@ -31,6 +33,8 @@ export interface InboxEntry {
   attachment_count: number;
   amendment_count: number;
   attachments?: Array<{ filename: string; description: string }>;
+  skill_description?: string;
+  response_fields?: string[];
 }
 
 export interface InboxThreadGroup {
@@ -47,6 +51,8 @@ export interface InboxThreadGroup {
   skill_path: string;
   attachment_count: number;
   amendment_count: number;
+  skill_description?: string;
+  response_fields?: string[];
 }
 
 export interface InboxResult {
@@ -105,7 +111,25 @@ export async function handleGarpInbox(
     }
   }
 
-  // 4. Group by thread_id
+  // 4. Enrich entries with skill metadata (cached per request_type)
+  const skillCache = new Map<string, SkillMetadata | null>();
+  for (const entry of entries) {
+    if (!skillCache.has(entry.request_type)) {
+      try {
+        const metadata = await parseSkillMetadata(ctx.file, ctx.repoPath, entry.request_type);
+        skillCache.set(entry.request_type, metadata ?? null);
+      } catch {
+        skillCache.set(entry.request_type, null);
+      }
+    }
+    const cached = skillCache.get(entry.request_type);
+    if (cached) {
+      entry.skill_description = cached.description;
+      entry.response_fields = cached.response_fields;
+    }
+  }
+
+  // 5. Group by thread_id (renumbered from step 4)
   const threadGroups = new Map<string, InboxEntry[]>();
   for (const entry of entries) {
     // Use thread_id as key, or request_id for entries without thread_id (always standalone)
@@ -118,7 +142,7 @@ export async function handleGarpInbox(
     }
   }
 
-  // 5. Emit standalone or grouped items
+  // 6. Emit standalone or grouped items
   const requests: Array<InboxEntry | InboxThreadGroup> = [];
   for (const [key, group] of threadGroups) {
     if (group.length === 1) {
@@ -131,7 +155,7 @@ export async function handleGarpInbox(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
       const latest = group[group.length - 1];
-      requests.push({
+      const threadGroup: InboxThreadGroup = {
         is_thread_group: true,
         thread_id: key,
         request_type: latest.request_type,
@@ -145,11 +169,18 @@ export async function handleGarpInbox(
         skill_path: latest.skill_path,
         attachment_count: group.reduce((sum, e) => sum + e.attachment_count, 0),
         amendment_count: group.reduce((sum, e) => sum + e.amendment_count, 0),
-      });
+      };
+      if (latest.skill_description) {
+        threadGroup.skill_description = latest.skill_description;
+      }
+      if (latest.response_fields) {
+        threadGroup.response_fields = latest.response_fields;
+      }
+      requests.push(threadGroup);
     }
   }
 
-  // 6. Sort all items by created_at ascending (oldest first)
+  // 7. Sort all items by created_at ascending (oldest first)
   requests.sort(
     (a, b) => {
       const aTime = new Date(a.created_at).getTime();
