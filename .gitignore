@@ -8,3 +8,6 @@ coverage/
 .env
 .env.local
 bun.lock
+.stryker-tmp/
+*.log
+.nwave/des/logs/
