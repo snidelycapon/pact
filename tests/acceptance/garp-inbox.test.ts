@@ -160,8 +160,11 @@ describe("garp_inbox: check inbox for pending requests", () => {
     ctx = createTestRepos();
 
     await given("Bob has three pending requests created at different times", async () => {
+      // Seed in REVERSE chronological order with request IDs that sort
+      // alphabetically opposite to chronological order.
+      // This ensures a missing or reversed sort comparator will fail.
       seedRequest(ctx.aliceRepo, {
-        requestId: "req-20260221-160000-alice-0001",
+        requestId: "req-20260221-aaa-alice-0001",
         recipient: "bob",
         sender: "alice",
         senderName: "Alice",
@@ -169,20 +172,20 @@ describe("garp_inbox: check inbox for pending requests", () => {
         question: "Third (newest)",
       });
       seedRequest(ctx.aliceRepo, {
-        requestId: "req-20260221-140000-alice-0002",
-        recipient: "bob",
-        sender: "alice",
-        senderName: "Alice",
-        createdAt: "2026-02-21T14:00:00Z",
-        question: "First (oldest)",
-      });
-      seedRequest(ctx.aliceRepo, {
-        requestId: "req-20260221-150000-alice-0003",
+        requestId: "req-20260221-bbb-alice-0002",
         recipient: "bob",
         sender: "alice",
         senderName: "Alice",
         createdAt: "2026-02-21T15:00:00Z",
         question: "Second (middle)",
+      });
+      seedRequest(ctx.aliceRepo, {
+        requestId: "req-20260221-ccc-alice-0003",
+        recipient: "bob",
+        sender: "alice",
+        senderName: "Alice",
+        createdAt: "2026-02-21T14:00:00Z",
+        question: "First (oldest)",
       });
     });
 
@@ -191,9 +194,11 @@ describe("garp_inbox: check inbox for pending requests", () => {
       const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
 
       expect(inbox.requests).toHaveLength(3);
-      expect(inbox.requests[0].request_id).toBe("req-20260221-140000-alice-0002"); // oldest
-      expect(inbox.requests[1].request_id).toBe("req-20260221-150000-alice-0003"); // middle
-      expect(inbox.requests[2].request_id).toBe("req-20260221-160000-alice-0001"); // newest
+      // Alphabetical filename order would be 0001, 0002, 0003 (newest first)
+      // Correct sort by created_at must produce oldest first
+      expect(inbox.requests[0].request_id).toBe("req-20260221-ccc-alice-0003"); // oldest (14:00)
+      expect(inbox.requests[1].request_id).toBe("req-20260221-bbb-alice-0002"); // middle (15:00)
+      expect(inbox.requests[2].request_id).toBe("req-20260221-aaa-alice-0001"); // newest (16:00)
     });
   });
 
@@ -354,24 +359,54 @@ describe("garp_inbox: check inbox for pending requests", () => {
     const threadId = "req-20260222-100000-alice-0001";
 
     await given("Bob has 2 pending requests in the same thread and 1 standalone", async () => {
-      seedRequest(ctx.aliceRepo, {
-        requestId: "req-20260222-100000-alice-0001",
-        recipient: "bob",
-        sender: "alice",
-        senderName: "Alice",
-        createdAt: "2026-02-22T10:00:00Z",
-        question: "Round 1: Proposing code-review skill",
-        threadId,
+      // Seed thread requests with attachments and amendments so aggregate
+      // counts are non-zero (kills mutants that remove reduce or return 0).
+      const envelope1 = {
+        request_id: "req-20260222-100000-alice-0001",
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-22T10:00:00.000Z",
+        thread_id: threadId,
+        context_bundle: { question: "Round 1: Proposing code-review skill" },
+        attachments: [
+          { filename: "proposal.md", description: "Skill proposal" },
+        ],
+        amendments: [
+          { amended_at: "2026-02-22T10:15:00Z", amended_by: "alice", fields: { ticket: "ZD-1" } },
+        ],
+      };
+      const path1 = join(ctx.aliceRepo, "requests", "pending", "req-20260222-100000-alice-0001.json");
+      writeFileSync(path1, JSON.stringify(envelope1, null, 2));
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed req-0001" && git push`, {
+        stdio: "pipe",
       });
-      seedRequest(ctx.aliceRepo, {
-        requestId: "req-20260222-110000-alice-0002",
-        recipient: "bob",
-        sender: "alice",
-        senderName: "Alice",
-        createdAt: "2026-02-22T11:00:00Z",
-        question: "Round 2: Added language field",
-        threadId,
+
+      const envelope2 = {
+        request_id: "req-20260222-110000-alice-0002",
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-22T11:00:00.000Z",
+        thread_id: threadId,
+        context_bundle: { question: "Round 2: Added language field" },
+        attachments: [
+          { filename: "diff.patch", description: "Language field diff" },
+          { filename: "schema.json", description: "Updated schema" },
+        ],
+        amendments: [
+          { amended_at: "2026-02-22T11:10:00Z", amended_by: "alice", fields: { pr: "#42" } },
+          { amended_at: "2026-02-22T11:20:00Z", amended_by: "alice", fields: { priority: "high" } },
+        ],
+      };
+      const path2 = join(ctx.aliceRepo, "requests", "pending", "req-20260222-110000-alice-0002.json");
+      writeFileSync(path2, JSON.stringify(envelope2, null, 2));
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed req-0002" && git push`, {
+        stdio: "pipe",
       });
+
       seedRequest(ctx.aliceRepo, {
         requestId: "req-20260222-120000-alice-0003",
         recipient: "bob",
@@ -400,6 +435,14 @@ describe("garp_inbox: check inbox for pending requests", () => {
         expect(group.request_ids).toHaveLength(2);
         expect(group.request_ids).toContain("req-20260222-100000-alice-0001");
         expect(group.request_ids).toContain("req-20260222-110000-alice-0002");
+      });
+
+      await thenAssert("the thread group aggregates attachment and amendment counts", async () => {
+        const group = inbox.requests.find((r: any) => r.is_thread_group);
+        // Round 1: 1 attachment + Round 2: 2 attachments = 3 total
+        expect(group.attachment_count).toBe(3);
+        // Round 1: 1 amendment + Round 2: 2 amendments = 3 total
+        expect(group.amendment_count).toBe(3);
       });
 
       await thenAssert("the standalone request has no is_thread_group flag", async () => {
