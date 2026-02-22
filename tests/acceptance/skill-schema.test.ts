@@ -99,7 +99,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a sanity-check request missing 'customer' and 'product'", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -155,7 +155,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request with all 6 required context fields", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -190,7 +190,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request with minimal context (no schema to validate against)", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -218,7 +218,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request with all required fields plus extra fields", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -260,7 +260,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request missing only 'customer'", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -308,7 +308,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a sanity-check request", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Malformed schema test" },
@@ -333,7 +333,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request with an empty context_bundle", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {},
@@ -388,7 +388,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request with minimal context", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "No required array test" },
@@ -412,7 +412,7 @@ describe("schema.json: typed skill contracts and validation warnings", () => {
 
     await when("Alice submits a request exactly as before Phase A", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_request", {
+      result = await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {

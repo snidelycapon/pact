@@ -67,7 +67,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Alice submits a sanity-check request to Bob ---
 
     await when("Alice submits a sanity-check request to Bob", async () => {
-      const result = await aliceServer.callTool("garp_request", {
+      const result = await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -104,7 +104,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Bob checks inbox and sees the request ---
 
     await when("Bob checks inbox and sees one pending request", async () => {
-      const inbox = await bobServer.callTool("garp_inbox", {}) as { requests: any[] };
+      const inbox = await bobServer.callTool("garp_do", { action: "inbox" }) as { requests: any[] };
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].request_id).toBe(requestId);
       expect(inbox.requests[0].request_type).toBe("sanity-check");
@@ -115,7 +115,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Bob responds with findings ---
 
     await when("Bob responds with investigation findings", async () => {
-      const response = await bobServer.callTool("garp_respond", {
+      const response = await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: {
           answer: "YES - same pattern as ZD-4102",
@@ -157,7 +157,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- When: Alice checks status ---
 
     await when("Alice checks status of her request", async () => {
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
       expect(status.status).toBe("completed");
@@ -180,7 +180,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     const bobServer   = createGarpServer({ repoPath: ctx.bobRepo,   userId: "bob" });
 
     // Execute a complete round-trip
-    const result = await aliceServer.callTool("garp_request", {
+    const result = await aliceServer.callTool("garp_do", { action: "send",
       request_type: "sanity-check",
       recipient: "bob",
       context_bundle: {
@@ -194,7 +194,7 @@ describe("Walking Skeleton: complete round-trip", () => {
 
     gitPull(ctx.bobRepo);
 
-    await bobServer.callTool("garp_respond", {
+    await bobServer.callTool("garp_do", { action: "respond",
       request_id: requestId,
       response_bundle: {
         answer: "YES",
@@ -219,7 +219,7 @@ describe("Walking Skeleton: complete round-trip", () => {
 
     // --- Session A: Alice sends request ---
     const aliceSessionA = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const result = await aliceSessionA.callTool("garp_request", {
+    const result = await aliceSessionA.callTool("garp_do", { action: "send",
       request_type: "sanity-check",
       recipient: "bob",
       context_bundle: { question: "Test question" },
@@ -229,14 +229,14 @@ describe("Walking Skeleton: complete round-trip", () => {
     // --- Bob responds ---
     const bobSession = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
     gitPull(ctx.bobRepo);
-    await bobSession.callTool("garp_respond", {
+    await bobSession.callTool("garp_do", { action: "respond",
       request_id: requestId,
       response_bundle: { answer: "Confirmed" },
     });
 
     // --- Session B: Alice checks from a new server instance ---
     const aliceSessionB = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-    const status = await aliceSessionB.callTool("garp_status", {
+    const status = await aliceSessionB.callTool("garp_do", { action: "check_status",
       request_id: requestId,
     }) as any;
     expect(status.status).toBe("completed");

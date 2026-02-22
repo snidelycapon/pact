@@ -37,7 +37,7 @@ describe("garp_thread: view thread history", () => {
     let round2Id: string;
 
     await given("Alice sends round 1 of a design conversation to Bob", async () => {
-      const r1 = (await aliceServer.callTool("garp_request", {
+      const r1 = (await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Round 1: Does this pattern look right?" },
@@ -47,14 +47,14 @@ describe("garp_thread: view thread history", () => {
     });
 
     await given("Bob responds to round 1", async () => {
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: round1Id,
         response_bundle: { answer: "Looks good but needs tests" },
       });
     });
 
     await given("Alice sends round 2 using the same thread_id", async () => {
-      const r2 = (await aliceServer.callTool("garp_request", {
+      const r2 = (await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Round 2: Added tests, what do you think?" },
@@ -66,7 +66,7 @@ describe("garp_thread: view thread history", () => {
     let result: Record<string, unknown>;
 
     await when("Alice calls garp_thread with the thread_id", async () => {
-      result = (await aliceServer.callTool("garp_thread", {
+      result = (await aliceServer.callTool("garp_do", { action: "view_thread",
         thread_id: threadId,
       })) as Record<string, unknown>;
     });
@@ -104,13 +104,13 @@ describe("garp_thread: view thread history", () => {
     let threadId: string;
 
     await given("Alice sends a request and Bob responds", async () => {
-      const r = (await aliceServer.callTool("garp_request", {
+      const r = (await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Quick question" },
       })) as { request_id: string; thread_id: string };
       threadId = r.thread_id;
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: r.request_id,
         response_bundle: { answer: "Yes" },
       });
@@ -119,7 +119,7 @@ describe("garp_thread: view thread history", () => {
     let result: Record<string, unknown>;
 
     await when("Alice calls garp_thread", async () => {
-      result = (await aliceServer.callTool("garp_thread", {
+      result = (await aliceServer.callTool("garp_do", { action: "view_thread",
         thread_id: threadId,
       })) as Record<string, unknown>;
     });
@@ -141,7 +141,7 @@ describe("garp_thread: view thread history", () => {
     let result: Record<string, unknown>;
 
     await when("Alice calls garp_thread with a non-existent thread_id", async () => {
-      result = (await server.callTool("garp_thread", {
+      result = (await server.callTool("garp_do", { action: "view_thread",
         thread_id: "req-nonexistent",
       })) as Record<string, unknown>;
     });
@@ -163,7 +163,7 @@ describe("garp_thread: view thread history", () => {
     let threadId: string;
 
     await given("Alice sends a request to Bob", async () => {
-      const r = (await aliceServer.callTool("garp_request", {
+      const r = (await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Can Bob see this thread too?" },
@@ -174,7 +174,7 @@ describe("garp_thread: view thread history", () => {
     let result: Record<string, unknown>;
 
     await when("Bob calls garp_thread with the thread_id", async () => {
-      result = (await bobServer.callTool("garp_thread", {
+      result = (await bobServer.callTool("garp_do", { action: "view_thread",
         thread_id: threadId,
       })) as Record<string, unknown>;
     });

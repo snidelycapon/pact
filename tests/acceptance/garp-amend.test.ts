@@ -51,7 +51,7 @@ describe("garp_amend: amend a pending request", () => {
       gitPull(ctx.aliceRepo);
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      result = await aliceServer.callTool("garp_amend", {
+      result = await aliceServer.callTool("garp_do", { action: "amend",
         request_id: requestId,
         fields: { customer: "Acme Corp v2", priority: "high" },
         note: "Updated customer name",
@@ -103,12 +103,12 @@ describe("garp_amend: amend a pending request", () => {
       gitPull(ctx.aliceRepo);
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      await aliceServer.callTool("garp_amend", {
+      await aliceServer.callTool("garp_do", { action: "amend",
         request_id: requestId,
         fields: { customer: "Acme Corp v2" },
       });
 
-      const result = await aliceServer.callTool("garp_amend", {
+      const result = await aliceServer.callTool("garp_do", { action: "amend",
         request_id: requestId,
         fields: { priority: "critical" },
         note: "Escalated priority",
@@ -144,7 +144,7 @@ describe("garp_amend: amend a pending request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_amend", {
+        bobServer.callTool("garp_do", { action: "amend",
           request_id: requestId,
           fields: { customer: "Changed by Bob" },
         }),
@@ -169,7 +169,7 @@ describe("garp_amend: amend a pending request", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_amend", {
+        aliceServer.callTool("garp_do", { action: "amend",
           request_id: requestId,
           fields: { customer: "Too late" },
         }),
@@ -194,7 +194,7 @@ describe("garp_amend: amend a pending request", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_amend", {
+        aliceServer.callTool("garp_do", { action: "amend",
           request_id: requestId,
           fields: { customer: "Too late" },
         }),

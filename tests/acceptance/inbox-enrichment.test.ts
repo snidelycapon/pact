@@ -149,7 +149,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("the inbox entry includes skill_description", () => {
@@ -207,7 +207,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("response_fields are extracted from schema.json response_bundle properties", () => {
@@ -244,7 +244,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("the ask entry includes skill_description", () => {
@@ -300,7 +300,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("each entry has enrichment from its own skill type", () => {
@@ -341,7 +341,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("all 3 entries have identical enrichment (proving cache consistency)", () => {
@@ -377,7 +377,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("the inbox entry omits skill_description and response_fields", () => {
@@ -421,7 +421,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("enrichment fields are omitted but inbox does not error", () => {
@@ -462,7 +462,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("the thread group includes skill_description and response_fields", () => {
@@ -506,7 +506,7 @@ describe("inbox enrichment: skill description and response fields in inbox entri
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      inbox = await bobServer.callTool("garp_inbox", {});
+      inbox = await bobServer.callTool("garp_do", { action: "inbox" });
     });
 
     await thenAssert("both entries are returned", () => {

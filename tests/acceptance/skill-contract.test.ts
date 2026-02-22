@@ -53,7 +53,7 @@ describe("skill contract: skill validation and auto-loading", () => {
 
     await when("Alice submits a sanity-check request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const result = await aliceServer.callTool("garp_request", {
+      const result = await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Skill exists test" },
@@ -68,7 +68,7 @@ describe("skill contract: skill validation and auto-loading", () => {
 
     await given("a sanity-check request exists for Bob", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      await aliceServer.callTool("garp_request", {
+      await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Skill path test" },
@@ -77,7 +77,7 @@ describe("skill contract: skill validation and auto-loading", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = await bobServer.callTool("garp_inbox", {}) as { requests: any[] };
+      const inbox = await bobServer.callTool("garp_do", { action: "inbox" }) as { requests: any[] };
 
       expect(inbox.requests).toHaveLength(1);
       // skill_path should point to the local file path
@@ -112,7 +112,7 @@ describe("skill contract: skill validation and auto-loading", () => {
     // And Alice can now send code-review requests
     await thenAssert("Alice can submit a code-review request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const result = await aliceServer.callTool("garp_request", {
+      const result = await aliceServer.callTool("garp_do", { action: "send",
         request_type: "code-review",
         recipient: "bob",
         context_bundle: { diff_url: "https://github.com/acme/platform/pull/42" },
@@ -170,7 +170,7 @@ describe("skill contract: skill validation and auto-loading", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_request", {
+        aliceServer.callTool("garp_do", { action: "send",
           request_type: "code-review",
           recipient: "bob",
           context_bundle: { question: "No skill test" },
@@ -199,7 +199,7 @@ describe("skill contract: skill validation and auto-loading", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_request", {
+        aliceServer.callTool("garp_do", { action: "send",
           request_type: "empty-skill",
           recipient: "bob",
           context_bundle: { question: "Empty skill test" },
@@ -216,7 +216,7 @@ describe("skill contract: skill validation and auto-loading", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_request", {
+        aliceServer.callTool("garp_do", { action: "send",
           request_type: "nonexistent-skill",
           recipient: "bob",
           context_bundle: { question: "Order of validation test" },

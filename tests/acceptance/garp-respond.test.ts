@@ -58,7 +58,7 @@ describe("garp_respond: submit a response to a request", () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
-      result = await bobServer.callTool("garp_respond", {
+      result = await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: {
           answer: "YES - same pattern as ZD-4102",
@@ -115,7 +115,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Confirmed" },
       });
@@ -147,7 +147,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Yes" },
       });
@@ -172,7 +172,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds (responder resolved from GARP_USER)", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Checked" },
       });
@@ -196,7 +196,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds with a non-standard response bundle", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: {
           custom_verdict: "all clear",
@@ -248,7 +248,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds to the request", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Confirmed" },
       });
@@ -277,7 +277,7 @@ describe("garp_respond: submit a response to a request", () => {
     await when("Bob responds to the request", async () => {
       gitPull(ctx.bobRepo);
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("garp_respond", {
+      await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Looks good" },
       });
@@ -319,7 +319,7 @@ describe("garp_respond: submit a response to a request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_respond", {
+        bobServer.callTool("garp_do", { action: "respond",
           request_id: requestId,
           response_bundle: { answer: "duplicate" },
         }),
@@ -346,7 +346,7 @@ describe("garp_respond: submit a response to a request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_respond", {
+        bobServer.callTool("garp_do", { action: "respond",
           request_id: requestId,
           response_bundle: { answer: "I'll answer my own question" },
         }),
@@ -367,7 +367,7 @@ describe("garp_respond: submit a response to a request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_respond", {
+        bobServer.callTool("garp_do", { action: "respond",
           request_id: "req-nonexistent-0000",
           response_bundle: { answer: "Ghost response" },
         }),
@@ -388,7 +388,7 @@ describe("garp_respond: submit a response to a request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_respond", {
+        bobServer.callTool("garp_do", { action: "respond",
           request_id: requestId,
           // response_bundle omitted
         }),
@@ -413,7 +413,7 @@ describe("garp_respond: submit a response to a request", () => {
 
     await when("Bob responds (his local is behind the remote)", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const result = await bobServer.callTool("garp_respond", {
+      const result = await bobServer.callTool("garp_do", { action: "respond",
         request_id: requestId,
         response_bundle: { answer: "Rebase retry test" },
       });

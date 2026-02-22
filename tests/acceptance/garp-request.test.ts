@@ -1,10 +1,10 @@
 /**
- * Acceptance Tests -- garp_request (Submit a GARP Request)
+ * Acceptance Tests -- garp_do({ action: "send" }) (Submit a GARP Request)
  *
  * Traces to: US-002
  *
- * Tests exercise the garp_request driving port (tool handler) against
- * real local git repos. Scenarios verify:
+ * Tests exercise the garp_do collapsed tool surface with action "send"
+ * against real local git repos. Scenarios verify:
  *   - Successful request submission with valid envelope
  *   - Request ID format and uniqueness
  *   - Envelope validation (missing fields)
@@ -33,7 +33,7 @@ import { given, when, thenAssert } from "./helpers/gwt";
 import { execSync } from "node:child_process";
 import { createGarpServer } from "../../src/server.ts";
 
-describe("garp_request: submit a GARP request", () => {
+describe("garp_do(send): submit a GARP request", () => {
   let ctx: TestRepoContext;
 
   afterEach(() => {
@@ -55,7 +55,7 @@ describe("garp_request: submit a GARP request", () => {
     });
 
     await when("Alice submits a sanity-check request to Bob", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -66,8 +66,11 @@ describe("garp_request: submit a GARP request", () => {
           investigation_so_far: "Tokens held by closure, preventing GC",
           question: "Does this match the session service pattern?",
         },
-      })) as { request_id: string };
+      })) as { request_id: string; status: string; message: string };
       requestId = result.request_id;
+      // Verify return value includes correct message
+      expect(result.message).toBe("Request submitted");
+      expect(result.status).toBe("pending");
     });
 
     await thenAssert("a request file is created in pending with correct envelope", async () => {
@@ -82,6 +85,7 @@ describe("garp_request: submit a GARP request", () => {
         status: "pending",
         sender: { user_id: "alice", display_name: "Alice" },
         recipient: { user_id: "bob", display_name: "Bob" },
+        expected_response: { type: "text" },
         context_bundle: {
           customer: "Acme Corp",
           question: "Does this match the session service pattern?",
@@ -106,7 +110,7 @@ describe("garp_request: submit a GARP request", () => {
     const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
     await when("Alice submits a request", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Format test" },
@@ -122,7 +126,7 @@ describe("garp_request: submit a GARP request", () => {
     const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
     await when("Alice submits a request (sender resolved from GARP_USER)", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Identity test" },
@@ -142,7 +146,7 @@ describe("garp_request: submit a GARP request", () => {
     const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
     await when("Alice submits a request with a deadline", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Deadline test" },
@@ -162,7 +166,7 @@ describe("garp_request: submit a GARP request", () => {
     const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
     await when("Alice submits a request with an unusual context bundle", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
@@ -191,7 +195,7 @@ describe("garp_request: submit a GARP request", () => {
 
     await when("Alice tries to send a request to unknown recipient 'charlie'", async () => {
       await expect(
-        server.callTool("garp_request", {
+        server.callTool("garp_do", { action: "send",
           request_type: "sanity-check",
           recipient: "charlie",
           context_bundle: { question: "Unknown recipient test" },
@@ -211,7 +215,7 @@ describe("garp_request: submit a GARP request", () => {
 
     await when("Alice submits a request with type 'code-review' (no skill file)", async () => {
       await expect(
-        server.callTool("garp_request", {
+        server.callTool("garp_do", { action: "send",
           request_type: "code-review",
           recipient: "bob",
           context_bundle: { question: "Missing skill test" },
@@ -231,7 +235,7 @@ describe("garp_request: submit a GARP request", () => {
 
     await when("Alice submits a request without a recipient", async () => {
       await expect(
-        server.callTool("garp_request", {
+        server.callTool("garp_do", { action: "send",
           request_type: "sanity-check",
           context_bundle: { question: "Missing field test" },
           // recipient omitted
@@ -246,7 +250,7 @@ describe("garp_request: submit a GARP request", () => {
 
     await when("Alice submits a request without a request_type", async () => {
       await expect(
-        server.callTool("garp_request", {
+        server.callTool("garp_do", { action: "send",
           recipient: "bob",
           context_bundle: { question: "Missing type test" },
           // request_type omitted
@@ -261,7 +265,7 @@ describe("garp_request: submit a GARP request", () => {
 
     await when("Alice submits a request without a context_bundle", async () => {
       await expect(
-        server.callTool("garp_request", {
+        server.callTool("garp_do", { action: "send",
           request_type: "sanity-check",
           recipient: "bob",
           // context_bundle omitted
@@ -282,7 +286,7 @@ describe("garp_request: submit a GARP request", () => {
     let threadId: string;
 
     await when("Alice submits a request with an explicit thread_id", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Follow-up on yesterday's investigation" },
@@ -315,7 +319,7 @@ describe("garp_request: submit a GARP request", () => {
     let requestId: string;
 
     await when("Alice submits a request with two attachments", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Can you check these logs?" },
@@ -360,7 +364,7 @@ describe("garp_request: submit a GARP request", () => {
     let threadId: string;
 
     await when("Alice submits a request with no thread_id", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Simple question, no extras" },
@@ -390,7 +394,7 @@ describe("garp_request: submit a GARP request", () => {
     let requestId: string;
 
     await when("Alice submits a basic request with no attachments", async () => {
-      const result = (await server.callTool("garp_request", {
+      const result = (await server.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Simple question, no extras" },
@@ -424,7 +428,7 @@ describe("garp_request: submit a GARP request", () => {
     });
 
     await when("Alice submits a request (her local is behind)", async () => {
-      const result = (await aliceServer.callTool("garp_request", {
+      const result = (await aliceServer.callTool("garp_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: { question: "Rebase retry test" },

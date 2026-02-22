@@ -1,11 +1,11 @@
 /**
- * Acceptance Tests -- garp_skills (Skill Discovery Tool)
+ * Acceptance Tests -- garp_discover (Skill & Team Discovery Tool)
  *
  * Traces to: US-019
  *
- * Tests exercise the garp_skills driving port (tool handler) against
+ * Tests exercise the garp_discover driving port (tool handler) against
  * real local git repos. Scenarios verify:
- *   - Lists all available skills with metadata (name, description, when_to_use, context_fields, response_fields, skill_path)
+ *   - Lists all available skills with metadata (name, description, when_to_use, context_bundle, response_bundle)
  *   - Keyword search filters skills by name, description, and when_to_use content
  *   - Search returns empty array when no skills match (not an error)
  *   - Search matches against when_to_use section content
@@ -13,7 +13,7 @@
  *   - Falls back to SKILL.md parsing when no schema.json exists
  *   - Pulls latest from remote before scanning
  *   - Falls back to local data with warning when git pull fails
- *   - Includes has_schema flag indicating schema.json presence
+ *   - Returns team members alongside skills
  *
  * Error/edge scenarios: 4 of 10 total (40%)
  */
@@ -31,7 +31,7 @@ import { execSync } from "node:child_process";
 import { createGarpServer } from "../../src/server.ts";
 
 // ---------------------------------------------------------------------------
-// Skill content fixtures
+// Skill content fixtures (old-format Markdown, no YAML frontmatter)
 // ---------------------------------------------------------------------------
 
 const ASK_SKILL = `# Ask
@@ -168,7 +168,7 @@ function seedSkills(
   );
 }
 
-describe("garp_skills: discover available request types", () => {
+describe("garp_discover: discover available request types and team", () => {
   let ctx: TestRepoContext;
 
   afterEach(() => {
@@ -188,24 +188,36 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with no query", async () => {
+    await when("Cory's agent calls garp_discover with no query", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
-    await thenAssert("the result contains 4 skill entries", () => {
+    await thenAssert("the result contains 4 skill entries sorted alphabetically by name", () => {
       expect(result.skills).toHaveLength(4);
+      // Verify alphabetical sort order (kills sort removal and comparator mutants)
+      const names = result.skills.map((s: any) => s.name);
+      expect(names).toEqual(["ask", "code-review", "design-skill", "sanity-check"]);
     });
 
-    await thenAssert("each entry includes name, description, when_to_use, context_fields, response_fields, and skill_path", () => {
+    await thenAssert("each entry includes name, description, when_to_use (array), context_bundle, and response_bundle", () => {
       for (const skill of result.skills) {
         expect(skill.name).toBeTruthy();
         expect(skill.description).toBeTruthy();
-        expect(skill.when_to_use).toBeTruthy();
-        expect(Array.isArray(skill.context_fields)).toBe(true);
-        expect(Array.isArray(skill.response_fields)).toBe(true);
-        expect(skill.skill_path).toBeTruthy();
+        expect(Array.isArray(skill.when_to_use)).toBe(true);
+        expect(skill.when_to_use.length).toBeGreaterThan(0);
+        expect(skill.context_bundle).toBeDefined();
+        expect(typeof skill.context_bundle.fields).toBe("object");
+        expect(skill.response_bundle).toBeDefined();
+        expect(typeof skill.response_bundle.fields).toBe("object");
       }
+    });
+
+    await thenAssert("the result includes team members", () => {
+      expect(Array.isArray(result.team)).toBe(true);
+      expect(result.team.length).toBeGreaterThan(0);
+      expect(result.team[0]).toHaveProperty("user_id");
+      expect(result.team[0]).toHaveProperty("display_name");
     });
   });
 
@@ -222,22 +234,24 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with no query", async () => {
+    await when("Cory's agent calls garp_discover with no query", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
-    await thenAssert("the sanity-check entry has context_fields from the SKILL.md table", () => {
+    await thenAssert("the sanity-check entry has context_bundle.fields from the SKILL.md table", () => {
       const sc = result.skills.find((s: any) => s.name === "sanity-check");
       expect(sc).toBeDefined();
-      expect(sc.context_fields).toEqual(
+      const fieldNames = Object.keys(sc.context_bundle.fields);
+      expect(fieldNames).toEqual(
         expect.arrayContaining(["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question"]),
       );
     });
 
-    await thenAssert("the sanity-check entry has response_fields from the SKILL.md table", () => {
+    await thenAssert("the sanity-check entry has response_bundle.fields from the SKILL.md table", () => {
       const sc = result.skills.find((s: any) => s.name === "sanity-check");
-      expect(sc.response_fields).toEqual(
+      const fieldNames = Object.keys(sc.response_bundle.fields);
+      expect(fieldNames).toEqual(
         expect.arrayContaining(["answer", "evidence", "recommendation"]),
       );
     });
@@ -256,9 +270,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with query 'review code'", async () => {
+    await when("Cory's agent calls garp_discover with query 'review code'", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", { query: "review code" });
+      result = await server.callTool("garp_discover", { query: "review code" });
     });
 
     await thenAssert("the result includes the code-review skill", () => {
@@ -273,6 +287,27 @@ describe("garp_skills: discover available request types", () => {
     });
   });
 
+  it("matches when any search term hits (OR semantics, not AND)", async () => {
+    ctx = createTestRepos();
+
+    await given("the GARP repo has 4 skills", () => {
+      seedSkills(ctx.aliceRepo);
+    });
+
+    let result: any;
+
+    await when("the agent searches with 'sanity deploy' (sanity matches one skill, deploy matches none)", async () => {
+      const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      result = await server.callTool("garp_discover", { query: "sanity deploy" });
+    });
+
+    await thenAssert("the sanity-check skill is included (any term match = included)", () => {
+      const names = result.skills.map((s: any) => s.name);
+      expect(names).toContain("sanity-check");
+      // With AND semantics this would return 0 results since 'deploy' matches nothing
+    });
+  });
+
   it("matches search query against the when_to_use section content", async () => {
     ctx = createTestRepos();
 
@@ -282,9 +317,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with query 'validate findings'", async () => {
+    await when("Cory's agent calls garp_discover with query 'validate findings'", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", { query: "validate findings" });
+      result = await server.callTool("garp_discover", { query: "validate findings" });
     });
 
     await thenAssert("the result includes the sanity-check skill", () => {
@@ -306,23 +341,26 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with no query", async () => {
+    await when("Cory's agent calls garp_discover with no query", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
-    await thenAssert("the sanity-check entry has context_fields from schema.json", () => {
+    await thenAssert("the sanity-check entry has context_bundle.fields from schema.json", () => {
       const sc = result.skills.find((s: any) => s.name === "sanity-check");
       expect(sc).toBeDefined();
+      const fieldNames = Object.keys(sc.context_bundle.fields);
       // schema.json includes zendesk_ticket as a property (even though optional)
-      expect(sc.context_fields).toEqual(
+      expect(fieldNames).toEqual(
         expect.arrayContaining(["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question", "zendesk_ticket"]),
       );
     });
 
-    await thenAssert("the sanity-check entry has has_schema set to true", () => {
+    await thenAssert("the sanity-check entry has required fields from schema.json", () => {
       const sc = result.skills.find((s: any) => s.name === "sanity-check");
-      expect(sc.has_schema).toBe(true);
+      expect(sc.context_bundle.required).toEqual(
+        expect.arrayContaining(["customer", "product", "issue_summary"]),
+      );
     });
   });
 
@@ -335,28 +373,53 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills with no query", async () => {
+    await when("Cory's agent calls garp_discover with no query", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
-    await thenAssert("the ask entry has context_fields extracted from SKILL.md", () => {
+    await thenAssert("the ask entry has context_bundle.fields extracted from SKILL.md", () => {
       const ask = result.skills.find((s: any) => s.name === "ask");
       expect(ask).toBeDefined();
-      expect(ask.context_fields).toEqual(
+      const fieldNames = Object.keys(ask.context_bundle.fields);
+      expect(fieldNames).toEqual(
         expect.arrayContaining(["question"]),
       );
     });
 
-    await thenAssert("the ask entry has has_schema set to false", () => {
+    await thenAssert("the ask entry has has_brain set to false (no brain processing)", () => {
       const ask = result.skills.find((s: any) => s.name === "ask");
-      expect(ask.has_schema).toBe(false);
+      expect(ask.has_brain).toBe(false);
     });
   });
 
   // =========================================================================
   // Edge Cases / Error Paths
   // =========================================================================
+
+  it("handles multi-space query terms by splitting on whitespace runs", async () => {
+    ctx = createTestRepos();
+
+    await given("the GARP repo has 4 skills", () => {
+      seedSkills(ctx.aliceRepo);
+    });
+
+    let result: any;
+
+    await when("the agent searches with 'code  review' (double space)", async () => {
+      const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      result = await server.callTool("garp_discover", { query: "code  review" });
+    });
+
+    await thenAssert("the result includes code-review (extra spaces are handled)", () => {
+      const names = result.skills.map((s: any) => s.name);
+      expect(names).toContain("code-review");
+      // With /\s/ instead of /\s+/, splitting "code  review" produces ["code", "", "review"]
+      // The empty string "" would match everything, so ALL skills would appear
+      // With correct /\s+/, we get ["code", "review"] - only matching code-review
+      expect(result.skills.length).toBeLessThanOrEqual(2);
+    });
+  });
 
   it("returns empty skills array when query matches nothing", async () => {
     ctx = createTestRepos();
@@ -367,9 +430,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Maria Santos's agent calls garp_skills with query 'deploy pipeline'", async () => {
+    await when("Maria Santos's agent calls garp_discover with query 'deploy pipeline'", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", { query: "deploy pipeline" });
+      result = await server.callTool("garp_discover", { query: "deploy pipeline" });
     });
 
     await thenAssert("the result contains 0 skills and is not an error", () => {
@@ -400,9 +463,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Alice calls garp_skills (her local is behind)", async () => {
+    await when("Alice calls garp_discover (her local is behind)", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
     await thenAssert("the result includes the new bug-report skill added by Bob", () => {
@@ -423,9 +486,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Alice calls garp_skills with a broken remote", async () => {
+    await when("Alice calls garp_discover with a broken remote", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
     await thenAssert("skills are returned from local data", () => {
@@ -439,6 +502,43 @@ describe("garp_skills: discover available request types", () => {
     // Restore remote for cleanup
     await thenAssert("(cleanup) restore remote", () => {
       execSync(`mv "${ctx.remotePath}.broken" "${ctx.remotePath}"`, { stdio: "pipe" });
+    });
+  });
+
+  it("excludes hidden directories (dot-prefixed) from skill listing", async () => {
+    ctx = createTestRepos();
+
+    await given("the skills directory has a .hidden directory and a directory ending with dot", () => {
+      seedSkills(ctx.aliceRepo);
+      // .hidden should be excluded (starts with dot)
+      mkdirSync(join(ctx.aliceRepo, "skills", ".hidden-skill"), { recursive: true });
+      writeFileSync(
+        join(ctx.aliceRepo, "skills", ".hidden-skill", "SKILL.md"),
+        `# Hidden\n\nShould not appear.\n\n## When To Use\nNever.\n\n## Context Bundle Fields\n| Field | Required |\n|-------|----------|\n| x | yes |\n\n## Response Structure\n| Field | Description |\n|-------|-------------|\n| y | result |\n`,
+      );
+      // "ends-with-dot." should NOT be excluded (the filter is startsWith, not endsWith)
+      mkdirSync(join(ctx.aliceRepo, "skills", "ends-with-dot."), { recursive: true });
+      writeFileSync(
+        join(ctx.aliceRepo, "skills", "ends-with-dot.", "SKILL.md"),
+        `# Ends With Dot\n\nShould appear.\n\n## When To Use\nAlways.\n\n## Context Bundle Fields\n| Field | Required |\n|-------|----------|\n| z | yes |\n\n## Response Structure\n| Field | Description |\n|-------|-------------|\n| w | result |\n`,
+      );
+      execSync(
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "hidden and dot-end skills" && git push`,
+        { stdio: "pipe" },
+      );
+    });
+
+    let result: any;
+
+    await when("the agent calls garp_discover", async () => {
+      const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      result = await server.callTool("garp_discover", {});
+    });
+
+    await thenAssert("the .hidden-skill is excluded but ends-with-dot. is included", () => {
+      const names = result.skills.map((s: any) => s.name);
+      expect(names).not.toContain(".hidden-skill");
+      expect(names).toContain("ends-with-dot.");
     });
   });
 
@@ -457,9 +557,9 @@ describe("garp_skills: discover available request types", () => {
 
     let result: any;
 
-    await when("Cory's agent calls garp_skills", async () => {
+    await when("Cory's agent calls garp_discover", async () => {
       const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("garp_skills", {});
+      result = await server.callTool("garp_discover", {});
     });
 
     await thenAssert("the broken-skill is not in the results", () => {

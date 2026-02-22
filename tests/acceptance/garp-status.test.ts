@@ -131,7 +131,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -156,7 +156,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -175,7 +175,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks status", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -203,12 +203,12 @@ describe("garp_status: check request status and response", () => {
     await when("Alice checks status of each request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      const pendingStatus = await aliceServer.callTool("garp_status", {
+      const pendingStatus = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: pendingId,
       }) as any;
       expect(pendingStatus.status).toBe("pending");
 
-      const completedStatus = await aliceServer.callTool("garp_status", {
+      const completedStatus = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: completedId,
       }) as any;
       expect(completedStatus.status).toBe("completed");
@@ -237,7 +237,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -270,7 +270,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -299,7 +299,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -326,7 +326,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks the status of her cancelled request", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -352,7 +352,7 @@ describe("garp_status: check request status and response", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_status", {
+        aliceServer.callTool("garp_do", { action: "check_status",
           request_id: "req-nonexistent-0000",
         }),
       ).rejects.toThrow(/not found/i);
@@ -374,7 +374,7 @@ describe("garp_status: check request status and response", () => {
 
     await when("Alice checks status with remote unreachable", async () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceServer.callTool("garp_status", {
+      const status = await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 
@@ -404,7 +404,7 @@ describe("garp_status: check request status and response", () => {
       ).trim();
 
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      await aliceServer.callTool("garp_status", {
+      await aliceServer.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       });
 
@@ -437,7 +437,7 @@ describe("garp_status: check request status and response", () => {
     await when("Alice checks status from 'Session B' (new server instance)", async () => {
       // The key point: a fresh server instance can find the request
       const aliceSessionB = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      const status = await aliceSessionB.callTool("garp_status", {
+      const status = await aliceSessionB.callTool("garp_do", { action: "check_status",
         request_id: requestId,
       }) as any;
 

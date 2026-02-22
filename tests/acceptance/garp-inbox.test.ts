@@ -1,10 +1,10 @@
 /**
- * Acceptance Tests -- garp_inbox (Check GARP Inbox)
+ * Acceptance Tests -- garp_do({ action: "inbox" }) (Check GARP Inbox)
  *
  * Traces to: US-003
  *
- * Tests exercise the garp_inbox driving port (tool handler) against
- * real local git repos. Scenarios verify:
+ * Tests exercise the garp_do collapsed tool surface with action "inbox"
+ * against real local git repos. Scenarios verify:
  *   - Retrieves pending requests addressed to the current user
  *   - Filters out requests addressed to other users
  *   - Returns empty list when no pending requests exist
@@ -78,7 +78,7 @@ function seedRequest(
   });
 }
 
-describe("garp_inbox: check inbox for pending requests", () => {
+describe("garp_do(inbox): check inbox for pending requests", () => {
   let ctx: TestRepoContext;
 
   afterEach(() => {
@@ -104,7 +104,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0]).toMatchObject({
@@ -145,7 +145,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       // Bob should see 2 requests (both addressed to him), not the one for Alice
       expect(inbox.requests).toHaveLength(2);
@@ -191,7 +191,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(3);
       // Alphabetical filename order would be 0001, 0002, 0003 (newest first)
@@ -216,7 +216,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests[0].skill_path).toContain(
         "skills/sanity-check/SKILL.md",
@@ -239,7 +239,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       // Summary extracted from context_bundle.question
       expect(inbox.requests[0].summary).toContain("memory leak");
@@ -264,7 +264,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests[0].short_id).toBe("alice-a1b2");
     });
@@ -286,7 +286,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests[0].thread_id).toBe(threadId);
     });
@@ -307,7 +307,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect("thread_id" in inbox.requests[0]).toBe(false);
     });
@@ -340,7 +340,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(2);
       // First entry (oldest) has 2 attachments
@@ -420,7 +420,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       await thenAssert("the result contains 2 items (1 group + 1 standalone)", async () => {
         expect(inbox.requests).toHaveLength(2);
@@ -432,9 +432,13 @@ describe("garp_inbox: check inbox for pending requests", () => {
         expect(group.thread_id).toBe(threadId);
         expect(group.round_count).toBe(2);
         expect(group.latest_summary).toBe("Round 2: Added language field");
-        expect(group.request_ids).toHaveLength(2);
-        expect(group.request_ids).toContain("req-20260222-100000-alice-0001");
-        expect(group.request_ids).toContain("req-20260222-110000-alice-0002");
+        // request_ids must be in chronological order (sorted by created_at ascending)
+        expect(group.request_ids).toEqual([
+          "req-20260222-100000-alice-0001",
+          "req-20260222-110000-alice-0002",
+        ]);
+        // latest_request_id is the most recent entry (last after sort)
+        expect(group.latest_request_id).toBe("req-20260222-110000-alice-0002");
       });
 
       await thenAssert("the thread group aggregates attachment and amendment counts", async () => {
@@ -468,7 +472,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       await thenAssert("the request displays as standalone (not a thread group)", async () => {
         expect(inbox.requests).toHaveLength(1);
@@ -502,7 +506,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       await thenAssert("both requests display as standalone items", async () => {
         expect(inbox.requests).toHaveLength(2);
@@ -543,7 +547,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].amendment_count).toBe(2);
@@ -570,13 +574,84 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].attachments).toEqual([
         { filename: "crash.log", description: "Error log from production" },
         { filename: "config.yml", description: "Current config file" },
       ]);
+    });
+  });
+
+  // =========================================================================
+  // Attachment edge case: empty attachments array
+  // =========================================================================
+
+  it("omits attachments field from inbox entry when envelope has empty attachments array", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260222-100000-alice-ea01";
+
+    await given("a request with an empty attachments array exists for Bob", async () => {
+      const envelope = {
+        request_id: requestId,
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-22T10:00:00.000Z",
+        context_bundle: { question: "Empty attachments test" },
+        attachments: [],
+      };
+      const filePath = join(ctx.aliceRepo, "requests", "pending", `${requestId}.json`);
+      writeFileSync(filePath, JSON.stringify(envelope, null, 2));
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
+        stdio: "pipe",
+      });
+    });
+
+    await when("Bob checks his inbox", async () => {
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
+
+      expect(inbox.requests).toHaveLength(1);
+      expect(inbox.requests[0].attachment_count).toBe(0);
+      // Empty attachments array should NOT produce an attachments field in the inbox entry
+      expect(inbox.requests[0].attachments).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // Summary fallback
+  // =========================================================================
+
+  it("uses 'No summary' when context_bundle has neither question nor issue_summary", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260222-100000-alice-ns01";
+
+    await given("a request with no question or issue_summary in context_bundle exists for Bob", async () => {
+      const envelope = {
+        request_id: requestId,
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-22T10:00:00.000Z",
+        context_bundle: { some_other_field: "no question here" },
+      };
+      const filePath = join(ctx.aliceRepo, "requests", "pending", `${requestId}.json`);
+      writeFileSync(filePath, JSON.stringify(envelope, null, 2));
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
+        stdio: "pipe",
+      });
+    });
+
+    await when("Bob checks his inbox", async () => {
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
+
+      expect(inbox.requests).toHaveLength(1);
+      expect(inbox.requests[0].summary).toBe("No summary");
     });
   });
 
@@ -589,7 +664,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks inbox with no pending requests", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(0);
       // Should not throw -- empty inbox is a normal condition
@@ -615,7 +690,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       expect(inbox.requests).toHaveLength(0);
     });
@@ -639,7 +714,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
 
     await when("Bob checks his inbox (remote unreachable)", async () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+      const inbox = (await bobServer.callTool("garp_do", { action: "inbox" })) as any;
 
       // Should still return locally known requests
       expect(inbox.requests).toHaveLength(1);
@@ -673,7 +748,7 @@ describe("garp_inbox: check inbox for pending requests", () => {
         { encoding: "utf-8" },
       ).trim();
 
-      await bobServer.callTool("garp_inbox", {});
+      await bobServer.callTool("garp_do", { action: "inbox" });
 
       // Commit count should not change (only pull, no new commits)
       const commitsAfter = execSync(

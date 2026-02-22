@@ -51,7 +51,7 @@ describe("garp_cancel: cancel a pending request", () => {
       gitPull(ctx.aliceRepo);
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      const result = await aliceServer.callTool("garp_cancel", {
+      const result = await aliceServer.callTool("garp_do", { action: "cancel",
         request_id: requestId,
       });
 
@@ -98,7 +98,7 @@ describe("garp_cancel: cancel a pending request", () => {
       gitPull(ctx.aliceRepo);
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      await aliceServer.callTool("garp_cancel", {
+      await aliceServer.callTool("garp_do", { action: "cancel",
         request_id: requestId,
         reason: "Found the answer myself",
       });
@@ -128,7 +128,7 @@ describe("garp_cancel: cancel a pending request", () => {
       const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
       await expect(
-        bobServer.callTool("garp_cancel", {
+        bobServer.callTool("garp_do", { action: "cancel",
           request_id: requestId,
         }),
       ).rejects.toThrow(/only the sender can cancel/i);
@@ -157,7 +157,7 @@ describe("garp_cancel: cancel a pending request", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_cancel", {
+        aliceServer.callTool("garp_do", { action: "cancel",
           request_id: requestId,
         }),
       ).rejects.toThrow(/already completed/i);
@@ -181,7 +181,7 @@ describe("garp_cancel: cancel a pending request", () => {
       const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
       await expect(
-        aliceServer.callTool("garp_cancel", {
+        aliceServer.callTool("garp_do", { action: "cancel",
           request_id: requestId,
         }),
       ).rejects.toThrow(/already cancelled/i);
