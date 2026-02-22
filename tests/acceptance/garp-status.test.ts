@@ -1,7 +1,7 @@
 /**
  * Acceptance Tests -- garp_status (Check Request Status)
  *
- * Traces to: US-005
+ * Traces to: US-005, US-012
  *
  * Tests exercise the garp_status driving port (tool handler) against
  * real local git repos. Scenarios verify:
@@ -12,8 +12,9 @@
  *   - Falls back to local state when git pull fails
  *   - Is a read-only operation (no commits)
  *   - Returns thread_id and attachments in request data (US-002a/003a)
+ *   - Returns resolved attachment_paths when request has attachments (US-012)
  *
- * Error/edge scenarios: 4 of 9 total (44%)
+ * Error/edge scenarios: 4 of 11 total (36%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -271,6 +272,62 @@ describe("garp_status: check request status and response", () => {
         filename: "crash.log",
         description: "Application error log",
       });
+    });
+  });
+
+  // =========================================================================
+  // Attachment Paths in Status (US-012 partial)
+  // =========================================================================
+
+  it("returns attachment_paths with absolute paths when request has attachments", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-143022-alice-a1b2";
+
+    await given("a pending request exists with attachments", async () => {
+      seedPendingRequestWithExtensions(ctx.aliceRepo, requestId, "bob", "alice", {
+        attachments: [
+          { filename: "crash.log", description: "Error log" },
+          { filename: "config.yml", description: "Deploy config" },
+        ],
+      });
+    });
+
+    await when("Alice checks the status of her request", async () => {
+      const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      const status = await aliceServer.callTool("garp_status", {
+        request_id: requestId,
+      }) as any;
+
+      expect(status.attachment_paths).toBeDefined();
+      expect(status.attachment_paths).toHaveLength(2);
+      expect(status.attachment_paths[0]).toEqual({
+        filename: "crash.log",
+        description: "Error log",
+        path: join(ctx.aliceRepo, "attachments", requestId, "crash.log"),
+      });
+      expect(status.attachment_paths[1]).toEqual({
+        filename: "config.yml",
+        description: "Deploy config",
+        path: join(ctx.aliceRepo, "attachments", requestId, "config.yml"),
+      });
+    });
+  });
+
+  it("omits attachment_paths when request has no attachments", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-143022-alice-a1b2";
+
+    await given("a pending request exists without attachments", async () => {
+      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
+    });
+
+    await when("Alice checks the status of her request", async () => {
+      const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      const status = await aliceServer.callTool("garp_status", {
+        request_id: requestId,
+      }) as any;
+
+      expect(status.attachment_paths).toBeUndefined();
     });
   });
 
