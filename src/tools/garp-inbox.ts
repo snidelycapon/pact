@@ -2,7 +2,8 @@
  * Handler for the garp_inbox tool.
  *
  * Pulls latest from remote, scans requests/pending/ for envelopes
- * addressed to the current user, and returns summaries sorted by
+ * addressed to the current user, groups by thread_id when multiple
+ * pending requests share a thread, and returns summaries sorted by
  * created_at ascending. Falls back to local data with a warning
  * when the remote is unreachable.
  */
@@ -30,8 +31,23 @@ export interface InboxEntry {
   attachment_count: number;
 }
 
+export interface InboxThreadGroup {
+  is_thread_group: true;
+  thread_id: string;
+  request_type: string;
+  sender: string;
+  round_count: number;
+  latest_request_id: string;
+  latest_short_id: string;
+  latest_summary: string;
+  created_at: string;
+  request_ids: string[];
+  skill_path: string;
+  attachment_count: number;
+}
+
 export interface InboxResult {
-  requests: InboxEntry[];
+  requests: Array<InboxEntry | InboxThreadGroup>;
   warning?: string;
 }
 
@@ -52,7 +68,7 @@ export async function handleGarpInbox(
   const files = await ctx.file.listDirectory("requests/pending");
 
   // 3. Parse each through schema, filter by recipient == userId
-  const requests: InboxEntry[] = [];
+  const entries: InboxEntry[] = [];
   for (const file of files) {
     const raw = await ctx.file.readJSON<unknown>(`requests/pending/${file}`);
     const parsed = RequestEnvelopeSchema.safeParse(raw);
@@ -65,7 +81,7 @@ export async function handleGarpInbox(
       const bundle = envelope.context_bundle as Record<string, unknown>;
       const parts = envelope.request_id.split("-");
       const shortId = parts.slice(-2).join("-");
-      requests.push({
+      entries.push({
         request_id: envelope.request_id,
         short_id: shortId,
         ...(envelope.thread_id ? { thread_id: envelope.thread_id } : {}),
@@ -82,9 +98,56 @@ export async function handleGarpInbox(
     }
   }
 
-  // 4. Sort by created_at ascending (oldest first)
+  // 4. Group by thread_id
+  const threadGroups = new Map<string, InboxEntry[]>();
+  for (const entry of entries) {
+    // Use thread_id as key, or request_id for entries without thread_id (always standalone)
+    const key = entry.thread_id ?? entry.request_id;
+    const group = threadGroups.get(key);
+    if (group) {
+      group.push(entry);
+    } else {
+      threadGroups.set(key, [entry]);
+    }
+  }
+
+  // 5. Emit standalone or grouped items
+  const requests: Array<InboxEntry | InboxThreadGroup> = [];
+  for (const [key, group] of threadGroups) {
+    if (group.length === 1) {
+      // Standalone: single pending entry in this thread (or no thread_id)
+      requests.push(group[0]);
+    } else {
+      // Thread group: 2+ pending entries share a thread_id
+      // Sort group by created_at ascending to find latest
+      group.sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
+      const latest = group[group.length - 1];
+      requests.push({
+        is_thread_group: true,
+        thread_id: key,
+        request_type: latest.request_type,
+        sender: latest.sender,
+        round_count: group.length,
+        latest_request_id: latest.request_id,
+        latest_short_id: latest.short_id,
+        latest_summary: latest.summary,
+        created_at: latest.created_at,
+        request_ids: group.map((e) => e.request_id),
+        skill_path: latest.skill_path,
+        attachment_count: group.reduce((sum, e) => sum + e.attachment_count, 0),
+      });
+    }
+  }
+
+  // 6. Sort all items by created_at ascending (oldest first)
   requests.sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    (a, b) => {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      return aTime - bTime;
+    },
   );
 
   return { requests, ...(warning ? { warning } : {}) };

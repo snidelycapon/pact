@@ -11,8 +11,9 @@
  *   - Returns clear error for non-existent request ID
  *   - Falls back to local state when git pull fails
  *   - Is a read-only operation (no commits)
+ *   - Returns thread_id and attachments in request data (US-002a/003a)
  *
- * Error/edge scenarios: 4 of 8 total (50%)
+ * Error/edge scenarios: 4 of 9 total (44%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -92,6 +93,38 @@ function seedCompletedRequest(
   );
 
   execSync(`cd "${repoPath}" && git add -A && git commit -m "seed completed ${requestId}" && git push`, {
+    stdio: "pipe",
+  });
+}
+
+/** Seed a pending request with optional thread_id and attachments. */
+function seedPendingRequestWithExtensions(
+  repoPath: string,
+  requestId: string,
+  recipient: string,
+  sender: string,
+  opts?: { threadId?: string; attachments?: Array<{ filename: string; description: string }> },
+): void {
+  const envelope: Record<string, unknown> = {
+    request_id: requestId,
+    request_type: "sanity-check",
+    sender: { user_id: sender, display_name: sender.charAt(0).toUpperCase() + sender.slice(1) },
+    recipient: { user_id: recipient, display_name: recipient.charAt(0).toUpperCase() + recipient.slice(1) },
+    status: "pending",
+    created_at: "2026-02-21T14:30:22.000Z",
+    context_bundle: { question: "Test question" },
+  };
+  if (opts?.threadId) {
+    envelope.thread_id = opts.threadId;
+  }
+  if (opts?.attachments?.length) {
+    envelope.attachments = opts.attachments;
+  }
+  writeFileSync(
+    join(repoPath, "requests", "pending", `${requestId}.json`),
+    JSON.stringify(envelope, null, 2),
+  );
+  execSync(`cd "${repoPath}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
     stdio: "pipe",
   });
 }
@@ -203,6 +236,41 @@ describe("garp_status: check request status and response", () => {
       }) as any;
       expect(completedStatus.status).toBe("completed");
       expect(completedStatus.response.response_bundle.answer).toBe("Done");
+    });
+  });
+
+  // =========================================================================
+  // Protocol Extensions: thread_id and attachments in status (US-002a/003a)
+  // =========================================================================
+
+  it("returns thread_id and attachments in the request data when present", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-143022-alice-a1b2";
+    const threadId = "req-20260221-100000-alice-0001";
+
+    await given("a pending request exists with thread_id and attachments", async () => {
+      seedPendingRequestWithExtensions(ctx.aliceRepo, requestId, "bob", "alice", {
+        threadId,
+        attachments: [
+          { filename: "crash.log", description: "Application error log" },
+          { filename: "config.yml", description: "Deployment configuration" },
+        ],
+      });
+    });
+
+    await when("Alice checks the status of her request", async () => {
+      const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      const status = await aliceServer.callTool("garp_status", {
+        request_id: requestId,
+      }) as any;
+
+      expect(status.status).toBe("pending");
+      expect(status.request.thread_id).toBe(threadId);
+      expect(status.request.attachments).toHaveLength(2);
+      expect(status.request.attachments[0]).toEqual({
+        filename: "crash.log",
+        description: "Application error log",
+      });
     });
   });
 

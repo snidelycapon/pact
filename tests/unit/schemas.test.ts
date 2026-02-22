@@ -6,6 +6,7 @@
  * specific error structure.
  *
  * Test Budget: 3 behaviors (valid envelope, invalid envelope, response+config) x 2 = 6 max
+ * + 3 protocol extension tests (thread_id, attachments, combined)
  */
 
 import { describe, it, expect } from "vitest";
@@ -54,6 +55,52 @@ describe("RequestEnvelopeSchema", () => {
     const missing = { request_id: "req-20260221-143022-alice-a1b2" };
     const result = RequestEnvelopeSchema.safeParse(missing);
     expect(result.success).toBe(false);
+  });
+
+  it("parses a request envelope with thread_id", () => {
+    const withThread = {
+      ...validRequest,
+      thread_id: "req-20260221-100000-alice-0001",
+    };
+    const result = RequestEnvelopeSchema.safeParse(withThread);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.thread_id).toBe("req-20260221-100000-alice-0001");
+    }
+  });
+
+  it("parses a request envelope with attachments array", () => {
+    const withAttachments = {
+      ...validRequest,
+      attachments: [
+        { filename: "crash.log", description: "Application error log" },
+        { filename: "config.yml", description: "Deployment configuration" },
+      ],
+    };
+    const result = RequestEnvelopeSchema.safeParse(withAttachments);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.attachments).toHaveLength(2);
+      expect(result.data.attachments![0].filename).toBe("crash.log");
+      expect(result.data.attachments![1].description).toBe("Deployment configuration");
+    }
+  });
+
+  it("parses a request envelope with both thread_id and attachments", () => {
+    const withBoth = {
+      ...validRequest,
+      thread_id: "req-20260221-100000-alice-0001",
+      attachments: [
+        { filename: "trace.log", description: "Stack trace from crash" },
+      ],
+    };
+    const result = RequestEnvelopeSchema.safeParse(withBoth);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.thread_id).toBe("req-20260221-100000-alice-0001");
+      expect(result.data.attachments).toHaveLength(1);
+      expect(result.data.attachments![0].filename).toBe("trace.log");
+    }
   });
 });
 

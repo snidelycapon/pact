@@ -36,7 +36,7 @@ export interface GarpRequestContext {
 export async function handleGarpRequest(
   params: GarpRequestParams,
   ctx: GarpRequestContext,
-): Promise<{ request_id: string; status: string; message: string }> {
+): Promise<{ request_id: string; thread_id: string; status: string; message: string }> {
   // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
   if (!params.recipient) throw new Error("Missing required field: recipient");
@@ -63,9 +63,10 @@ export async function handleGarpRequest(
   // 5. Generate ID and build envelope
   const requestId = generateRequestId(ctx.userId);
   const attachmentMeta = params.attachments?.map(({ filename, description }) => ({ filename, description }));
+  const threadId = params.thread_id ?? requestId;
   const envelope = {
     request_id: requestId,
-    ...(params.thread_id ? { thread_id: params.thread_id } : {}),
+    thread_id: threadId,
     request_type: params.request_type,
     sender: { user_id: sender.user_id, display_name: sender.display_name },
     recipient: { user_id: recipient.user_id, display_name: recipient.display_name },
@@ -95,5 +96,5 @@ export async function handleGarpRequest(
   );
   await ctx.git.push();
 
-  return { request_id: requestId, status: "pending", message: "Request submitted" };
+  return { request_id: requestId, thread_id: threadId, status: "pending", message: "Request submitted" };
 }

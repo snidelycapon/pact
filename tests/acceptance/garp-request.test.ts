@@ -12,8 +12,11 @@
  *   - Skill directory existence validation
  *   - Git commit message format
  *   - Git push with rebase retry on conflict
+ *   - Thread ID passthrough (US-002a)
+ *   - File attachments with atomic commit (US-002a)
+ *   - Backward compatibility without thread/attachments (US-002a)
  *
- * Error/edge scenarios: 6 of 11 total (55%)
+ * Error/edge scenarios: 6 of 14 total (43%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -266,6 +269,147 @@ describe("garp_request: submit a GARP request", () => {
       ).rejects.toThrow(/missing required field.*context_bundle/i);
     });
   });
+
+  // =========================================================================
+  // Protocol Extensions: thread_id and attachments (US-002a)
+  // =========================================================================
+
+  it("preserves explicit thread_id in envelope and return value when provided", async () => {
+    ctx = createTestRepos();
+    const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    let requestId: string;
+    let threadId: string;
+
+    await when("Alice submits a request with an explicit thread_id", async () => {
+      const result = (await server.callTool("garp_request", {
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Follow-up on yesterday's investigation" },
+        thread_id: "req-20260220-100000-alice-0001",
+      })) as { request_id: string; thread_id: string };
+      requestId = result.request_id;
+      threadId = result.thread_id;
+    });
+
+    await thenAssert("the envelope contains thread_id matching the provided value", async () => {
+      const envelope = readRepoJSON<{ thread_id: string; request_id: string }>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect(envelope.thread_id).toBe("req-20260220-100000-alice-0001");
+      expect(envelope.request_id).toBe(requestId);
+      // thread_id and request_id are different
+      expect(envelope.thread_id).not.toBe(envelope.request_id);
+    });
+
+    await thenAssert("the return value includes the explicit thread_id", async () => {
+      expect(threadId).toBe("req-20260220-100000-alice-0001");
+    });
+  });
+
+  it("submits a request with file attachments written to disk and metadata in envelope", async () => {
+    ctx = createTestRepos();
+    const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    let requestId: string;
+
+    await when("Alice submits a request with two attachments", async () => {
+      const result = (await server.callTool("garp_request", {
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Can you check these logs?" },
+        attachments: [
+          { filename: "crash.log", description: "Application error log", content: "Error at line 42\nNullPointerException" },
+          { filename: "config.yml", description: "Deployment config", content: "env: production\nreplicas: 3" },
+        ],
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("attachment files exist on disk", async () => {
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/crash.log`)).toBe(true);
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/config.yml`)).toBe(true);
+    });
+
+    await thenAssert("envelope contains attachment metadata without file content", async () => {
+      const envelope = readRepoJSON<{ attachments?: Array<{ filename: string; description: string; content?: string }> }>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect(envelope.attachments).toHaveLength(2);
+      expect(envelope.attachments![0]).toEqual({ filename: "crash.log", description: "Application error log" });
+      expect(envelope.attachments![1]).toEqual({ filename: "config.yml", description: "Deployment config" });
+      // Content should NOT be in the envelope
+      expect(envelope.attachments![0].content).toBeUndefined();
+    });
+
+    await thenAssert("attachments are pushed to remote alongside the request", async () => {
+      gitPull(ctx.bobRepo);
+      expect(fileExists(ctx.bobRepo, `attachments/${requestId}/crash.log`)).toBe(true);
+      expect(fileExists(ctx.bobRepo, `attachments/${requestId}/config.yml`)).toBe(true);
+      expect(fileExists(ctx.bobRepo, `requests/pending/${requestId}.json`)).toBe(true);
+    });
+  });
+
+  it("auto-assigns thread_id = request_id when thread_id not provided", async () => {
+    ctx = createTestRepos();
+    const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    let requestId: string;
+    let threadId: string;
+
+    await when("Alice submits a request with no thread_id", async () => {
+      const result = (await server.callTool("garp_request", {
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Simple question, no extras" },
+      })) as { request_id: string; thread_id: string };
+      requestId = result.request_id;
+      threadId = result.thread_id;
+    });
+
+    await thenAssert("thread_id equals request_id in the envelope", async () => {
+      const envelope = readRepoJSON<{ thread_id: string; request_id: string }>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect(envelope.thread_id).toBe(requestId);
+      expect(envelope.thread_id).toBe(envelope.request_id);
+    });
+
+    await thenAssert("return value includes thread_id matching request_id", async () => {
+      expect(threadId).toBe(requestId);
+    });
+  });
+
+  it("omits attachments from envelope when not provided", async () => {
+    ctx = createTestRepos();
+    const server = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    let requestId: string;
+
+    await when("Alice submits a basic request with no attachments", async () => {
+      const result = (await server.callTool("garp_request", {
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Simple question, no extras" },
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("envelope has no attachments key", async () => {
+      const envelope = readRepoJSON<Record<string, unknown>>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect("attachments" in envelope).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // Error Paths (continued)
+  // =========================================================================
 
   it("retries push after rebase when remote has new commits", async () => {
     ctx = createTestRepos();

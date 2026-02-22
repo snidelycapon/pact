@@ -13,7 +13,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../../src/mcp-server.ts";
 
 describe("MCP server wiring", () => {
-  it("registers exactly 4 tools: garp_request, garp_inbox, garp_respond, garp_status", async () => {
+  it("registers all GARP tools", async () => {
     const mcpServer = createMcpServer({ repoPath: "/tmp/test-repo", userId: "alice" });
     const client = new Client({ name: "test-client", version: "1.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -24,7 +24,7 @@ describe("MCP server wiring", () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
-    expect(toolNames).toEqual(["garp_inbox", "garp_request", "garp_respond", "garp_status"]);
+    expect(toolNames).toEqual(["garp_inbox", "garp_request", "garp_respond", "garp_status", "garp_thread"]);
 
     await client.close();
     await mcpServer.close();

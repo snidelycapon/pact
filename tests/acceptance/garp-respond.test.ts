@@ -12,8 +12,9 @@
  *   - Rejection when responder is not the designated recipient
  *   - Rejection when request does not exist
  *   - Git push with rebase retry
+ *   - Preserves thread_id and attachments during lifecycle move (US-002a)
  *
- * Error/edge scenarios: 5 of 10 total (50%)
+ * Error/edge scenarios: 5 of 11 total (45%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -242,6 +243,55 @@ describe("garp_respond: submit a response to a request", () => {
       const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}.json`);
       expect(response.response_bundle.custom_verdict).toBe("all clear");
       expect(response.response_bundle.metrics.confidence).toBe(0.95);
+    });
+  });
+
+  // =========================================================================
+  // Protocol Extensions: thread_id and attachments survive lifecycle (US-002a)
+  // =========================================================================
+
+  it("preserves thread_id and attachments in request envelope after respond moves it to completed", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-143022-alice-a1b2";
+    const threadId = "req-20260221-100000-alice-0001";
+
+    await given("a pending request with thread_id and attachments exists", async () => {
+      const envelope = {
+        request_id: requestId,
+        thread_id: threadId,
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-21T14:30:22.000Z",
+        context_bundle: { question: "Thread + attachment test" },
+        attachments: [
+          { filename: "crash.log", description: "Application error log" },
+        ],
+      };
+      writeFileSync(
+        join(ctx.aliceRepo, "requests", "pending", `${requestId}.json`),
+        JSON.stringify(envelope, null, 2),
+      );
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
+        stdio: "pipe",
+      });
+    });
+
+    await when("Bob responds to the request", async () => {
+      gitPull(ctx.bobRepo);
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      await bobServer.callTool("garp_respond", {
+        request_id: requestId,
+        response_bundle: { answer: "Confirmed" },
+      });
+    });
+
+    await thenAssert("the completed request envelope still has thread_id and attachments", async () => {
+      const completed = readRepoJSON<any>(ctx.bobRepo, `requests/completed/${requestId}.json`);
+      expect(completed.thread_id).toBe(threadId);
+      expect(completed.attachments).toHaveLength(1);
+      expect(completed.attachments[0].filename).toBe("crash.log");
     });
   });
 

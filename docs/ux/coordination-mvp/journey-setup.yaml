@@ -1,0 +1,201 @@
+journey:
+  name: setup-onboarding
+  epic: coordination-mvp
+  version: 1.0.0
+  created: 2026-02-21
+  status: draft
+
+  summary: >
+    Two users go from nothing to a working shared GARP repo
+    with MCP servers configured and a complete round-trip validated.
+
+  actors:
+    - id: cory
+      role: Product creator / setup initiator
+      agent_platform: Craft Agents
+    - id: alex
+      role: Testing partner / onboarding user
+      agent_platform: Craft Agents
+
+  emotional_arc:
+    cory:
+      start: confident
+      middle: anticipation
+      end: validated
+    alex:
+      start: curious
+      middle: slight_uncertainty_then_surprise
+      end: bought_in
+
+  preconditions:
+    - Cory has built and tested the local MCP server
+    - Both users have Craft Agents installed
+    - Both users have GitHub accounts with git credentials configured
+    - Cory has created the GARP repo with correct directory structure
+
+  steps:
+    - id: create-repo
+      actor: cory
+      action: Create private GitHub repo with directory conventions
+      tool: git/GitHub
+      produces:
+        - artifact: garp-repo
+          description: Empty GARP repo with directory structure
+      emotion: confident
+      duration_minutes: 5
+
+    - id: seed-welcome
+      actor: cory
+      action: Seed a welcome request addressed to Alex
+      tool: garp_request
+      consumes:
+        - artifact: garp-repo
+      produces:
+        - artifact: welcome-request
+          file: requests/pending/req-welcome-001.json
+      emotion: anticipation
+      duration_minutes: 2
+
+    - id: invite-alex
+      actor: cory
+      action: Send GitHub repo invitation to Alex
+      tool: GitHub UI
+      produces:
+        - artifact: repo-invite
+      emotion: confident
+      duration_minutes: 1
+
+    - id: accept-invite
+      actor: alex
+      action: Accept GitHub repo invitation
+      tool: GitHub UI
+      consumes:
+        - artifact: repo-invite
+      emotion: curious
+      duration_minutes: 1
+
+    - id: clone-repo
+      actor: alex
+      action: Clone GARP repo locally
+      tool: git clone
+      produces:
+        - artifact: local-repo-clone
+      emotion: routine
+      duration_minutes: 1
+
+    - id: configure-mcp
+      actor: alex
+      action: Add GARP MCP source in Craft Agents pointing at local repo
+      tool: Craft Agents UI
+      consumes:
+        - artifact: local-repo-clone
+      produces:
+        - artifact: mcp-source-config
+          description: Source entry with GARP_REPO path and GARP_USER identity
+      emotion: slight_uncertainty
+      duration_minutes: 2
+      friction: >
+        Alex must know their user ID and the correct repo path.
+        Misconfiguration produces silent failure (empty inbox).
+
+    - id: first-inbox-check
+      actor: alex
+      action: Start agent session, ask to check GARP inbox
+      tool: garp_inbox
+      consumes:
+        - artifact: mcp-source-config
+        - artifact: welcome-request
+      produces:
+        - artifact: inbox-listing
+      emotion: discovery
+      duration_minutes: 1
+      key_moment: true
+      description: >
+        First time Alex sees the system working. The welcome request
+        appears in their inbox. This is the "it works" moment.
+
+    - id: respond-to-welcome
+      actor: alex
+      action: Respond to welcome request with agent assistance
+      tool: garp_respond
+      consumes:
+        - artifact: welcome-request
+        - artifact: skill-file
+          file: skills/sanity-check/SKILL.md
+      produces:
+        - artifact: welcome-response
+          file: responses/req-welcome-001.json
+      emotion: confirmation
+      duration_minutes: 3
+      plan_submission: true
+      description: >
+        Agent loads SKILL.md, composes response, Alex reviews
+        and approves (Plan submission pattern), then pushes.
+
+    - id: verify-round-trip
+      actor: cory
+      action: Check status of welcome request, see Alex's response
+      tool: garp_status
+      consumes:
+        - artifact: welcome-response
+      emotion: validated
+      duration_minutes: 1
+      key_moment: true
+      description: >
+        Cory sees the response. Full round-trip is confirmed.
+        Both users are now operational.
+
+  postconditions:
+    - Both users have working MCP server configurations
+    - Both users have cloned the shared repo
+    - One complete round-trip has been validated
+    - Skill files are synced to both clients via git
+
+  shared_artifacts:
+    - id: garp-repo
+      type: git_repository
+      source: step:create-repo
+      consumed_by: [clone-repo, seed-welcome]
+    - id: welcome-request
+      type: request_json
+      file: requests/pending/req-welcome-001.json
+      source: step:seed-welcome
+      consumed_by: [first-inbox-check, respond-to-welcome]
+    - id: skill-file
+      type: skill_md
+      file: skills/sanity-check/SKILL.md
+      source: step:create-repo
+      consumed_by: [seed-welcome, respond-to-welcome]
+    - id: welcome-response
+      type: response_json
+      file: responses/req-welcome-001.json
+      source: step:respond-to-welcome
+      consumed_by: [verify-round-trip]
+    - id: mcp-source-config
+      type: craft_agents_config
+      source: step:configure-mcp
+      consumed_by: [first-inbox-check]
+
+  friction_points:
+    - step: configure-mcp
+      severity: medium
+      description: >
+        MCP source config requires correct repo path and user ID.
+        Misconfiguration causes silent failure (empty inbox on first check).
+      mitigation: >
+        Clear error message when GARP_REPO path does not exist or is
+        not a git repo. Validation on MCP server startup.
+
+    - step: first-inbox-check
+      severity: low
+      description: >
+        If checked before welcome request is seeded, inbox is empty.
+        Not broken, but the "wow" moment is missed.
+      mitigation: >
+        Cory seeds the welcome request before sending the invite.
+
+  corrections_from_discovery:
+    - field: skill_contracts
+      discovery_said: "Paired SKILL.md files (sender.md + receiver.md) per request type"
+      user_clarified: "One SKILL.md file per request type. Both sides use the same file."
+      impact: "Simplifies onboarding, skill distribution, and contract understanding"

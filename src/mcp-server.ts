@@ -21,6 +21,8 @@ import { handleGarpRespond } from "./tools/garp-respond.ts";
 import type { GarpRespondParams } from "./tools/garp-respond.ts";
 import { handleGarpStatus } from "./tools/garp-status.ts";
 import type { GarpStatusParams } from "./tools/garp-status.ts";
+import { handleGarpThread } from "./tools/garp-thread.ts";
+import type { GarpThreadParams } from "./tools/garp-thread.ts";
 
 export interface McpServerConfig {
   repoPath: string;
@@ -172,6 +174,33 @@ export function createMcpServer(config: McpServerConfig): McpServer {
         return formatResult(result);
       } catch (err) {
         log("error", "tool invocation failed", { tool: "garp_status", request_id: params.request_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        return formatError(err);
+      }
+    },
+  );
+
+  // -- garp_thread --
+  server.tool(
+    "garp_thread",
+    "View the full history of a request thread",
+    {
+      thread_id: z.string().describe("The thread ID to retrieve history for"),
+    },
+    async (params) => {
+      ensureAdapters();
+      const start = Date.now();
+      log("info", "tool invocation start", { tool: "garp_thread", thread_id: params.thread_id });
+      try {
+        const result = await handleGarpThread(params as GarpThreadParams, {
+          userId: config.userId,
+          repoPath: config.repoPath,
+          git: git!,
+          file: file!,
+        });
+        log("info", "tool invocation complete", { tool: "garp_thread", thread_id: params.thread_id, round_count: result.summary.round_count, duration_ms: Date.now() - start });
+        return formatResult(result);
+      } catch (err) {
+        log("error", "tool invocation failed", { tool: "garp_thread", thread_id: params.thread_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
         return formatError(err);
       }
     },

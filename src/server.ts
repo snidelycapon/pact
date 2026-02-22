@@ -15,6 +15,8 @@ import { handleGarpRespond } from "./tools/garp-respond.ts";
 import type { GarpRespondParams } from "./tools/garp-respond.ts";
 import { handleGarpStatus } from "./tools/garp-status.ts";
 import type { GarpStatusParams } from "./tools/garp-status.ts";
+import { handleGarpThread } from "./tools/garp-thread.ts";
+import type { GarpThreadParams } from "./tools/garp-thread.ts";
 
 export interface GarpServerConfig {
   repoPath: string;
@@ -73,6 +75,14 @@ export function createGarpServer(config: GarpServerConfig): GarpServer {
         case "garp_status":
           ensureAdapters();
           return handleGarpStatus(params as unknown as GarpStatusParams, {
+            userId: config.userId,
+            repoPath: config.repoPath,
+            git: git!,
+            file: file!,
+          });
+        case "garp_thread":
+          ensureAdapters();
+          return handleGarpThread(params as unknown as GarpThreadParams, {
             userId: config.userId,
             repoPath: config.repoPath,
             git: git!,
