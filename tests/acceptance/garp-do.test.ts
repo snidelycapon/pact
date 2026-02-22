@@ -18,7 +18,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
   createTestRepos,
-  listDir,
   readRepoJSON,
   fileExists,
   gitPull,

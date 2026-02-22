@@ -21,7 +21,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
   createTestRepos,
-  fileExists,
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";

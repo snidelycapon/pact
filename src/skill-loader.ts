@@ -1,9 +1,9 @@
 /**
  * Skill loader -- parses YAML frontmatter from SKILL.md files.
  *
- * Unlike skill-parser.ts (which parses Markdown tables and headings),
- * this module extracts structured metadata from YAML frontmatter
- * delimited by `---` markers at the top of SKILL.md files.
+ * Extracts structured metadata from YAML frontmatter delimited by
+ * `---` markers at the top of SKILL.md files. Falls back to parsing
+ * Markdown tables for old-format SKILL.md files without frontmatter.
  *
  * Design: accepts FilePort via dependency injection, never throws
  * on missing or malformed files -- returns undefined instead.

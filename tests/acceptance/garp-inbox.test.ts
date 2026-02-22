@@ -23,9 +23,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
   createTestRepos,
-  listDir,
-  readRepoJSON,
-  fileExists,
   gitPull,
   type TestRepoContext,
 } from "./helpers/setup-test-repos";

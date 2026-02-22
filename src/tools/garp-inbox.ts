@@ -131,10 +131,25 @@ export async function handleGarpInbox(
     }
   }
 
-  // 5. Group by thread_id (renumbered from step 4)
+  // 5-6. Group by thread_id and sort by created_at
+  const requests = groupByThread(entries);
+
+  return { requests, ...(warning ? { warning } : {}) };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Group inbox entries by thread_id, collapsing multi-round threads into
+ * InboxThreadGroup items. Returns the result sorted by created_at ascending.
+ */
+function groupByThread(
+  entries: InboxEntry[],
+): Array<InboxEntry | InboxThreadGroup> {
   const threadGroups = new Map<string, InboxEntry[]>();
   for (const entry of entries) {
-    // Use thread_id as key, or request_id for entries without thread_id (always standalone)
     const key = entry.thread_id ?? entry.request_id;
     const group = threadGroups.get(key);
     if (group) {
@@ -144,15 +159,11 @@ export async function handleGarpInbox(
     }
   }
 
-  // 6. Emit standalone or grouped items
   const requests: Array<InboxEntry | InboxThreadGroup> = [];
   for (const [key, group] of threadGroups) {
     if (group.length === 1) {
-      // Standalone: single pending entry in this thread (or no thread_id)
       requests.push(group[0]);
     } else {
-      // Thread group: 2+ pending entries share a thread_id
-      // Sort group by created_at ascending to find latest
       group.sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
@@ -182,14 +193,10 @@ export async function handleGarpInbox(
     }
   }
 
-  // 7. Sort all items by created_at ascending (oldest first)
+  // Sort all items by created_at ascending (oldest first)
   requests.sort(
-    (a, b) => {
-      const aTime = new Date(a.created_at).getTime();
-      const bTime = new Date(b.created_at).getTime();
-      return aTime - bTime;
-    },
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
 
-  return { requests, ...(warning ? { warning } : {}) };
+  return requests;
 }
