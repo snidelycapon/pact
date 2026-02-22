@@ -30,6 +30,19 @@ const AttachmentSchema = z.object({
 export type Attachment = z.infer<typeof AttachmentSchema>;
 
 // ---------------------------------------------------------------------------
+// Amendments
+// ---------------------------------------------------------------------------
+
+export const AmendmentEntrySchema = z.object({
+  amended_at: z.string(),
+  amended_by: z.string(),
+  fields: z.record(z.string(), z.unknown()),
+  note: z.string().optional(),
+});
+
+export type AmendmentEntry = z.infer<typeof AmendmentEntrySchema>;
+
+// ---------------------------------------------------------------------------
 // Request Envelope
 // ---------------------------------------------------------------------------
 
@@ -45,6 +58,8 @@ export const RequestEnvelopeSchema = z.object({
   context_bundle: z.record(z.string(), z.unknown()),
   expected_response: z.record(z.string(), z.unknown()).optional(),
   attachments: z.array(AttachmentSchema).optional(),
+  amendments: z.array(AmendmentEntrySchema).optional(),
+  cancel_reason: z.string().optional(),
 });
 
 export type RequestEnvelope = z.infer<typeof RequestEnvelopeSchema>;

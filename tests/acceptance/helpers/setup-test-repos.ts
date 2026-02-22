@@ -100,6 +100,7 @@ export function createTestRepos(): TestRepoContext {
     "requests/pending",
     "requests/active",
     "requests/completed",
+    "requests/cancelled",
     "responses",
     "skills/sanity-check",
   ];
@@ -110,6 +111,7 @@ export function createTestRepos(): TestRepoContext {
     "requests/pending/.gitkeep",
     "requests/active/.gitkeep",
     "requests/completed/.gitkeep",
+    "requests/cancelled/.gitkeep",
     "responses/.gitkeep",
     "skills/.gitkeep",
   ]) {

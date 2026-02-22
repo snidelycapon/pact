@@ -14,6 +14,7 @@ import {
   RequestEnvelopeSchema,
   ResponseEnvelopeSchema,
   TeamConfigSchema,
+  AmendmentEntrySchema,
 } from "../../src/schemas.ts";
 
 describe("RequestEnvelopeSchema", () => {
@@ -136,6 +137,101 @@ describe("TeamConfigSchema", () => {
     if (result.success) {
       expect(result.data.members).toHaveLength(2);
       expect(result.data.team_name).toBe("Test Team");
+    }
+  });
+});
+
+describe("AmendmentEntrySchema", () => {
+  const validAmendment = {
+    amended_at: "2026-02-21T16:00:00Z",
+    amended_by: "alice",
+    fields: { status: "urgent", priority: "high" },
+    note: "Escalated after customer call",
+  };
+
+  it("parses a valid amendment entry with all fields including optional note", () => {
+    const result = AmendmentEntrySchema.safeParse(validAmendment);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amended_at).toBe("2026-02-21T16:00:00Z");
+      expect(result.data.amended_by).toBe("alice");
+      expect(result.data.fields).toEqual({ status: "urgent", priority: "high" });
+      expect(result.data.note).toBe("Escalated after customer call");
+    }
+  });
+
+  it("parses a valid amendment entry without optional note", () => {
+    const { note, ...withoutNote } = validAmendment;
+    const result = AmendmentEntrySchema.safeParse(withoutNote);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.note).toBeUndefined();
+    }
+  });
+
+  it("rejects amendment entry missing amended_at", () => {
+    const { amended_at, ...missing } = validAmendment;
+    const result = AmendmentEntrySchema.safeParse(missing);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects amendment entry missing amended_by", () => {
+    const { amended_by, ...missing } = validAmendment;
+    const result = AmendmentEntrySchema.safeParse(missing);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("RequestEnvelopeSchema amendments and cancel_reason", () => {
+  const validRequest = {
+    request_id: "req-20260221-143022-alice-a1b2",
+    request_type: "sanity-check",
+    sender: { user_id: "alice", display_name: "Alice" },
+    recipient: { user_id: "bob", display_name: "Bob" },
+    status: "pending",
+    created_at: "2026-02-21T14:30:22Z",
+    context_bundle: { question: "Does this look right?" },
+  };
+
+  it("parses an envelope with amendments array preserved", () => {
+    const withAmendments = {
+      ...validRequest,
+      amendments: [
+        {
+          amended_at: "2026-02-21T16:00:00Z",
+          amended_by: "alice",
+          fields: { status: "urgent" },
+          note: "Escalated",
+        },
+      ],
+    };
+    const result = RequestEnvelopeSchema.safeParse(withAmendments);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amendments).toHaveLength(1);
+      expect(result.data.amendments![0].amended_by).toBe("alice");
+      expect(result.data.amendments![0].fields).toEqual({ status: "urgent" });
+    }
+  });
+
+  it("parses an envelope with cancel_reason", () => {
+    const withCancel = {
+      ...validRequest,
+      cancel_reason: "Duplicate of another request",
+    };
+    const result = RequestEnvelopeSchema.safeParse(withCancel);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.cancel_reason).toBe("Duplicate of another request");
+    }
+  });
+
+  it("parses an envelope without amendments or cancel_reason (backward compatible)", () => {
+    const result = RequestEnvelopeSchema.safeParse(validRequest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amendments).toBeUndefined();
+      expect(result.data.cancel_reason).toBeUndefined();
     }
   });
 });

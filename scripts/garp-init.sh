@@ -80,11 +80,12 @@ cmd_new() {
     "$repo_path/requests/pending" \
     "$repo_path/requests/active" \
     "$repo_path/requests/completed" \
+    "$repo_path/requests/cancelled" \
     "$repo_path/responses" \
     "$repo_path/skills"
 
   # .gitkeep files
-  for dir in requests/pending requests/active requests/completed responses; do
+  for dir in requests/pending requests/active requests/completed requests/cancelled responses; do
     touch "$repo_path/$dir/.gitkeep"
   done
 
