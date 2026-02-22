@@ -332,6 +332,40 @@ describe("garp_status: check request status and response", () => {
   });
 
   // =========================================================================
+  // Cancelled Status
+  // =========================================================================
+
+  it("returns cancelled status when request is in cancelled/", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-143022-alice-a1b2";
+
+    await given("Alice's pending request has been cancelled", async () => {
+      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
+      // Move request from pending/ to cancelled/ via git
+      execSync(
+        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/cancelled/${requestId}.json && git commit -m "cancel ${requestId}" && git push`,
+        { stdio: "pipe" },
+      );
+    });
+
+    await when("Alice checks the status of her cancelled request", async () => {
+      const aliceServer = createGarpServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      const status = await aliceServer.callTool("garp_status", {
+        request_id: requestId,
+      }) as any;
+
+      expect(status.status).toBe("cancelled");
+      expect(status.request).toMatchObject({
+        request_id: requestId,
+        request_type: "sanity-check",
+        sender: { user_id: "alice" },
+        recipient: { user_id: "bob" },
+      });
+      expect(status.response).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
   // Error Paths
   // =========================================================================
 

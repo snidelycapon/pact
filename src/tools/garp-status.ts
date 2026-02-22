@@ -2,8 +2,8 @@
  * Handler for the garp_status tool.
  *
  * Pulls latest from remote, searches requests/pending/, requests/active/,
- * and requests/completed/ for the given request_id, and returns the
- * status with original request data and response (if completed).
+ * requests/completed/, and requests/cancelled/ for the given request_id,
+ * and returns the status with original request data and response (if completed).
  * Falls back to local data with a staleness warning when the
  * remote is unreachable.
  */
@@ -25,7 +25,7 @@ export interface GarpStatusContext {
 }
 
 export interface GarpStatusResult {
-  status: "pending" | "active" | "completed";
+  status: "pending" | "active" | "completed" | "cancelled";
   request: unknown;
   response?: unknown;
   attachment_paths?: Array<{ filename: string; description: string; path: string }>;
@@ -112,6 +112,15 @@ export async function handleGarpStatus(
     return { status: "completed", request, response, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
   }
 
-  // 5. Not found
+  // 5. Search cancelled/
+  const cancelledFiles = await ctx.file.listDirectory("requests/cancelled");
+  if (cancelledFiles.includes(`${params.request_id}.json`)) {
+    const raw = await ctx.file.readJSON<unknown>(`requests/cancelled/${params.request_id}.json`);
+    const request = parseRequestEnvelope(raw, params.request_id);
+    const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
+    return { status: "cancelled", request, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
+  }
+
+  // 6. Not found in pending/, active/, completed/, or cancelled/
   throw new Error(`Request ${params.request_id} not found in any directory`);
 }

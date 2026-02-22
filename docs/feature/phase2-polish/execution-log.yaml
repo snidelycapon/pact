@@ -205,10 +205,25 @@ events:
   s: EXECUTED
   sid: 03-01
   t: '2026-02-22T02:53:38Z'
-- d: SKIP - acceptance tests cover both behaviors through driving port (callTool)
+- d: PASS
   p: RED_UNIT
   s: EXECUTED
   sid: 02-03
   t: '2026-02-22T02:53:38Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T02:57:43Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T02:59:57Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T03:03:04Z'
 project_id: phase2-polish
 schema_version: '3.0'
