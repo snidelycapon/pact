@@ -470,6 +470,74 @@ describe("garp_inbox: check inbox for pending requests", () => {
   });
 
   // =========================================================================
+  // Amendment & Attachment Surfacing (US-012 partial)
+  // =========================================================================
+
+  it("includes amendment_count in inbox entries", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260222-100000-alice-am01";
+
+    await given("a request with 2 amendments exists for Bob", async () => {
+      const envelope = {
+        request_id: requestId,
+        request_type: "sanity-check",
+        sender: { user_id: "alice", display_name: "Alice" },
+        recipient: { user_id: "bob", display_name: "Bob" },
+        status: "pending",
+        created_at: "2026-02-22T10:00:00.000Z",
+        context_bundle: { question: "Test amendment count" },
+        amendments: [
+          { amended_at: "2026-02-22T10:15:00Z", amended_by: "alice", fields: { ticket: "ZD-1" } },
+          { amended_at: "2026-02-22T10:30:00Z", amended_by: "alice", fields: { pr: "#42" } },
+        ],
+      };
+      const filePath = join(ctx.aliceRepo, "requests", "pending", `${requestId}.json`);
+      writeFileSync(filePath, JSON.stringify(envelope, null, 2));
+      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "seed ${requestId}" && git push`, {
+        stdio: "pipe",
+      });
+    });
+
+    await when("Bob checks his inbox", async () => {
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+
+      expect(inbox.requests).toHaveLength(1);
+      expect(inbox.requests[0].amendment_count).toBe(2);
+    });
+  });
+
+  it("includes attachment metadata in inbox entries", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260222-100000-alice-at01";
+
+    await given("a request with attachments exists for Bob", async () => {
+      seedRequest(ctx.aliceRepo, {
+        requestId,
+        recipient: "bob",
+        sender: "alice",
+        senderName: "Alice",
+        createdAt: "2026-02-22T10:00:00Z",
+        attachments: [
+          { filename: "crash.log", description: "Error log from production" },
+          { filename: "config.yml", description: "Current config file" },
+        ],
+      });
+    });
+
+    await when("Bob checks his inbox", async () => {
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      const inbox = (await bobServer.callTool("garp_inbox", {})) as any;
+
+      expect(inbox.requests).toHaveLength(1);
+      expect(inbox.requests[0].attachments).toEqual([
+        { filename: "crash.log", description: "Error log from production" },
+        { filename: "config.yml", description: "Current config file" },
+      ]);
+    });
+  });
+
+  // =========================================================================
   // Edge Cases / Error Paths
   // =========================================================================
 

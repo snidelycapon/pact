@@ -29,6 +29,8 @@ export interface InboxEntry {
   summary: string;
   skill_path: string;
   attachment_count: number;
+  amendment_count: number;
+  attachments?: Array<{ filename: string; description: string }>;
 }
 
 export interface InboxThreadGroup {
@@ -44,6 +46,7 @@ export interface InboxThreadGroup {
   request_ids: string[];
   skill_path: string;
   attachment_count: number;
+  amendment_count: number;
 }
 
 export interface InboxResult {
@@ -94,6 +97,10 @@ export async function handleGarpInbox(
           "No summary",
         skill_path: `${ctx.repoPath}/skills/${envelope.request_type}/SKILL.md`,
         attachment_count: envelope.attachments?.length ?? 0,
+        amendment_count: envelope.amendments?.length ?? 0,
+        ...(envelope.attachments && envelope.attachments.length > 0
+          ? { attachments: envelope.attachments.map(a => ({ filename: a.filename, description: a.description })) }
+          : {}),
       });
     }
   }
@@ -137,6 +144,7 @@ export async function handleGarpInbox(
         request_ids: group.map((e) => e.request_id),
         skill_path: latest.skill_path,
         attachment_count: group.reduce((sum, e) => sum + e.attachment_count, 0),
+        amendment_count: group.reduce((sum, e) => sum + e.amendment_count, 0),
       });
     }
   }
