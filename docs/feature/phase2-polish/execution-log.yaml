@@ -85,5 +85,20 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-02-22T02:43:07Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-04
+  t: '2026-02-22T02:48:11Z'
+- d: PASS
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 01-04
+  t: '2026-02-22T02:48:18Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-04
+  t: '2026-02-22T02:49:19Z'
 project_id: phase2-polish
 schema_version: '3.0'

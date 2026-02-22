@@ -296,6 +296,33 @@ describe("garp_respond: submit a response to a request", () => {
   });
 
   // =========================================================================
+  // Status Consistency (US-015)
+  // =========================================================================
+
+  it("sets envelope status to completed when moving request to completed directory", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260221-160000-alice-us15";
+
+    await given("a pending request from Alice exists, addressed to Bob", async () => {
+      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
+    });
+
+    await when("Bob responds to the request", async () => {
+      gitPull(ctx.bobRepo);
+      const bobServer = createGarpServer({ repoPath: ctx.bobRepo, userId: "bob" });
+      await bobServer.callTool("garp_respond", {
+        request_id: requestId,
+        response_bundle: { answer: "Looks good" },
+      });
+    });
+
+    await thenAssert("the completed request envelope has status 'completed', not 'pending'", async () => {
+      const completed = readRepoJSON<any>(ctx.bobRepo, `requests/completed/${requestId}.json`);
+      expect(completed.status).toBe("completed");
+    });
+  });
+
+  // =========================================================================
   // Error Paths
   // =========================================================================
 

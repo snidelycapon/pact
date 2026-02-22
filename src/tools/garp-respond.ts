@@ -65,10 +65,14 @@ export async function handleGarpRespond(
     throw new Error(`You are not the recipient of request ${params.request_id}`);
   }
 
-  // 5. Look up responder from config
+  // 5. Update status to "completed" before moving (US-015)
+  const updatedEnvelope = { ...raw as Record<string, unknown>, status: "completed" };
+  await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
+
+  // 6. Look up responder from config
   const responder = await ctx.config.lookupUser(ctx.userId);
 
-  // 6. Write response file
+  // 7. Write response file
   const response = {
     request_id: params.request_id,
     responder: { user_id: responder!.user_id, display_name: responder!.display_name },
@@ -77,17 +81,17 @@ export async function handleGarpRespond(
   };
   await ctx.file.writeJSON(`responses/${params.request_id}.json`, response);
 
-  // 7. Git mv request to completed
+  // 8. Git mv request to completed
   await ctx.git.mv(`${sourceDir}/${filename}`, `requests/completed/${filename}`);
 
-  // 8. Atomic commit (both response write + request move)
+  // 9. Atomic commit (both response write + request move)
   await ctx.git.add([`responses/${params.request_id}.json`, `requests/completed/${filename}`]);
   const senderUserId = envelope.sender.user_id;
   await ctx.git.commit(
     `[garp] response: ${params.request_id} (${envelope.request_type}) ${ctx.userId} -> ${senderUserId}`,
   );
 
-  // 9. Push
+  // 10. Push
   await ctx.git.push();
 
   return { status: "completed", request_id: params.request_id, message: "Response submitted" };
