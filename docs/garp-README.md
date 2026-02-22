@@ -2,66 +2,86 @@
 
 A git-backed MCP server for async human+agent coordination. Structured requests and responses flow through a shared git repo, with SKILL.md contracts defining request types.
 
-GARP works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom agents, or anything else that speaks the Model Context Protocol.
-
 ## Prerequisites
 
 - Node.js 20+
 - git (with SSH or HTTPS auth configured for the shared repo)
 - A shared git repository (GitHub/GitLab private repo)
-- Any MCP-compatible host
+- Craft Agents (or any MCP-compatible host)
 
 ## Setup
 
-### 1. Create or join a shared GARP repo
-
-**New repo** -- use the init script:
+### 1. Clone the shared GARP repo
 
 ```bash
-./scripts/garp-init.sh new ~/garp-team "My Team" alice/Alice bob/Bob
+git clone git@github.com:your-org/garp-team.git ~/garp-team
 ```
 
-This creates the directory structure, `config.json`, and seeds an `ask` skill contract. The script will offer to push to a remote.
+### 2. Initialize repo structure
 
-**Existing repo** -- clone it:
+If this is a new repo, create the required directories and config:
 
 ```bash
-./scripts/garp-init.sh join git@github.com:your-org/garp-team.git ~/garp-team
+cd ~/garp-team
+mkdir -p requests/pending requests/active requests/completed responses skills
+touch requests/pending/.gitkeep requests/active/.gitkeep requests/completed/.gitkeep responses/.gitkeep skills/.gitkeep
 ```
 
-### 2. Build the MCP server
-
-```bash
-cd ~/garp
-bun install
-bun run build
-```
-
-This produces `dist/index.js`.
-
-### 3. Register as an MCP server
-
-Add GARP to your MCP host's configuration. The exact location depends on your host:
-
-| Host | Config location |
-|------|----------------|
-| Claude Code | `~/.claude/settings.json` or project `.mcp.json` |
-| Cursor | Cursor settings > MCP |
-| VS Code (Copilot) | `.vscode/mcp.json` |
-| Custom / other | Consult your host's MCP documentation |
-
-The server configuration follows the standard MCP stdio format:
+Create `config.json` in the repo root:
 
 ```json
 {
-  "mcpServers": {
-    "garp": {
-      "command": "node",
-      "args": ["/absolute/path/to/garp/dist/index.js"],
-      "env": {
-        "GARP_REPO": "/absolute/path/to/garp-team",
-        "GARP_USER": "alice"
-      }
+  "team_name": "Your Team",
+  "version": 1,
+  "members": [
+    { "user_id": "alice", "display_name": "Alice" },
+    { "user_id": "bob", "display_name": "Bob" }
+  ]
+}
+```
+
+Commit and push:
+
+```bash
+git add -A && git commit -m "Initialize GARP repo structure" && git push
+```
+
+### 3. Set environment variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `GARP_REPO` | Absolute path to local repo clone | `/Users/alice/garp-team` |
+| `GARP_USER` | Your user ID (must match config.json) | `alice` |
+| `GARP_LOG_LEVEL` | Logging verbosity (optional) | `info`, `debug`, `error` |
+
+These are passed via the source config (step 5), not your shell profile.
+
+### 4. Build the MCP server
+
+From the craft-gm monorepo root:
+
+```bash
+bun run build:garp
+```
+
+This produces `dist/garp/index.js`.
+
+### 5. Register as MCP source in Craft Agents
+
+Add a new source in Craft Agents with this configuration:
+
+```json
+{
+  "type": "mcp",
+  "name": "GARP",
+  "slug": "garp",
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": ["/absolute/path/to/craft-gm/dist/garp/index.js"],
+    "env": {
+      "GARP_REPO": "/absolute/path/to/garp-team",
+      "GARP_USER": "alice"
     }
   }
 }
@@ -88,15 +108,6 @@ Replace the paths and user ID with your own values. See `examples/source-config.
 | `GARP_REPO` | Yes | -- | Absolute path to local clone of the shared GARP git repo |
 | `GARP_USER` | Yes | -- | Your user ID, must match an entry in config.json |
 | `GARP_LOG_LEVEL` | No | `info` | Log verbosity: `debug`, `info`, `error` |
-
-## Development
-
-```bash
-bun install
-bun test              # Run all tests
-bun run typecheck     # TypeScript type checking
-bun run build         # Build dist/index.js
-```
 
 ## Repo Structure
 
