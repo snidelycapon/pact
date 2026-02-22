@@ -94,5 +94,55 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-02-22T15:38:08Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T15:38:34Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T15:40:10Z'
+- d: 'NOT_APPLICABLE: MCP SDK registration tested indirectly by all existing tests'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 02-02
+  t: '2026-02-22T15:40:15Z'
+- d: 'NOT_APPLICABLE: MCP SDK registration is integration wiring, not unit-testable'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-02
+  t: '2026-02-22T15:40:16Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T15:42:22Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T15:42:53Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T15:46:08Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T15:46:10Z'
+- d: 'NOT_APPLICABLE: acceptance tests drive this step'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-03
+  t: '2026-02-22T15:46:11Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-22T15:46:13Z'
 project_id: collapsed-tools-brain
 schema_version: '3.0'

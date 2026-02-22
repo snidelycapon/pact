@@ -306,7 +306,7 @@ describe("garp_discover: discover available request types and team", () => {
   // Milestone 1: Skill Catalog Details
   // =========================================================================
 
-  it.skip("returns response_bundle schema with required fields and field definitions", async () => {
+  it("returns response_bundle schema with required fields and field definitions", async () => {
     ctx = createTestRepos();
 
     await given("the team has YAML skill contracts installed", () => {
@@ -338,7 +338,7 @@ describe("garp_discover: discover available request types and team", () => {
     });
   });
 
-  it.skip("reports has_brain as true when skill has brain_processing section", async () => {
+  it("reports has_brain as true when skill has brain_processing section", async () => {
     ctx = createTestRepos();
 
     await given("the team has a code-review skill with brain processing rules", () => {
@@ -358,7 +358,7 @@ describe("garp_discover: discover available request types and team", () => {
     });
   });
 
-  it.skip("reports has_brain as false when skill has no brain_processing section", async () => {
+  it("reports has_brain as false when skill has no brain_processing section", async () => {
     ctx = createTestRepos();
 
     await given("the team has an ask skill without brain processing rules", () => {
@@ -378,7 +378,7 @@ describe("garp_discover: discover available request types and team", () => {
     });
   });
 
-  it.skip("returns context_bundle with all defined field metadata", async () => {
+  it("returns context_bundle with all defined field metadata", async () => {
     ctx = createTestRepos();
 
     await given("the sanity-check skill defines 7 context fields in YAML frontmatter", () => {
@@ -407,7 +407,7 @@ describe("garp_discover: discover available request types and team", () => {
     });
   });
 
-  it.skip("pulls latest skills from remote before returning catalog", async () => {
+  it("pulls latest skills from remote before returning catalog", async () => {
     ctx = createTestRepos();
 
     await given("Alice has YAML skills and Bob adds a new skill to the remote", async () => {
@@ -471,7 +471,7 @@ File a bug report for triage.
   // Milestone 2: Discovery Filtering
   // =========================================================================
 
-  it.skip("filters skills by keyword matching against name, description, and when_to_use", async () => {
+  it("filters skills by keyword matching against name, description, and when_to_use", async () => {
     ctx = createTestRepos();
 
     await given("the team has multiple YAML skill contracts", () => {
@@ -496,7 +496,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("returns empty skills when query matches no available types", async () => {
+  it("returns empty skills when query matches no available types", async () => {
     ctx = createTestRepos();
 
     await given("the team has YAML skill contracts installed", () => {
@@ -520,7 +520,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("matches query against when_to_use content for discovery", async () => {
+  it("matches query against when_to_use content for discovery", async () => {
     ctx = createTestRepos();
 
     await given("the sanity-check skill's when_to_use mentions 'validate your findings'", () => {
@@ -544,7 +544,7 @@ File a bug report for triage.
   // Milestone 3: Error Resilience
   // =========================================================================
 
-  it.skip("falls back to local catalog with warning when remote is unreachable", async () => {
+  it("falls back to local catalog with warning when remote is unreachable", async () => {
     ctx = createTestRepos();
 
     await given("Alice has YAML skills locally but the remote is unreachable", async () => {
@@ -573,7 +573,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("skips skill directories that have no SKILL.md", async () => {
+  it("skips skill directories that have no SKILL.md", async () => {
     ctx = createTestRepos();
 
     await given("a skill directory exists with no SKILL.md", () => {
@@ -603,7 +603,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("skips skill with malformed YAML frontmatter without crashing", async () => {
+  it("skips skill with malformed YAML frontmatter without crashing", async () => {
     ctx = createTestRepos();
 
     await given("a skill has malformed YAML frontmatter alongside valid skills", () => {
@@ -636,7 +636,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("excludes hidden directories from skill listing", async () => {
+  it("excludes hidden directories from skill listing", async () => {
     ctx = createTestRepos();
 
     await given("the skills directory has a hidden directory", () => {
@@ -666,7 +666,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("returns empty catalog when no skills are installed", async () => {
+  it("returns empty catalog when no skills are installed", async () => {
     ctx = createTestRepos();
 
     await given("the skills directory contains only .gitkeep", () => {
@@ -693,7 +693,7 @@ File a bug report for triage.
     });
   });
 
-  it.skip("handles SKILL.md with valid frontmatter delimiters but empty YAML", async () => {
+  it("handles SKILL.md with valid frontmatter delimiters but empty YAML", async () => {
     ctx = createTestRepos();
 
     await given("a skill has empty YAML between frontmatter delimiters", () => {
