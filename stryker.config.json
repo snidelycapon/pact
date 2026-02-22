@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-core.schema.json",
+  "mutate": [
+    "src/tools/garp-cancel.ts",
+    "src/tools/garp-amend.ts",
+    "src/tools/garp-respond.ts",
+    "src/tools/garp-status.ts",
+    "src/tools/garp-inbox.ts",
+    "src/tools/find-pending-request.ts",
+    "src/schemas.ts"
+  ],
+  "testRunner": "vitest",
+  "checkers": [],
+  "reporters": ["clear-text", "html"],
+  "tempDirName": ".stryker-tmp",
+  "timeoutMS": 60000,
+  "concurrency": 2
+}
