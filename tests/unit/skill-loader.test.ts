@@ -538,3 +538,934 @@ describe("skill-loader: getRequiredContextFieldsFromYaml", () => {
     expect(result).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: parseBundleSpec defensive guards
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: parseBundleSpec with non-object inputs", () => {
+
+  it("returns empty BundleSpec when context_bundle is null", async () => {
+    const skillMd = `---
+name: null-bundle
+description: Skill with null context_bundle.
+when_to_use: []
+context_bundle: null
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Null Bundle
+`;
+    const file = createInMemoryFilePort({
+      "skills/null-bundle/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "null-bundle");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle).toEqual({ required: [], fields: {} });
+  });
+
+  it("returns empty BundleSpec when context_bundle is a string", async () => {
+    const skillMd = `---
+name: string-bundle
+description: Skill with string context_bundle.
+when_to_use: []
+context_bundle: "not an object"
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# String Bundle
+`;
+    const file = createInMemoryFilePort({
+      "skills/string-bundle/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "string-bundle");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle).toEqual({ required: [], fields: {} });
+  });
+
+  it("returns empty BundleSpec when context_bundle is a number", async () => {
+    const skillMd = `---
+name: num-bundle
+description: Skill with numeric context_bundle.
+when_to_use: []
+context_bundle: 42
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Numeric Bundle
+`;
+    const file = createInMemoryFilePort({
+      "skills/num-bundle/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "num-bundle");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle).toEqual({ required: [], fields: {} });
+  });
+});
+
+describe("skill-loader: parseBundleSpec with malformed fields", () => {
+
+  it("skips fields entries that are not objects (string value)", async () => {
+    const skillMd = `---
+name: bad-field
+description: Skill with non-object field value.
+when_to_use: []
+context_bundle:
+  required: []
+  fields:
+    good_field:
+      type: string
+      description: A good field
+    bad_field: "just a string"
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Bad Field
+`;
+    const file = createInMemoryFilePort({
+      "skills/bad-field/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "bad-field");
+
+    expect(result).toBeDefined();
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["good_field"]);
+    expect(result!.context_bundle.fields["good_field"]).toEqual({
+      type: "string",
+      description: "A good field",
+    });
+  });
+
+  it("skips fields entries that are null", async () => {
+    const skillMd = `---
+name: null-field
+description: Skill with null field value.
+when_to_use: []
+context_bundle:
+  required: []
+  fields:
+    ok_field:
+      type: string
+      description: OK
+    null_field: null
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Null Field
+`;
+    const file = createInMemoryFilePort({
+      "skills/null-field/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "null-field");
+
+    expect(result).toBeDefined();
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["ok_field"]);
+  });
+
+  it("defaults field type to 'string' when type is non-string", async () => {
+    const skillMd = `---
+name: bad-type
+description: Skill where field type is a number.
+when_to_use: []
+context_bundle:
+  required: []
+  fields:
+    my_field:
+      type: 123
+      description: A field with numeric type
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Bad Type
+`;
+    const file = createInMemoryFilePort({
+      "skills/bad-type/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "bad-type");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.fields["my_field"].type).toBe("string");
+    expect(result!.context_bundle.fields["my_field"].description).toBe(
+      "A field with numeric type",
+    );
+  });
+
+  it("defaults field description to '' when description is non-string", async () => {
+    const skillMd = `---
+name: bad-desc
+description: Skill where field description is a number.
+when_to_use: []
+context_bundle:
+  required: []
+  fields:
+    my_field:
+      type: string
+      description: 999
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Bad Desc
+`;
+    const file = createInMemoryFilePort({
+      "skills/bad-desc/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "bad-desc");
+
+    expect(result).toBeDefined();
+    // YAML parses `description: 999` as a number, so fallback to ""
+    expect(result!.context_bundle.fields["my_field"].description).toBe("");
+    expect(result!.context_bundle.fields["my_field"].type).toBe("string");
+  });
+
+  it("returns empty fields when fields value is not an object", async () => {
+    const skillMd = `---
+name: fields-string
+description: Skill where fields is a string.
+when_to_use: []
+context_bundle:
+  required: []
+  fields: "not an object"
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Fields String
+`;
+    const file = createInMemoryFilePort({
+      "skills/fields-string/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "fields-string");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.fields).toEqual({});
+  });
+});
+
+describe("skill-loader: required array filters non-strings", () => {
+
+  it("filters non-string items from required array", async () => {
+    const skillMd = `---
+name: mixed-required
+description: Skill with non-string items in required array.
+when_to_use: []
+context_bundle:
+  required:
+    - question
+    - 123
+    - true
+    - answer
+  fields:
+    question:
+      type: string
+      description: A question
+    answer:
+      type: string
+      description: An answer
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Mixed Required
+`;
+    const file = createInMemoryFilePort({
+      "skills/mixed-required/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "mixed-required");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.required).toEqual(["question", "answer"]);
+  });
+
+  it("returns empty required when required is not an array", async () => {
+    const skillMd = `---
+name: required-string
+description: Skill where required is a string.
+when_to_use: []
+context_bundle:
+  required: "not-an-array"
+  fields:
+    field1:
+      type: string
+      description: A field
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Required String
+`;
+    const file = createInMemoryFilePort({
+      "skills/required-string/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "required-string");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.required).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: Markdown table fallback + fieldListToBundleSpec
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: Markdown table fallback (old-format SKILL.md)", () => {
+
+  it("extracts fields from markdown tables with correct type:'string' and description:''", async () => {
+    const oldFormatMd = `# Bug Report
+
+Submit a bug report.
+
+## When To Use
+When you find a bug in the system.
+
+## Context Bundle Fields
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| summary | string | yes | Brief summary |
+| severity | string | no | Severity level |
+
+## Response Structure
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| status | string | yes | Current status |
+`;
+    const file = createInMemoryFilePort({
+      "skills/bug-report/SKILL.md": oldFormatMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "bug-report");
+
+    expect(result).toBeDefined();
+    // fieldListToBundleSpec defaults: type "string", description ""
+    expect(result!.context_bundle.fields["summary"]).toEqual({
+      type: "string",
+      description: "",
+    });
+    expect(result!.context_bundle.fields["severity"]).toEqual({
+      type: "string",
+      description: "",
+    });
+    expect(result!.context_bundle.required).toEqual([]);
+    expect(result!.response_bundle.fields["status"]).toEqual({
+      type: "string",
+      description: "",
+    });
+  });
+
+  it("skips header row where field name is 'field'", async () => {
+    const mdWithFieldHeader = `# Test Skill
+
+A test skill.
+
+## Context Bundle Fields
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| name | string | yes | The name |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| result | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/header-test/SKILL.md": mdWithFieldHeader,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "header-test");
+
+    expect(result).toBeDefined();
+    // "field" header row should be skipped; only "name" should be present
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["name"]);
+    expect(Object.keys(result!.response_bundle.fields)).toEqual(["result"]);
+  });
+
+  it("returns undefined when old-format SKILL.md has no field tables", async () => {
+    const noTablesMd = `# Empty Skill
+
+A skill with no tables.
+
+## When To Use
+When you want to do nothing.
+`;
+    const file = createInMemoryFilePort({
+      "skills/no-tables/SKILL.md": noTablesMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "no-tables");
+
+    expect(result).toBeUndefined();
+  });
+
+  it("extracts description from lines between title and first ## section", async () => {
+    const md = `# My Skill
+
+First line of description.
+Second line of description.
+
+## When To Use
+- Use when needed
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/desc-test/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "desc-test");
+
+    expect(result).toBeDefined();
+    expect(result!.description).toBe("First line of description. Second line of description.");
+  });
+
+  it("uses title as description when no description lines exist", async () => {
+    const md = `# Title Only Skill
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/title-only/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "title-only");
+
+    expect(result).toBeDefined();
+    expect(result!.name).toBe("title-only");
+  });
+
+  it("extracts when_to_use from ## When To Use section with dash prefix stripped", async () => {
+    const md = `# WTU Skill
+
+A skill.
+
+## When To Use
+- First use case
+- Second use case
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/wtu-test/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "wtu-test");
+
+    expect(result).toBeDefined();
+    expect(result!.when_to_use).toEqual(["First use case Second use case"]);
+  });
+
+  it("only includes pipe-containing lines from table sections", async () => {
+    const md = `# Pipe Skill
+
+Desc.
+
+## Context Bundle Fields
+Some intro text without pipes
+| Field | Type |
+| --- | --- |
+| ctx_field | string |
+More text without pipes
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| resp_field | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/pipe-test/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "pipe-test");
+
+    expect(result).toBeDefined();
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["ctx_field"]);
+    expect(Object.keys(result!.response_bundle.fields)).toEqual(["resp_field"]);
+  });
+
+  it("ignores unknown sections in old-format SKILL.md", async () => {
+    const md = `# Section Skill
+
+Desc.
+
+## Random Section
+Some random content.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Another Unknown
+More content.
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/section-test/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "section-test");
+
+    expect(result).toBeDefined();
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["f1"]);
+    expect(Object.keys(result!.response_bundle.fields)).toEqual(["r1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: extractFrontmatter edge cases
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: extractFrontmatter edge cases", () => {
+
+  it("falls back to markdown parsing when --- exists but has no closing delimiter", async () => {
+    // This content starts with --- but has no second --- line
+    // extractFrontmatter returns undefined, so it falls through to parseMarkdownTables
+    const md = `---
+name: broken
+description: no closing delimiter
+
+# Has Tables Though
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const file = createInMemoryFilePort({
+      "skills/no-close/SKILL.md": md,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "no-close");
+
+    // Should parse via markdown fallback since frontmatter is incomplete
+    expect(result).toBeDefined();
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["f1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: schema.json fallback (readSchemaIfValid + schemaBundleToBundleSpec)
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: schema.json fallback for old-format SKILL.md", () => {
+
+  it("uses schema.json when present alongside old-format SKILL.md", async () => {
+    const oldFormatMd = `# Schema Skill
+
+A skill with schema.json override.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| placeholder | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| result | string |
+`;
+    const schemaJson = {
+      context_bundle: {
+        type: "object",
+        required: ["question"],
+        properties: {
+          question: { type: "string", description: "The question" },
+          detail: { type: "integer", description: "Detail level" },
+        },
+      },
+      response_bundle: {
+        type: "object",
+        required: ["answer"],
+        properties: {
+          answer: { type: "string", description: "The answer" },
+        },
+      },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/schema-skill/SKILL.md": oldFormatMd,
+      "skills/schema-skill/schema.json": schemaJson,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "schema-skill");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.required).toEqual(["question"]);
+    expect(result!.context_bundle.fields["question"]).toEqual({
+      type: "string",
+      description: "The question",
+    });
+    expect(result!.context_bundle.fields["detail"]).toEqual({
+      type: "integer",
+      description: "Detail level",
+    });
+    expect(result!.response_bundle.required).toEqual(["answer"]);
+  });
+
+  it("returns undefined for schema.json without context or response properties", async () => {
+    const oldFormatMd = `# No Props Schema
+
+A skill.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    // schema.json exists but bundles lack 'properties'
+    const schemaJson = {
+      context_bundle: { type: "object", required: ["f1"] },
+      response_bundle: { type: "object", required: ["r1"] },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/no-props/SKILL.md": oldFormatMd,
+      "skills/no-props/schema.json": schemaJson,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "no-props");
+
+    expect(result).toBeDefined();
+    // schema.json is rejected (no properties), so falls back to markdown parsing
+    expect(result!.context_bundle.fields["f1"]).toEqual({
+      type: "string",
+      description: "",
+    });
+  });
+
+  it("handles schemaBundleToBundleSpec with undefined bundle", async () => {
+    const oldFormatMd = `# Partial Schema
+
+A skill.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    // Only context_bundle has properties; response_bundle is absent
+    const schemaJson = {
+      context_bundle: {
+        type: "object",
+        required: ["f1"],
+        properties: {
+          f1: { type: "string", description: "Field 1" },
+        },
+      },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/partial-schema/SKILL.md": oldFormatMd,
+      "skills/partial-schema/schema.json": schemaJson,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "partial-schema");
+
+    expect(result).toBeDefined();
+    expect(result!.context_bundle.required).toEqual(["f1"]);
+    // response_bundle is undefined in schema, so schemaBundleToBundleSpec returns empty
+    expect(result!.response_bundle).toEqual({ required: [], fields: {} });
+  });
+
+  it("handles schema.json property values that are not objects", async () => {
+    const oldFormatMd = `# Bad Props Schema
+
+A skill.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const schemaJson = {
+      context_bundle: {
+        type: "object",
+        required: [],
+        properties: {
+          good_prop: { type: "string", description: "A good prop" },
+          bad_prop: "just a string",
+          null_prop: null,
+        },
+      },
+      response_bundle: {
+        type: "object",
+        required: [],
+        properties: {},
+      },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/bad-props/SKILL.md": oldFormatMd,
+      "skills/bad-props/schema.json": schemaJson,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "bad-props");
+
+    expect(result).toBeDefined();
+    // Only the valid property should be included
+    expect(Object.keys(result!.context_bundle.fields)).toEqual(["good_prop"]);
+    expect(result!.context_bundle.fields["good_prop"]).toEqual({
+      type: "string",
+      description: "A good prop",
+    });
+  });
+
+  it("handles schema.json properties with non-string type/description", async () => {
+    const oldFormatMd = `# Non-String Schema
+
+A skill.
+
+## Context Bundle Fields
+| Field | Type |
+| --- | --- |
+| f1 | string |
+
+## Response Structure
+| Field | Type |
+| --- | --- |
+| r1 | string |
+`;
+    const schemaJson = {
+      context_bundle: {
+        type: "object",
+        required: [],
+        properties: {
+          field_a: { type: 42, description: true },
+        },
+      },
+      response_bundle: {
+        type: "object",
+        required: [],
+        properties: {
+          field_b: { type: "number", description: 99 },
+        },
+      },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/nonstring-schema/SKILL.md": oldFormatMd,
+      "skills/nonstring-schema/schema.json": schemaJson,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "nonstring-schema");
+
+    expect(result).toBeDefined();
+    // type defaults to "string" when not a string
+    expect(result!.context_bundle.fields["field_a"].type).toBe("string");
+    // description defaults to "" when not a string
+    expect(result!.context_bundle.fields["field_a"].description).toBe("");
+    // type stays "number" since it is a valid string
+    expect(result!.response_bundle.fields["field_b"].type).toBe("number");
+    // description defaults to "" since 99 is not a string
+    expect(result!.response_bundle.fields["field_b"].description).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: getRequiredContextFieldsFromYaml schema.json fallback
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: getRequiredContextFieldsFromYaml schema.json fallback", () => {
+
+  it("falls back to schema.json when SKILL.md has empty frontmatter", async () => {
+    const emptyFm = `---
+---
+
+# Empty Frontmatter
+`;
+    const schemaJson = {
+      context_bundle: {
+        type: "object",
+        required: ["field_a", "field_b"],
+        properties: {
+          field_a: { type: "string", description: "A" },
+          field_b: { type: "string", description: "B" },
+        },
+      },
+    };
+
+    const file = createInMemoryFilePort({
+      "skills/empty-fm-schema/SKILL.md": emptyFm,
+      "skills/empty-fm-schema/schema.json": schemaJson,
+    });
+
+    const { getRequiredContextFieldsFromYaml } = await import("../../src/skill-loader.ts");
+    const result = await getRequiredContextFieldsFromYaml(file, "empty-fm-schema");
+
+    expect(result).toEqual(["field_a", "field_b"]);
+  });
+
+  it("returns undefined when no schema.json and SKILL.md invalid", async () => {
+    const file = createInMemoryFilePort({});
+
+    const { getRequiredContextFieldsFromYaml } = await import("../../src/skill-loader.ts");
+    const result = await getRequiredContextFieldsFromYaml(file, "no-such-skill");
+
+    expect(result).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mutant-killing tests: normalizeWhenToUse with non-string array items
+// ---------------------------------------------------------------------------
+
+describe("skill-loader: when_to_use filters non-string items", () => {
+
+  it("filters non-string items from when_to_use array", async () => {
+    const skillMd = `---
+name: mixed-wtu
+description: Skill with mixed when_to_use array.
+when_to_use:
+  - Valid string item
+  - 42
+  - true
+  - Another valid string
+context_bundle:
+  required: []
+  fields: {}
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Mixed WTU
+`;
+    const file = createInMemoryFilePort({
+      "skills/mixed-wtu/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "mixed-wtu");
+
+    expect(result).toBeDefined();
+    expect(result!.when_to_use).toEqual([
+      "Valid string item",
+      "Another valid string",
+    ]);
+  });
+
+  it("returns empty array when when_to_use is a number", async () => {
+    const skillMd = `---
+name: num-wtu
+description: Skill with numeric when_to_use.
+when_to_use: 42
+context_bundle:
+  required: []
+  fields: {}
+response_bundle:
+  required: []
+  fields: {}
+---
+
+# Numeric WTU
+`;
+    const file = createInMemoryFilePort({
+      "skills/num-wtu/SKILL.md": skillMd,
+    });
+
+    const { loadSkillMetadata } = await import("../../src/skill-loader.ts");
+    const result = await loadSkillMetadata(file, "num-wtu");
+
+    expect(result).toBeDefined();
+    expect(result!.when_to_use).toEqual([]);
+  });
+});

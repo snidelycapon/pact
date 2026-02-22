@@ -197,4 +197,65 @@ describe("dispatchAction", () => {
       repoPath: "/tmp/fake-repo",
     });
   });
+
+  // --- Mutant-killing: exact error message assertions ---
+
+  it("throws exact 'Missing required field: action' message for undefined action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({}, ctx)).rejects.toThrow(
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread",
+    );
+  });
+
+  it("throws exact 'Missing required field: action' message for null action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({ action: null }, ctx)).rejects.toThrow(
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread",
+    );
+  });
+
+  it("throws exact 'Invalid action' message for empty string action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({ action: "" }, ctx)).rejects.toThrow(
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread",
+    );
+  });
+
+  it("throws exact 'Invalid action' message for numeric action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({ action: 123 }, ctx)).rejects.toThrow(
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread",
+    );
+  });
+
+  it("throws exact 'Unknown action' message for unknown action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({ action: "deploy" }, ctx)).rejects.toThrow(
+      "Unknown action 'deploy'. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread",
+    );
+  });
+
+  it("includes all 7 valid actions in error message for unknown action", async () => {
+    const ctx = makeCtx();
+    try {
+      await dispatchAction({ action: "nope" }, ctx);
+      expect.fail("should have thrown");
+    } catch (e: unknown) {
+      const msg = (e as Error).message;
+      expect(msg).toContain("send");
+      expect(msg).toContain("respond");
+      expect(msg).toContain("cancel");
+      expect(msg).toContain("amend");
+      expect(msg).toContain("check_status");
+      expect(msg).toContain("inbox");
+      expect(msg).toContain("view_thread");
+    }
+  });
+
+  it("throws 'Invalid action' (not 'Missing') for boolean action", async () => {
+    const ctx = makeCtx();
+    await expect(dispatchAction({ action: true }, ctx)).rejects.toThrow(
+      "Invalid action: must be a non-empty string.",
+    );
+  });
 });
