@@ -10,8 +10,8 @@
 
 import type { GitPort, FilePort } from "../ports.ts";
 import { RequestEnvelopeSchema } from "../schemas.ts";
-import { parseSkillMetadata } from "../skill-parser.ts";
-import type { SkillMetadata } from "../skill-parser.ts";
+import { loadSkillMetadata } from "../skill-loader.ts";
+import type { SkillMetadata } from "../skill-loader.ts";
 import { log } from "../logger.ts";
 
 export interface GarpInboxContext {
@@ -116,7 +116,7 @@ export async function handleGarpInbox(
   for (const entry of entries) {
     if (!skillCache.has(entry.request_type)) {
       try {
-        const metadata = await parseSkillMetadata(ctx.file, ctx.repoPath, entry.request_type);
+        const metadata = await loadSkillMetadata(ctx.file, entry.request_type);
         skillCache.set(entry.request_type, metadata ?? null);
       } catch {
         skillCache.set(entry.request_type, null);
@@ -125,7 +125,9 @@ export async function handleGarpInbox(
     const cached = skillCache.get(entry.request_type);
     if (cached) {
       entry.skill_description = cached.description;
-      entry.response_fields = cached.response_fields;
+      entry.response_fields = cached.response_bundle.fields
+        ? Object.keys(cached.response_bundle.fields)
+        : [];
     }
   }
 

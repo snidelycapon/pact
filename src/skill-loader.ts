@@ -62,41 +62,74 @@ export async function loadSkillMetadata(
 
   const content = await file.readText(mdPath);
   const frontmatter = extractFrontmatter(content);
-  if (frontmatter === undefined) {
+
+  // If YAML frontmatter is present, parse it (primary path)
+  if (frontmatter !== undefined) {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = parseYaml(frontmatter) as Record<string, unknown>;
+    } catch {
+      return undefined;
+    }
+
+    // Empty frontmatter parses as null
+    if (!parsed || typeof parsed !== "object") {
+      return undefined;
+    }
+
+    const name = typeof parsed.name === "string" ? parsed.name : skillName;
+    const version =
+      typeof parsed.version === "string" ? parsed.version : undefined;
+    const description =
+      typeof parsed.description === "string" ? parsed.description : "";
+
+    const whenToUse = normalizeWhenToUse(parsed.when_to_use);
+    const contextBundle = parseBundleSpec(parsed.context_bundle);
+    const responseBundle = parseBundleSpec(parsed.response_bundle);
+    const hasBrain = parsed.brain_processing != null;
+
+    return {
+      name,
+      version,
+      description,
+      when_to_use: whenToUse,
+      context_bundle: contextBundle,
+      response_bundle: responseBundle,
+      has_brain: hasBrain,
+    };
+  }
+
+  // Fallback: parse old-format Markdown tables from SKILL.md.
+  // This supports SKILL.md files that lack YAML frontmatter but have
+  // structured Markdown tables (Context Bundle Fields / Response Structure).
+  // A SKILL.md without any field tables is not a complete old-format skill.
+  const mdParsed = parseMarkdownTables(content);
+  if (!mdParsed.contextFields.length && !mdParsed.responseFields.length) {
     return undefined;
   }
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = parseYaml(frontmatter) as Record<string, unknown>;
-  } catch {
-    return undefined;
+  // Check for schema.json to override field extraction
+  const schemaPath = `skills/${skillName}/schema.json`;
+  const schema = await readSchemaIfValid(file, schemaPath);
+
+  let contextBundle: BundleSpec;
+  let responseBundle: BundleSpec;
+
+  if (schema) {
+    contextBundle = schemaBundleToBundleSpec(schema.context_bundle);
+    responseBundle = schemaBundleToBundleSpec(schema.response_bundle);
+  } else {
+    contextBundle = fieldListToBundleSpec(mdParsed.contextFields);
+    responseBundle = fieldListToBundleSpec(mdParsed.responseFields);
   }
-
-  // Empty frontmatter parses as null
-  if (!parsed || typeof parsed !== "object") {
-    return undefined;
-  }
-
-  const name = typeof parsed.name === "string" ? parsed.name : skillName;
-  const version =
-    typeof parsed.version === "string" ? parsed.version : undefined;
-  const description =
-    typeof parsed.description === "string" ? parsed.description : "";
-
-  const whenToUse = normalizeWhenToUse(parsed.when_to_use);
-  const contextBundle = parseBundleSpec(parsed.context_bundle);
-  const responseBundle = parseBundleSpec(parsed.response_bundle);
-  const hasBrain = parsed.brain_processing != null;
 
   return {
-    name,
-    version,
-    description,
-    when_to_use: whenToUse,
+    name: skillName,
+    description: mdParsed.description,
+    when_to_use: mdParsed.whenToUse ? [mdParsed.whenToUse] : [],
     context_bundle: contextBundle,
     response_bundle: responseBundle,
-    has_brain: hasBrain,
+    has_brain: false,
   };
 }
 
@@ -113,9 +146,17 @@ export async function getRequiredContextFieldsFromYaml(
 ): Promise<string[] | undefined> {
   const metadata = await loadSkillMetadata(file, skillName);
   if (!metadata) {
+    // Last-resort fallback: check schema.json directly (supports
+    // old workflows where schema.json exists but SKILL.md is empty)
+    const schemaPath = `skills/${skillName}/schema.json`;
+    const schema = await readSchemaIfValid(file, schemaPath);
+    if (schema?.context_bundle?.required?.length) {
+      return schema.context_bundle.required;
+    }
     return undefined;
   }
-  return metadata.context_bundle.required;
+  const required = metadata.context_bundle.required;
+  return required.length > 0 ? required : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +197,172 @@ function normalizeWhenToUse(raw: unknown): string[] {
   }
   return [];
 }
+
+// ---------------------------------------------------------------------------
+// Internal helpers -- Markdown table fallback (old-format SKILL.md)
+// ---------------------------------------------------------------------------
+
+interface MarkdownParsed {
+  description: string;
+  whenToUse: string;
+  contextFields: string[];
+  responseFields: string[];
+}
+
+/**
+ * Parse old-format SKILL.md: extract description, when_to_use, and
+ * field names from Markdown tables. Mirrors the logic from skill-parser.ts.
+ */
+function parseMarkdownTables(markdown: string): MarkdownParsed {
+  const lines = markdown.split("\n");
+
+  let title = "";
+  let currentSection = "";
+  const descriptionLines: string[] = [];
+  const whenToUseLines: string[] = [];
+  const contextTableLines: string[] = [];
+  const responseTableLines: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("# ") && !title) {
+      title = line.slice(2).trim();
+      currentSection = "description";
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      const sectionName = line.slice(3).trim().toLowerCase();
+      if (sectionName === "when to use") {
+        currentSection = "when_to_use";
+      } else if (sectionName === "context bundle fields") {
+        currentSection = "context_fields";
+      } else if (sectionName === "response structure") {
+        currentSection = "response_fields";
+      } else {
+        currentSection = "other";
+      }
+      continue;
+    }
+
+    switch (currentSection) {
+      case "description":
+        if (line.trim()) descriptionLines.push(line.trim());
+        break;
+      case "when_to_use":
+        if (line.trim()) whenToUseLines.push(line.trim());
+        break;
+      case "context_fields":
+        if (line.includes("|")) contextTableLines.push(line);
+        break;
+      case "response_fields":
+        if (line.includes("|")) responseTableLines.push(line);
+        break;
+    }
+  }
+
+  return {
+    description: descriptionLines.join(" ") || title,
+    whenToUse: whenToUseLines.map((l) => l.replace(/^- /, "")).join(" "),
+    contextFields: extractTableFieldNames(contextTableLines),
+    responseFields: extractTableFieldNames(responseTableLines),
+  };
+}
+
+/**
+ * Extract field names from Markdown table rows (first column).
+ * Skips header and separator rows.
+ */
+function extractTableFieldNames(tableLines: string[]): string[] {
+  const fields: string[] = [];
+  for (const line of tableLines) {
+    if (line.includes("---")) continue;
+    const cells = line
+      .split("|")
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
+    if (cells.length === 0) continue;
+    const fieldName = cells[0].toLowerCase();
+    if (fieldName === "field") continue;
+    fields.push(fieldName);
+  }
+  return fields;
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers -- schema.json fallback
+// ---------------------------------------------------------------------------
+
+interface SchemaBundle {
+  type?: string;
+  required?: string[];
+  properties?: Record<string, unknown>;
+}
+
+interface SkillSchema {
+  context_bundle?: SchemaBundle;
+  response_bundle?: SchemaBundle;
+}
+
+/**
+ * Read and validate schema.json. Returns undefined if missing, unreadable,
+ * or lacks expected context_bundle/response_bundle with properties.
+ */
+async function readSchemaIfValid(
+  file: FilePort,
+  schemaPath: string,
+): Promise<SkillSchema | undefined> {
+  try {
+    const exists = await file.fileExists(schemaPath);
+    if (!exists) return undefined;
+    const raw = await file.readJSON<Record<string, unknown>>(schemaPath);
+    const contextBundle = raw.context_bundle as SchemaBundle | undefined;
+    const responseBundle = raw.response_bundle as SchemaBundle | undefined;
+    const hasContextProps =
+      contextBundle?.properties && typeof contextBundle.properties === "object";
+    const hasResponseProps =
+      responseBundle?.properties && typeof responseBundle.properties === "object";
+    if (!hasContextProps && !hasResponseProps) return undefined;
+    return { context_bundle: contextBundle, response_bundle: responseBundle };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Convert a JSON Schema bundle (from schema.json) to a BundleSpec.
+ */
+function schemaBundleToBundleSpec(bundle: SchemaBundle | undefined): BundleSpec {
+  if (!bundle) return { required: [], fields: {} };
+  const required = Array.isArray(bundle.required) ? bundle.required : [];
+  const fields: Record<string, BundleFieldDef> = {};
+  if (bundle.properties && typeof bundle.properties === "object") {
+    for (const [key, value] of Object.entries(bundle.properties)) {
+      if (value && typeof value === "object") {
+        const prop = value as Record<string, unknown>;
+        fields[key] = {
+          type: typeof prop.type === "string" ? prop.type : "string",
+          description: typeof prop.description === "string" ? prop.description : "",
+        };
+      }
+    }
+  }
+  return { required, fields };
+}
+
+/**
+ * Convert a flat list of field names (from Markdown tables) to a BundleSpec.
+ */
+function fieldListToBundleSpec(fieldNames: string[]): BundleSpec {
+  const fields: Record<string, BundleFieldDef> = {};
+  for (const name of fieldNames) {
+    fields[name] = { type: "string", description: "" };
+  }
+  return { required: [], fields };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers -- YAML parsing
+// ---------------------------------------------------------------------------
 
 /**
  * Parse a context_bundle or response_bundle section from the YAML.

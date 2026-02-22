@@ -7,7 +7,7 @@
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
-import { getRequiredContextFields } from "../skill-parser.ts";
+import { getRequiredContextFieldsFromYaml } from "../skill-loader.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -51,7 +51,7 @@ export async function handleGarpRequest(
 
   // 2b. Schema validation: warn on missing required context fields
   let validationWarnings: string[] | undefined;
-  const requiredFields = await getRequiredContextFields(ctx.file, ctx.repoPath, params.request_type);
+  const requiredFields = await getRequiredContextFieldsFromYaml(ctx.file, params.request_type);
   if (requiredFields) {
     const submittedKeys = Object.keys(params.context_bundle);
     const missing = requiredFields.filter((field) => !submittedKeys.includes(field));

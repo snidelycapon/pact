@@ -169,5 +169,30 @@ events:
   s: EXECUTED
   sid: 02-04
   t: '2026-02-22T15:50:31Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-04
+  t: '2026-02-22T15:50:57Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-22T15:52:22Z'
+- d: 'NOT_APPLICABLE: existing acceptance tests verify behavioral equivalence'
+  p: RED_ACCEPTANCE
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-22T15:52:32Z'
+- d: 'NOT_APPLICABLE: handler changes are pure refactoring import swap'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-22T15:52:33Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-22T15:57:01Z'
 project_id: collapsed-tools-brain
 schema_version: '3.0'
