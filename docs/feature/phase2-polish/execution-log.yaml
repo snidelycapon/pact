@@ -44,10 +44,9 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-02-22T02:39:51Z'
-- d: SKIP - acceptance tests cover all 5 behaviors through driving port (createGarpServer.callTool).
-    No inner domain logic warrants separate unit tests.
+- d: 'NOT_APPLICABLE: acceptance tests cover all 5 behaviors through driving port'
   p: RED_UNIT
-  s: EXECUTED
+  s: SKIPPED
   sid: 01-02
   t: '2026-02-22T02:39:57Z'
 - d: PASS
@@ -160,9 +159,9 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-02-22T02:53:04Z'
-- d: SKIP - acceptance tests are driving port tests; no additional unit tests needed
+- d: 'NOT_APPLICABLE: acceptance tests are driving port tests; no additional unit tests needed'
   p: RED_UNIT
-  s: EXECUTED
+  s: SKIPPED
   sid: 02-01
   t: '2026-02-22T02:53:12Z'
 - d: PASS
@@ -235,5 +234,10 @@ events:
   s: EXECUTED
   sid: 02-02
   t: '2026-02-22T03:03:28Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-22T03:03:41Z'
 project_id: phase2-polish
 schema_version: '3.0'
