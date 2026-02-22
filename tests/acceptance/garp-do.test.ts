@@ -174,7 +174,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
   // Milestone 4: Action Dispatch -- Each action routes to the correct handler
   // =========================================================================
 
-  it.skip("dispatches send action and creates a pending request with correct ID format", async () => {
+  it("dispatches send action and creates a pending request with correct ID format", async () => {
     ctx = createTestRepos();
 
     await given("the team has YAML skill contracts installed", () => {
@@ -195,7 +195,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches inbox action and returns pending requests for the user", async () => {
+  it("dispatches inbox action and returns pending requests for the user", async () => {
     ctx = createTestRepos();
 
     await given("Alice has sent a request to Bob", async () => {
@@ -215,7 +215,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches respond action and completes a request", async () => {
+  it("dispatches respond action and completes a request", async () => {
     ctx = createTestRepos();
 
     await given("Bob has a pending request from Alice", async () => {
@@ -248,7 +248,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches check_status action and returns request status", async () => {
+  it("dispatches check_status action and returns request status", async () => {
     ctx = createTestRepos();
 
     await given("Alice has a pending request to Bob", async () => {
@@ -272,7 +272,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches cancel action and moves request to cancelled", async () => {
+  it("dispatches cancel action and moves request to cancelled", async () => {
     ctx = createTestRepos();
 
     await given("Alice has a pending request to Bob", async () => {
@@ -301,7 +301,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches amend action and adds amendment to request", async () => {
+  it("dispatches amend action and adds amendment to request", async () => {
     ctx = createTestRepos();
 
     await given("Alice has a pending request to Bob", async () => {
@@ -336,7 +336,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("dispatches view_thread action and returns thread history", async () => {
+  it("dispatches view_thread action and returns thread history", async () => {
     ctx = createTestRepos();
 
     const threadId = "req-20260222-100000-alice-0001";
@@ -403,7 +403,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
   // Milestone 5: Error Handling
   // =========================================================================
 
-  it.skip("rejects unknown action with error listing valid actions", async () => {
+  it("rejects unknown action with error listing valid actions", async () => {
     ctx = createTestRepos();
 
     await when("an agent calls garp_do with action 'deploy'", async () => {
@@ -426,7 +426,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("rejects request with missing action field", async () => {
+  it("rejects request with missing action field", async () => {
     ctx = createTestRepos();
 
     await when("an agent calls garp_do without an action field", async () => {
@@ -440,7 +440,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("rejects request with empty action string", async () => {
+  it("rejects request with empty action string", async () => {
     ctx = createTestRepos();
 
     await when("an agent calls garp_do with empty string action", async () => {
@@ -451,7 +451,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("passes through recipient validation error from send handler unchanged", async () => {
+  it("passes through recipient validation error from send handler unchanged", async () => {
     ctx = createTestRepos();
 
     await given("the team has YAML skill contracts installed", () => {
@@ -471,7 +471,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("passes through missing required field error from handler unchanged", async () => {
+  it("passes through missing required field error from handler unchanged", async () => {
     ctx = createTestRepos();
 
     await when("Alice sends via garp_do without a recipient", async () => {
@@ -487,7 +487,7 @@ describe("garp_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it.skip("passes through skill validation error when request type has no matching skill", async () => {
+  it("passes through skill validation error when request type has no matching skill", async () => {
     ctx = createTestRepos();
 
     await when("Alice sends a request with a non-existent skill type via garp_do", async () => {
