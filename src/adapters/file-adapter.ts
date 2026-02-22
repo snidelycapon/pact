@@ -28,6 +28,12 @@ export class FileAdapter implements FilePort {
     await writeFile(fullPath, JSON.stringify(data, null, 2), "utf-8");
   }
 
+  async writeText(path: string, content: string): Promise<void> {
+    const fullPath = join(this.repoPath, path);
+    await mkdir(dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, content, "utf-8");
+  }
+
   async listDirectory(path: string): Promise<string[]> {
     const fullPath = join(this.repoPath, path);
     const entries = await readdir(fullPath);

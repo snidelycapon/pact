@@ -20,11 +20,14 @@ export interface GarpInboxContext {
 
 export interface InboxEntry {
   request_id: string;
+  short_id: string;
+  thread_id?: string;
   request_type: string;
   sender: string;
   created_at: string;
   summary: string;
   skill_path: string;
+  attachment_count: number;
 }
 
 export interface InboxResult {
@@ -60,8 +63,12 @@ export async function handleGarpInbox(
     const envelope = parsed.data;
     if (envelope.recipient.user_id === ctx.userId) {
       const bundle = envelope.context_bundle as Record<string, unknown>;
+      const parts = envelope.request_id.split("-");
+      const shortId = parts.slice(-2).join("-");
       requests.push({
         request_id: envelope.request_id,
+        short_id: shortId,
+        ...(envelope.thread_id ? { thread_id: envelope.thread_id } : {}),
         request_type: envelope.request_type,
         sender: envelope.sender.display_name,
         created_at: envelope.created_at,
@@ -70,6 +77,7 @@ export async function handleGarpInbox(
           (bundle.issue_summary as string) ??
           "No summary",
         skill_path: `${ctx.repoPath}/skills/${envelope.request_type}/SKILL.md`,
+        attachment_count: envelope.attachments?.length ?? 0,
       });
     }
   }

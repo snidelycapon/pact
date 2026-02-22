@@ -40,6 +40,7 @@ export interface ConfigPort {
 export interface FilePort {
   readJSON<T>(path: string): Promise<T>;
   writeJSON(path: string, data: unknown): Promise<void>;
+  writeText(path: string, content: string): Promise<void>;
   listDirectory(path: string): Promise<string[]>;
   moveFile(from: string, to: string): Promise<void>;
 }

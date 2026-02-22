@@ -19,11 +19,23 @@ const UserRefSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+const AttachmentSchema = z.object({
+  filename: z.string(),
+  description: z.string(),
+});
+
+export type Attachment = z.infer<typeof AttachmentSchema>;
+
+// ---------------------------------------------------------------------------
 // Request Envelope
 // ---------------------------------------------------------------------------
 
 export const RequestEnvelopeSchema = z.object({
   request_id: z.string(),
+  thread_id: z.string().optional(),
   request_type: z.string(),
   sender: UserRefSchema,
   recipient: UserRefSchema,
@@ -32,6 +44,7 @@ export const RequestEnvelopeSchema = z.object({
   deadline: z.string().nullable().optional(),
   context_bundle: z.record(z.string(), z.unknown()),
   expected_response: z.record(z.string(), z.unknown()).optional(),
+  attachments: z.array(AttachmentSchema).optional(),
 });
 
 export type RequestEnvelope = z.infer<typeof RequestEnvelopeSchema>;

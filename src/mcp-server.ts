@@ -68,6 +68,12 @@ export function createMcpServer(config: McpServerConfig): McpServer {
       recipient: z.string().describe("The user_id of the recipient"),
       context_bundle: z.record(z.string(), z.any()).describe("Flexible context payload"),
       deadline: z.string().optional().describe("Optional ISO 8601 deadline"),
+      thread_id: z.string().optional().describe("Optional thread ID to group related requests into a conversation"),
+      attachments: z.array(z.object({
+        filename: z.string().describe("Filename for the attachment"),
+        description: z.string().describe("What this file is and what it's for"),
+        content: z.string().describe("File content as text"),
+      })).optional().describe("Optional file attachments to include with the request"),
     },
     async (params) => {
       ensureAdapters();
