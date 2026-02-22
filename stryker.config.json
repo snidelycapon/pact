@@ -12,6 +12,7 @@
   "testRunner": "vitest",
   "checkers": [],
   "reporters": ["clear-text", "html"],
+  "ignorePatterns": [".beads", ".nwave", "repos"],
   "tempDirName": ".stryker-tmp",
   "timeoutMS": 60000,
   "concurrency": 2
