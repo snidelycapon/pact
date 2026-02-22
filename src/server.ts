@@ -17,6 +17,10 @@ import { handleGarpStatus } from "./tools/garp-status.ts";
 import type { GarpStatusParams } from "./tools/garp-status.ts";
 import { handleGarpThread } from "./tools/garp-thread.ts";
 import type { GarpThreadParams } from "./tools/garp-thread.ts";
+import { handleGarpCancel } from "./tools/garp-cancel.ts";
+import type { GarpCancelParams } from "./tools/garp-cancel.ts";
+import { handleGarpAmend } from "./tools/garp-amend.ts";
+import type { GarpAmendParams } from "./tools/garp-amend.ts";
 
 export interface GarpServerConfig {
   repoPath: string;
@@ -83,6 +87,22 @@ export function createGarpServer(config: GarpServerConfig): GarpServer {
         case "garp_thread":
           ensureAdapters();
           return handleGarpThread(params as unknown as GarpThreadParams, {
+            userId: config.userId,
+            repoPath: config.repoPath,
+            git: git!,
+            file: file!,
+          });
+        case "garp_amend":
+          ensureAdapters();
+          return handleGarpAmend(params as unknown as GarpAmendParams, {
+            userId: config.userId,
+            repoPath: config.repoPath,
+            git: git!,
+            file: file!,
+          });
+        case "garp_cancel":
+          ensureAdapters();
+          return handleGarpCancel(params as unknown as GarpCancelParams, {
             userId: config.userId,
             repoPath: config.repoPath,
             git: git!,

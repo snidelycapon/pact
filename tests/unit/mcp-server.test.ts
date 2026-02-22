@@ -24,7 +24,7 @@ describe("MCP server wiring", () => {
     const result = await client.listTools();
     const toolNames = result.tools.map((t) => t.name).sort();
 
-    expect(toolNames).toEqual(["garp_inbox", "garp_request", "garp_respond", "garp_status", "garp_thread"]);
+    expect(toolNames).toEqual(["garp_amend", "garp_cancel", "garp_inbox", "garp_request", "garp_respond", "garp_status", "garp_thread"]);
 
     await client.close();
     await mcpServer.close();

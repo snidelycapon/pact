@@ -23,6 +23,10 @@ import { handleGarpStatus } from "./tools/garp-status.ts";
 import type { GarpStatusParams } from "./tools/garp-status.ts";
 import { handleGarpThread } from "./tools/garp-thread.ts";
 import type { GarpThreadParams } from "./tools/garp-thread.ts";
+import { handleGarpCancel } from "./tools/garp-cancel.ts";
+import type { GarpCancelParams } from "./tools/garp-cancel.ts";
+import { handleGarpAmend } from "./tools/garp-amend.ts";
+import type { GarpAmendParams } from "./tools/garp-amend.ts";
 
 export interface McpServerConfig {
   repoPath: string;
@@ -201,6 +205,63 @@ export function createMcpServer(config: McpServerConfig): McpServer {
         return formatResult(result);
       } catch (err) {
         log("error", "tool invocation failed", { tool: "garp_thread", thread_id: params.thread_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        return formatError(err);
+      }
+    },
+  );
+
+  // -- garp_amend --
+  server.tool(
+    "garp_amend",
+    "Amend a pending request you sent",
+    {
+      request_id: z.string().describe("The ID of the request to amend"),
+      fields: z.record(z.string(), z.any()).describe("Fields to add or update in the amendment"),
+      note: z.string().optional().describe("Optional note explaining the amendment"),
+    },
+    async (params) => {
+      ensureAdapters();
+      const start = Date.now();
+      log("info", "tool invocation start", { tool: "garp_amend", request_id: params.request_id });
+      try {
+        const result = await handleGarpAmend(params as GarpAmendParams, {
+          userId: config.userId,
+          repoPath: config.repoPath,
+          git: git!,
+          file: file!,
+        });
+        log("info", "tool invocation complete", { tool: "garp_amend", request_id: params.request_id, amendment_count: result.amendment_count, duration_ms: Date.now() - start });
+        return formatResult(result);
+      } catch (err) {
+        log("error", "tool invocation failed", { tool: "garp_amend", request_id: params.request_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
+        return formatError(err);
+      }
+    },
+  );
+
+  // -- garp_cancel --
+  server.tool(
+    "garp_cancel",
+    "Cancel a pending request you sent",
+    {
+      request_id: z.string().describe("The ID of the request to cancel"),
+      reason: z.string().optional().describe("Optional reason for cancellation"),
+    },
+    async (params) => {
+      ensureAdapters();
+      const start = Date.now();
+      log("info", "tool invocation start", { tool: "garp_cancel", request_id: params.request_id });
+      try {
+        const result = await handleGarpCancel(params as GarpCancelParams, {
+          userId: config.userId,
+          repoPath: config.repoPath,
+          git: git!,
+          file: file!,
+        });
+        log("info", "tool invocation complete", { tool: "garp_cancel", request_id: params.request_id, duration_ms: Date.now() - start });
+        return formatResult(result);
+      } catch (err) {
+        log("error", "tool invocation failed", { tool: "garp_cancel", request_id: params.request_id, error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });
         return formatError(err);
       }
     },
