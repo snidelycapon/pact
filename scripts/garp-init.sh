@@ -88,15 +88,16 @@ cmd_new() {
     touch "$repo_path/$dir/.gitkeep"
   done
 
-  # Seed with the "ask" skill from examples
+  # Seed with example skills
   local examples_skills="$GARP_ROOT/examples/skills"
-  if [[ -d "$examples_skills/ask" ]]; then
-    cp -R "$examples_skills/ask" "$repo_path/skills/ask"
+  if [[ -d "$examples_skills" ]]; then
+    for skill_dir in "$examples_skills"/*/; do
+      local skill_name="$(basename "$skill_dir")"
+      cp -R "$skill_dir" "$repo_path/skills/$skill_name"
+    done
   else
-    # Fallback if running detached from GARP source tree
-    mkdir -p "$repo_path/skills/ask"
-    touch "$repo_path/skills/ask/.gitkeep"
-    echo "Warning: Could not find example skills at $examples_skills. Created empty ask skill directory."
+    echo "Warning: Could not find example skills at $examples_skills. Seeding empty skills directory."
+    touch "$repo_path/skills/.gitkeep"
   fi
 
   # config.json
