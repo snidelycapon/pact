@@ -25,6 +25,7 @@ import { handleGarpSkills } from "./tools/garp-skills.ts";
 import type { GarpSkillsParams } from "./tools/garp-skills.ts";
 import { handleGarpDiscover } from "./tools/garp-discover.ts";
 import type { GarpDiscoverParams } from "./tools/garp-discover.ts";
+import { handleGarpDo } from "./tools/garp-do.ts";
 
 export interface GarpServerConfig {
   repoPath: string;
@@ -122,6 +123,15 @@ export function createGarpServer(config: GarpServerConfig): GarpServer {
         case "garp_discover":
           ensureAdapters();
           return handleGarpDiscover(params as unknown as GarpDiscoverParams, {
+            userId: config.userId,
+            repoPath: config.repoPath,
+            git: git!,
+            config: configAdapter!,
+            file: file!,
+          });
+        case "garp_do":
+          ensureAdapters();
+          return handleGarpDo(params, {
             userId: config.userId,
             repoPath: config.repoPath,
             git: git!,

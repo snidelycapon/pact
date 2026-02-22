@@ -69,5 +69,30 @@ events:
   s: EXECUTED
   sid: 01-03
   t: '2026-02-22T15:34:52Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-02-22T15:35:16Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T15:36:51Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T15:37:02Z'
+- d: 'NOT_APPLICABLE: acceptance test drives this handler'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-02-22T15:37:04Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-22T15:38:08Z'
 project_id: collapsed-tools-brain
 schema_version: '3.0'
