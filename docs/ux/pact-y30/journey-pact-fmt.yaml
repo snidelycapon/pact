@@ -1,0 +1,385 @@
+# Journey Schema: Group Envelope Primitives (pact-fmt)
+# Epic: pact-y30
+# Date: 2026-02-23
+
+journey:
+  name: pact-fmt
+  epic: pact-y30
+  title: Group Envelope Primitives
+  description: >
+    Extend the PACT format with group addressing, response collection modes,
+    visibility control, and ownership claiming for multi-recipient requests.
+
+actors:
+  pact_author:
+    description: Team member editing pact definitions
+    interface: text-editor + git
+  sending_human:
+    description: Person requesting something from a group
+    interface: natural-language → agent
+  sending_agent:
+    description: AI agent composing group requests
+    interface: MCP tool calls
+  receiving_agent:
+    description: AI agent monitoring inbox and presenting requests
+    interface: MCP tool calls
+  receiving_human:
+    description: Person deciding whether to claim and respond
+    interface: natural-language ← agent
+
+protocol_defaults:
+  response_mode: any
+  visibility: shared
+  claimable: false
+
+flows:
+  - id: A
+    name: Pact Author Adds Group Defaults
+    trigger: Team decides a pact type needs specific group behavior
+    goal: Update pact definition frontmatter with defaults section
+    emotional_arc: [familiar, confident, done]
+    steps:
+      - id: A1
+        name: Open pact file
+        actor: pact_author
+        action: Opens pacts/{type}/PACT.md in editor
+        emotion: familiar
+        produces: []
+        consumes: []
+
+      - id: A2
+        name: Add defaults section
+        actor: pact_author
+        action: Adds `defaults:` block with only non-standard values
+        emotion: confident
+        produces: [pact_defaults]
+        consumes: [protocol_defaults]
+        design_note: >
+          Convention over configuration: omit fields that match protocol defaults.
+          A pact with only `claimable: true` in defaults inherits response_mode: any
+          and visibility: shared from the protocol.
+
+      - id: A3
+        name: Commit and push
+        actor: pact_author
+        action: git commit + push, team gets changes on next pull
+        emotion: done
+        produces: []
+        consumes: [pact_defaults]
+        design_note: >
+          No mandatory validation by PACT. Agents nudge toward valid schema
+          when they encounter the pact. Teams build their own auditor skills.
+
+  - id: B
+    name: Sending Agent Creates Group Request
+    trigger: Human expresses intent to request something from a group
+    goal: Request lands in every group member's inbox with correct behavior
+    emotional_arc: [intent, confirmation, confidence]
+    steps:
+      - id: B1
+        name: Human expresses intent
+        actor: sending_human
+        action: Natural language request mentioning a group
+        emotion: intent
+        produces: []
+        consumes: []
+        example: "Can someone on backend review my auth changes?"
+
+      - id: B2
+        name: Agent discovers pact and resolves group
+        actor: sending_agent
+        action: >
+          Calls pact_discover to find pact metadata.
+          Merges protocol_defaults + pact_defaults.
+          Resolves group ref to user IDs from config.json.
+        emotion: null  # agent-internal
+        produces: [recipients, merged_defaults]
+        consumes: [pact_defaults, protocol_defaults]
+        integration_checkpoint: IC1 (defaults merge), IC2 (group resolution)
+
+      - id: B3
+        name: Agent sends group request
+        actor: sending_agent
+        action: >
+          Calls pact_do(action: "send") with recipients array,
+          group_ref, and context_bundle.
+        emotion: null  # agent-internal
+        produces: [request_envelope]
+        consumes: [recipients, merged_defaults]
+
+      - id: B4
+        name: Confirmation to sender
+        actor: sending_agent
+        action: >
+          Confirms to human: who will see it, whether it's claimable,
+          request ID for status checking.
+        emotion: confidence
+        produces: []
+        consumes: [request_envelope, recipients, group_ref]
+        example: >
+          "Sent code-review to @backend-team (Maria, Tomás, Kenji, Priya).
+           Claimable — first to claim owns the review."
+
+  - id: C
+    name: Receiving Agent Processes Group Request
+    trigger: Agent checks inbox or is asked about pending requests
+    goal: Human sees request, claims if appropriate, agent works and responds
+    emotional_arc: [awareness, clarity, decision, commitment, completion]
+    steps:
+      - id: C1
+        name: Inbox check
+        actor: receiving_agent
+        action: >
+          Calls pact_do(action: "inbox"). Returns mixed list of direct
+          and group requests with claim status and group addressing visible.
+        emotion: awareness
+        produces: [inbox_entries]
+        consumes: [recipients, claim_status, group_ref]
+        integration_checkpoint: IC3 (inbox filtering)
+        design_note: >
+          Group and direct requests mixed together. Addressing
+          ("→ @backend-team" vs "→ @kenji") is first-class metadata.
+          Claimed requests show "Claimed by @name".
+
+      - id: C2
+        name: Human reviews details
+        actor: receiving_human
+        action: >
+          Asks agent for details on a request. Agent shows context_bundle,
+          sender, recipients, claim status. For claimable + unclaimed requests,
+          agent proactively asks if user wants to claim.
+        emotion: clarity
+        produces: []
+        consumes: [request_envelope, claim_status]
+        design_note: >
+          Agent is a thoughtful intermediary. Shows enough info for the human
+          to decide before committing. Proactively surfaces claim opportunity.
+
+      - id: C3
+        name: Human decides to claim
+        actor: receiving_human
+        action: Human agrees to claim
+        emotion: decision
+        produces: []
+        consumes: []
+
+      - id: C3b
+        name: Agent claims request
+        actor: receiving_agent
+        action: >
+          Calls pact_do(action: "claim", request_id: "...").
+          System marks as claimed. Other recipients see claim status.
+        emotion: commitment
+        produces: [claim_status]
+        consumes: [request_envelope]
+        integration_checkpoint: IC4 (claim exclusivity), IC5 (claim visibility)
+        design_note: >
+          Claim happens BEFORE agent starts work. This is the PagerDuty
+          acknowledge model. Prevents duplicate work.
+
+      - id: C4
+        name: Agent works
+        actor: receiving_agent
+        action: >
+          Agent investigates, analyzes, forms response. May take significant
+          time and tokens. Claim protects against duplicate effort.
+        emotion: null  # focus
+        produces: []
+        consumes: [request_envelope]
+
+      - id: C5
+        name: Agent responds
+        actor: receiving_agent
+        action: >
+          Calls pact_do(action: "respond") with response_bundle.
+          System moves request to completed (response_mode: any).
+        emotion: completion
+        produces: [response_envelope]
+        consumes: [request_envelope, response_mode]
+        integration_checkpoint: IC7 (completion by mode)
+
+  - id: D
+    name: Private Visibility Request
+    trigger: Requester needs independent assessments without groupthink
+    goal: Each recipient responds without seeing others' responses
+    emotional_arc: [trust, independence, honesty]
+    steps:
+      - id: D1
+        name: Send private-visibility request
+        actor: sending_agent
+        action: >
+          Sends request with pact defaults visibility: private,
+          response_mode: all.
+        emotion: trust
+        produces: [request_envelope]
+        consumes: [pact_defaults]
+
+      - id: D2
+        name: Recipient responds independently
+        actor: receiving_human
+        action: >
+          Sees request. Cannot see if others have responded or what they said.
+          Forms independent assessment and responds.
+        emotion: independence
+        produces: [response_envelope]
+        consumes: [request_envelope, visibility]
+        integration_checkpoint: IC6 (response routing by visibility)
+        design_note: >
+          360-feedback model. Requester sees all responses.
+          Respondents shielded from groupthink.
+
+  - id: E
+    name: Broadcast (No Response Expected)
+    trigger: Information needs to reach the group, no action needed
+    goal: Everyone sees the message, no response tracking
+    emotional_arc: [informed]
+    steps:
+      - id: E1
+        name: Send broadcast
+        actor: sending_agent
+        action: >
+          Sends request with response_mode: none_required, claimable: false.
+          Appears in inboxes. No response expected.
+        emotion: informed
+        produces: [request_envelope]
+        consumes: [pact_defaults]
+
+error_paths:
+  - id: ERR1
+    name: Claim race condition
+    trigger: Two agents attempt to claim the same request simultaneously
+    resolution: >
+      Earlier timestamp wins. Loser receives "already_claimed" error.
+      Agent informs user: "This was just claimed by @name."
+    emotion: mild-surprise → acceptance
+    design_note: >
+      Timestamp tie-breaking at the git level. No complex distributed
+      locking — git's atomic file operations handle this.
+
+  - id: ERR2
+    name: No one claims
+    trigger: Claimable request sits unclaimed
+    resolution: >
+      PACT is apathetic — no automated escalation. Sender can check_status
+      and see it's still pending/unclaimed. Human decision to re-send,
+      ping the group, or handle it themselves.
+    emotion: sender-mild-concern → human-action
+
+  - id: ERR3
+    name: All-respond request with partial responses
+    trigger: response_mode: all but some recipients haven't responded
+    resolution: >
+      PACT does not track who has/hasn't responded. Request stays pending
+      until all responses received. Sender can check_status. No automated
+      nudging — PACT is apathetic, humans manage their teams.
+    emotion: sender-patience
+
+  - id: ERR4
+    name: Private response leak attempt
+    trigger: Agent tries to access another recipient's response when visibility: private
+    resolution: >
+      System enforces visibility at response retrieval time. Only requester
+      and the individual respondent can see each private response.
+    emotion: trust-maintained
+
+deferred:
+  - id: DEF1
+    name: Pact inheritance / layered defaults
+    description: >
+      Child pacts that override parent pacts, helm-chart style.
+      Significant architectural concept flagged for separate DISCOVER wave.
+    revisit_criteria: When teams start duplicating pact definitions
+
+  - id: DEF2
+    name: Quorum response mode
+    description: >
+      "N of M must respond" mode. Deferred — humans should create their own
+      quorum tracking for their specific needs.
+    revisit_criteria: When multiple teams request built-in quorum support
+
+  - id: DEF3
+    name: Sequential and private_then_shared visibility
+    description: >
+      Round-based ordering and two-phase visibility. Deferred per DISCOVER.
+    revisit_criteria: >
+      Sequential: 20%+ of group pacts express ordering need.
+      Private_then_shared: 10%+ of pacts express blind-then-discuss pattern.
+
+  - id: DEF4
+    name: Multi-group addressing
+    description: >
+      Single request to multiple groups with per-group semantics.
+      Deferred — sender can create multiple requests.
+    revisit_criteria: When orchestration overhead of multiple requests becomes a pain point
+
+  - id: DEF5
+    name: Request-time override of pact defaults
+    description: >
+      Sender overrides response_mode/visibility/claimable per-request.
+      Deferred to keep v1 simple.
+    revisit_criteria: When teams need request-level flexibility beyond what pact defaults provide
+
+shared_artifacts:
+  - name: pact_defaults
+    source: Pact YAML frontmatter `defaults:` section
+    consumers: [sending_agent, system]
+
+  - name: protocol_defaults
+    source: Hardcoded in PACT system
+    consumers: [all_agents]
+
+  - name: recipients
+    source: Request envelope `recipients[]` field
+    consumers: [inbox_filtering, claim_tracking, response_routing]
+
+  - name: group_ref
+    source: Request envelope `group_ref` field
+    consumers: [inbox_display]
+
+  - name: claim_status
+    source: Request state (who claimed, when)
+    consumers: [inbox_display, duplicate_prevention]
+
+  - name: response_mode
+    source: Merged defaults on request
+    consumers: [system_completion_logic]
+
+  - name: visibility
+    source: Merged defaults on request
+    consumers: [response_retrieval_filtering]
+
+integration_checkpoints:
+  - id: IC1
+    name: Defaults merge
+    between: [pact_discover, "pact_do:send"]
+    validates: Protocol defaults + pact defaults produce valid merged config
+
+  - id: IC2
+    name: Group resolution
+    between: [config.json, "pact_do:send"]
+    validates: Group ref resolves to valid user IDs
+
+  - id: IC3
+    name: Inbox filtering
+    between: ["pact_do:send", "pact_do:inbox"]
+    validates: Group requests appear for all recipients
+
+  - id: IC4
+    name: Claim exclusivity
+    between: ["pact_do:claim", "pact_do:claim"]
+    validates: Second claim on exclusive request fails gracefully
+
+  - id: IC5
+    name: Claim visibility
+    between: ["pact_do:claim", "pact_do:inbox"]
+    validates: Claimed status visible to all recipients
+
+  - id: IC6
+    name: Response routing
+    between: ["pact_do:respond", visibility]
+    validates: Private responses hidden from other respondents
+
+  - id: IC7
+    name: Completion by mode
+    between: ["pact_do:respond", response_mode]
+    validates: Request completes according to mode (any=first, all=last)
