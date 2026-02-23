@@ -1,9 +1,18 @@
 # Discovery Brief: Pact Inheritance (Layered Defaults)
 
-**Date**: 2026-02-23
+**Date**: 2026-02-23 (updated 2026-02-23)
 **Origin**: DISCUSS wave for pact-fmt (Q11, interactive session with Cory)
-**Status**: Awaiting DISCOVER wave
+**Status**: Folded into pact-fmt — design decided, spec updated
 **Epic**: pact-y30 (Pact store)
+
+> **Resolution**: Inheritance design was folded into the pact format spec
+> (docs/discovery/pact-format-spec.md) rather than requiring a separate
+> DISCOVER wave. Key insight: bundle merge complexity doesn't exist because
+> bundles are agent instructions, not validated schemas. The protocol passes
+> bundles through untouched. Inheritance is a catalog/presentation concern —
+> the loader resolves the chain at read time so agents see a single merged
+> result. Single-level only (child → parent, no grandchild chains).
+> Colon naming convention: `request:backend`.
 
 ---
 
