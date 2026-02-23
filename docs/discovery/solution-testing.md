@@ -1,557 +1,398 @@
-# Solution Testing — Async Multi-Agent PACT
+# Solution Testing: Git Scaling Pattern Analysis for PACT
 
-## Discovery Phase: 3 COMPLETE + POST-MVP RE-DISCOVERY (Git Transport Revision)
-
-**Date**: 2026-02-21
-**Product**: Agent-native async PACT server ("agent-first email inbox")
-**Working name**: TBD (user to decide)
-**Transport**: Git repository as PACT (Tier 1), optional brain service (Tier 2)
-**Client**: Local MCP server (stdio) per client, wrapping git operations
+**Date**: 2026-02-22
+**Researcher**: Scout (nw-product-discoverer)
+**Focus**: Comparing git scaling patterns to find the one that fits PACT's philosophy
 
 ---
 
-## Architectural Pivot: Git as PACT Transport
+## The Question
 
-### What Changed (Round 6)
+The refactoring plan proposes a Gerrit-inspired thread-per-branch model with inbox refs. The product owner asks: "Are there patterns to inform us rather than a model adopted and forced?"
 
-The user identified that git provides the entire "dumb router" layer for free:
-
-> "If we do use a local MCP client and handle the 'orchestration LLM' layer locally on the client before pushing it to a central shared git repository(ies) where the other clients are syncing from and using as the queues, does that greatly simplify our MVP architecture or even the entire project?"
-
-**Answer: Yes.** The MVP "central HTTP service" was providing: routing, inbox management, lifecycle tracking, audit trail, and file storage. Git provides ALL of these natively:
-
-| MVP Need | Git Provides |
-|----------|-------------|
-| Request storage | JSON files in repo |
-| Routing/inbox | Directory conventions (files addressed to user) |
-| Audit trail | git log (every commit IS the audit) |
-| Sync protocol | git push/pull |
-| Conflict detection | git merge conflicts |
-| Authentication | SSH keys, tokens (already solved) |
-| Versioning | Every state change is a commit |
-| Hosting | GitHub/GitLab private repo (free) |
-| Offline-first | Commit locally, push when ready |
-
-### What You Lose vs Central HTTP
-
-| Capability | HTTP Server | Git Transport | Impact |
-|-----------|-------------|---------------|--------|
-| Real-time push notifications | Webhooks/SSE | Polling via git pull | ACCEPTABLE — async work tolerates latency |
-| Central validation | Server validates before routing | Client validates locally | ACCEPTABLE — brain was deferred anyway |
-| Central brain | Server-side LLM | Deferred to Tier 2 service | ACCEPTABLE — explicitly deferred |
-| User directory | Server config file | Git repo contributors | ACCEPTABLE — repo access = user registry |
-
-### The Tiered Architecture
-
-```
-Tier 1: Git Repository (always works, the base protocol)
-  - Shared git repo = the coordination "server"
-  - Local MCP server on each client wraps git operations
-  - Directory structure = the protocol
-  - git log = the audit trail
-  - Works with 2 people and a private repo TODAY
-
-      (optional, additive)
-            |
-            v
-
-Tier 2: Brain Service (watches repo, adds intelligence)
-  - Runs as CI/CD pipeline, GitHub Action, or standalone service
-  - Watches repo for new requests via webhooks or polling
-  - Enriches requests (search JIRA, check duplicates, add history)
-  - Validates context bundles against schemas
-  - Commits enrichment back to repo
-  - Sends push notifications (Slack, email, OS notifications)
-  - Hosts the orchestrator LLM
-
-      (optional, additive)
-            |
-            v
-
-Tier 3: Institutional Memory (accumulates knowledge)
-  - Indexes all requests/responses
-  - Detects patterns across history
-  - Proactively enriches new requests with historical context
-  - Customer/entity profile building
-```
-
-This is exactly the relationship between bare git and GitHub/GitLab. Git is the protocol. The service adds intelligence on top without clients needing to know it exists.
+This document examines 6 distinct patterns for scaling git-based coordination, comparing them against PACT's actual needs and philosophy.
 
 ---
 
-## Solution Hypotheses (Updated)
+## PACT's Constraints and Philosophy
 
-### H1: The Minimal Complete Loop (REVISED)
+Before evaluating patterns, ground the analysis in what PACT actually is:
 
-**If** we build a local MCP server that reads/writes structured request files to a shared git repository,
-**then** tech support handoffs will require less manual context assembly and the receiving agent will start with better situational awareness,
-**because** the context bundle lives in a JSON file that the receiver's MCP server reads directly into their agent's context.
-
-**Riskiest assumption**: That the git pull/push cycle is fast and reliable enough that it does not feel broken compared to Slack's near-instant messaging.
-
-### H2: Pacts as PACT (UNCHANGED)
-
-**If** we define request types through paired PACT.md files (sender pact + receiver pact),
-**then** agents on both sides will reliably produce and consume structured requests,
-**because** this applies the Code Mode pattern to multi-agent coordination.
-
-**Riskiest assumption**: That PACT.md instructions are precise enough for consistent agent behavior.
-
-### H3: Git as PACT Transport (NEW)
-
-**If** we use a shared git repository as the PACT with directory conventions as the protocol,
-**then** we get sync, audit, auth, versioning, and conflict detection for free,
-**because** git already solves these problems for code coordination, and structured request files are just another form of structured data.
-
-**Riskiest assumption**: That git merge conflicts are rare enough (or handleable enough) that they do not break the workflow. Key insight: requests are append-only (new files), not edits to shared files, so conflicts should be extremely rare.
-
-### H4: Tiered Architecture (NEW)
-
-**If** we design the protocol as directory/file conventions independent of transport,
-**then** the git layer and brain service layer are genuinely independent and interchangeable,
-**because** the brain service just reads the same files the clients do, and writes enrichment back as commits.
-
-**Riskiest assumption**: That the repo structure conventions are clean enough to support both human readability and machine processing.
+| Constraint | Implication |
+|---|---|
+| "PACT stays out of the way" | Solutions must not require users to understand git internals |
+| 2-user team today, 10-20 target | Patterns must work at small scale, not just large |
+| Append-only file model | Most git operations are conflict-free by design |
+| Git push with single retry | Current contention handling is minimal |
+| Developers are the users | Git proficiency can be assumed |
+| stdio MCP subprocess | No persistent server process; each tool call is independent |
+| 96 passing tests | Any change must not break existing behavior |
 
 ---
 
-## Proposed MVP Components (Git Transport)
+## Pattern 1: Status Quo with Improved Retry (Recommended for Now)
 
-### Component 1: Shared Git Repository
+### How It Works
 
-**What it is**: A private git repository (GitHub, GitLab, or self-hosted) that serves as the coordination "server."
+Keep the current single-branch, directory-lifecycle model. Improve the retry mechanism in `GitAdapter.push()`.
 
-**Repository structure**:
+### Changes Required
+
 ```
-pact-repo/
-  config.json                    # Team config: members, settings
+git-adapter.ts:
+  push():
+    retry_count: 1 -> 3 (configurable)
+    backoff: none -> exponential (100ms, 400ms, 1600ms)
+    logging: add retry count to structured logs
+    error: more descriptive failure message after exhausted retries
+```
 
+### Evidence
+
+- PACT's current 2-user production: zero conflicts observed.
+- The append-only file model means rebase almost always auto-resolves (different files).
+- GitOps tools (Kargo, Flux) use similar retry patterns and handle moderate concurrency.
+- Kargo's default is 50 retries ([Kargo docs](https://docs.kargo.io/user-guide/reference-docs/promotion-steps/git-push/)).
+
+### Pros
+
+- Zero architectural change
+- Zero risk to existing tests
+- Extends viable team size from ~5 to ~15-20 users
+- Takes 30 minutes to implement
+
+### Cons
+
+- Does not fundamentally solve contention at scale (50+ users)
+- Retry latency adds unpredictable delay to write operations
+
+### PACT Philosophy Fit: EXCELLENT
+
+No user-facing complexity. No new concepts. The tool "stays out of the way."
+
+### Viable Scale: 2-20 concurrent users
+
+---
+
+## Pattern 2: Branch-Per-User Inbox (from PACT's Research)
+
+### How It Works
+
+Each user has their own branch (`inbox/<user_id>`). Senders push to the recipient's branch. The main branch holds only configuration and pacts.
+
+Source: `/Users/cory/pact/docs/research/protocol-design/branch-per-user-inbox-architecture.md`
+
+### Architecture
+
+```
+main              -> config.json, pacts/ (read-only)
+inbox/cory        -> requests/pending/, requests/completed/, responses/
+inbox/dan         -> requests/pending/, requests/completed/, responses/
+inbox/team/backend -> team inbox (fan-out to members)
+dead-letters      -> failed deliveries
+```
+
+### Evidence
+
+- Well-researched in PACT's own docs (60+ sources cited).
+- Email SMTP model maps cleanly (envelope = refspec, header = commit metadata).
+- public-inbox project validates git as message storage substrate at scale (Linux kernel mailing list).
+- MCP Agent Mail (1.7k GitHub stars) uses folder-based separation within a single branch.
+
+### Pros
+
+- Write contention reduced to "two senders push to same recipient simultaneously" (much rarer)
+- Natural access control via branch permissions
+- Inbox scan reads only user's branch (no filtering)
+- Migration path documented (dual-write shadow mode)
+
+### Cons
+
+- Branch proliferation: N users + M teams = N+M branches
+- Team fan-out requires server-side hook or GitHub Actions (reliability concern documented in PACT research: "GitHub Actions are designed for CI/CD, not message routing")
+- Client must manage multiple branches (checkout/fetch/push to different refs)
+- More complex `git push` targeting (must specify refspec for each operation)
+- Responses cross branches (Dan responds to Cory's request by pushing to `inbox/cory`)
+
+### Critical Concern: stdio MCP Model
+
+PACT runs as a **stateless stdio subprocess**. Each tool call starts fresh. There is no persistent process managing working tree state. Branch-per-user requires either:
+1. Multiple working tree checkouts (one per branch) -- requires significant disk management
+2. `git fetch` + `git show` to read branch contents without checkout -- requires rewriting FileAdapter
+3. Bare repo manipulation with `git update-ref` -- expert-level git, error-prone
+
+This is a significant implementation concern that the research document does not address.
+
+### PACT Philosophy Fit: MODERATE
+
+Users never see branches directly (abstracted by MCP tools). But the internal complexity is real, and failure modes are harder to debug.
+
+### Viable Scale: 5-100 concurrent users
+
+---
+
+## Pattern 3: Thread-Per-Branch with Inbox Refs (Gerrit Model, from Refactoring Plan)
+
+### How It Works
+
+Every thread gets its own branch (`refs/threads/<thread_id>`). Lightweight ref pointers (`refs/inbox/<user_id>/<thread_id>`) provide discovery. Multi-ref atomic push creates both the data branch and inbox pointers simultaneously.
+
+Source: refactoring plan, Section 3.
+
+### Architecture
+
+```
+refs/threads/req-123    -> full thread data (requests, responses)
+refs/inbox/alice/req-123 -> pointer to refs/threads/req-123 tip
+refs/inbox/bob/req-123   -> pointer to refs/threads/req-123 tip
+refs/archive/2026/02     -> consolidated old threads
+```
+
+### Evidence
+
+- Gerrit uses `refs/changes/XX/YYYY/Z` for code review at Android scale (866k+ refs). Shards with mod-100 to manage directory entries ([Gerrit docs](https://gerritcodereview-test.gsrc.io/alpha-concept-refs-for-namespace.html)).
+- `git push --atomic` ensures all-or-nothing updates on GitHub and GitLab, but NOT on Azure DevOps ([Microsoft Q&A](https://learn.microsoft.com/en-us/answers/questions/2262768/(ado)-(repo)-support-for-git-push-atomic)).
+- `git ls-remote` for inbox scanning is O(1) per ref (fast for filtering by prefix).
+
+### Pros
+
+- Absolute write contention isolation (only same-thread conflicts possible)
+- Inbox discovery via `git ls-remote "refs/inbox/bob/*"` (server-side, fast)
+- Clean conceptual model (every thread is an isolated unit)
+- Supports mid-flight topology changes (add CC participant by creating new inbox ref)
+
+### Cons
+
+- **Complexity explosion**: Each request creates a new branch + N inbox refs. 100 threads with 3 participants = 400 refs.
+- **Archival required**: Without cleanup, refs accumulate indefinitely. Plan acknowledges this.
+- **Atomic push portability**: Not supported on Azure DevOps. Plan's assumption is wrong for non-GitHub/GitLab hosts.
+- **No sharding**: Gerrit shards refs/changes with mod-100 for filesystem reasons. The plan does not include this.
+- **stdio incompatibility**: Same working tree concerns as Pattern 2, but worse (more branches to manage).
+- **`git ls-remote` at scale**: Can produce megabytes of output with many refs ([HN report of 14MB](https://news.ycombinator.com/item?id=43387189)).
+- **Packed-refs linear scan**: Looking up a single ref in packed-refs requires scanning the entire file ([Git reftable docs](https://git-scm.com/docs/reftable)).
+- **Tooling gap**: Standard git clients (GitHub UI, GitLab UI, VS Code) do not display custom ref namespaces well.
+
+### Critical Concern: Operational Complexity
+
+The Gerrit model works because Gerrit is a PURPOSE-BUILT server that manages refs internally. Users never interact with refs/changes/* directly -- they interact through the Gerrit web UI. PACT would need to build equivalent management infrastructure, turning a 2,200 LOC MCP server into a ref management system.
+
+### PACT Philosophy Fit: POOR
+
+This is the most complex option. It requires users (or at least operators) to understand custom ref namespaces, archival policies, and multi-ref push semantics. It does not "stay out of the way."
+
+### Viable Scale: 50-10,000+ concurrent users (but designed for scales PACT is years away from)
+
+---
+
+## Pattern 4: Git Notes as Side-Channel Metadata
+
+### How It Works
+
+Use `git notes` to attach structured metadata (inbox assignments, lifecycle state) to commits, rather than using directory structure or branch namespaces.
+
+### Architecture
+
+```
+main                          -> all request/response files (current model)
+refs/notes/pact/inbox         -> notes mapping commit -> assigned recipients
+refs/notes/pact/status        -> notes mapping commit -> lifecycle state
+refs/notes/pact/thread        -> notes mapping commit -> thread membership
+```
+
+### Evidence
+
+- Google's git-appraise used git notes for distributed code review. Used `cat_sort_uniq` merge strategy for conflict-free note merging ([GitHub](https://github.com/google/git-appraise)).
+- Git notes are a built-in feature with separate ref namespaces.
+- Poor tooling support is widely acknowledged: "git notes are Git's coolest, most unloved feature" ([HN discussion](https://news.ycombinator.com/item?id=44345334)).
+- `git notes` requires custom tools for non-text notes ([Alchemists](https://www.alchemists.io/articles/git_notes)).
+- git-appraise is now archived (no longer maintained), which is a signal about the viability of notes-based approaches.
+
+### Pros
+
+- No branch proliferation (everything stays on main)
+- Notes have separate merge strategies (can be conflict-free)
+- Keeps the current single-branch model intact
+- Notes are invisible to normal git operations (do not clutter diffs)
+
+### Cons
+
+- **Poor tooling**: No GitHub/GitLab UI for notes. No VS Code support. Custom tools required.
+- **Fragile**: Notes are easily lost (git rebase drops notes, git filter-branch drops notes).
+- **Not well understood**: Most developers have never used git notes.
+- **Performance**: Notes refs can grow large and require their own packing.
+- **git-appraise is dead**: The most prominent git-notes project is archived, suggesting the pattern has limited viability.
+
+### PACT Philosophy Fit: POOR
+
+Requires understanding an obscure git feature. Fragile under common git operations. Does not stay out of the way -- it stays hidden and breaks silently.
+
+### Viable Scale: N/A (not recommended due to tooling and fragility concerns)
+
+---
+
+## Pattern 5: Orphan Branches for Isolation
+
+### How It Works
+
+Use git orphan branches (no shared history with main) to create completely isolated data stores within the same repository.
+
+### Architecture
+
+```
+main                -> config.json, pacts/
+orphan:inbox-cory   -> cory's inbox data (completely separate history)
+orphan:inbox-dan    -> dan's inbox data (completely separate history)
+orphan:threads      -> all thread data (separate history)
+```
+
+### Evidence
+
+- GitHub Pages uses orphan branches (`gh-pages`) for isolated content storage -- a well-established pattern ([GitHub docs](https://docs.github.com/en/pages)).
+- Orphan branches share no history, meaning `git clone --single-branch` can fetch only the relevant branch.
+- Standard git feature, widely supported.
+
+### Pros
+
+- Complete history isolation (inbox history does not pollute main history)
+- Each branch can be independently cloned, garbage collected, or archived
+- No shared commits means no rebase conflicts between branches
+- Well-supported by all git hosting platforms
+
+### Cons
+
+- Same working tree management challenges as Pattern 2
+- `git checkout` between orphan branches replaces the entire working tree
+- No commit-level cross-referencing between branches (thread linking is harder)
+- Adds cognitive complexity for debugging ("why is git log empty after checkout?")
+
+### PACT Philosophy Fit: MODERATE
+
+Cleaner than branch-per-user (complete isolation), but same stdio/working-tree challenges.
+
+### Viable Scale: 5-50 concurrent users
+
+---
+
+## Pattern 6: Directory Sharding on Main Branch
+
+### How It Works
+
+Keep the single-branch model but partition the directory structure to reduce contention. Use user-namespaced directories within requests/pending/ so that concurrent writers target different filesystem paths.
+
+### Architecture
+
+```
+main/
+  config.json
+  pacts/
   requests/
     pending/
-      req-20260221-001.json      # New request, waiting for recipient
-      req-20260221-002.json
-    active/
-      req-20260220-005.json      # Recipient has acknowledged
+      cory/           <- only requests TO cory go here
+        req-123.json
+      dan/            <- only requests TO dan go here
+        req-456.json
     completed/
-      req-20260219-003.json      # Response received, lifecycle complete
-
+      cory/
+        req-789.json
   responses/
-    req-20260219-003.json        # Response to completed request
-
-  pacts/                        # Shared pacts (the team protocol)
-    sanity-check/
-      sender.md                  # How to compose a sanity-check request
-      receiver.md                # How to handle a sanity-check request
-    bug-report/
-      sender.md
-      receiver.md
+    req-789.json
 ```
 
-**Key conventions**:
-- Requests are files, not database rows. One file per request.
-- Request lifecycle is represented by directory (pending -> active -> completed). Moving a file = changing status.
-- Responses are separate files keyed by request ID.
-- Pacts live IN the repo, so they are version-controlled and synced on pull. This solves the pact distribution problem for free.
-- `config.json` lists team members (user IDs mapped to display names).
+### Evidence
 
-**Why directories as lifecycle**:
-- `git mv requests/pending/req-001.json requests/active/` is a status change
-- git log shows exactly when each transition happened
-- Scanning `requests/pending/` for files addressed to you IS the inbox query
-- No database, no state management, no server process
+- This is how email maildir format works (separate directory per user, separate files per message). Proven at massive scale for decades.
+- Git handles directory-level writes without conflicts when files are in different paths.
+- The current model already partitions by lifecycle (pending/completed/cancelled). This extends partitioning by recipient.
 
-### Component 2: Local MCP Server (stdio)
+### Pros
 
-**What it is**: A lightweight MCP server that runs locally on each client, wrapping git operations into the 4 PACT tools.
+- **Zero new concepts**: Still a single branch. Still directory-based lifecycle. Still append-only files.
+- **Reduces contention**: Two senders targeting different recipients write to different directories. Rebase auto-resolves.
+- **Trivial migration**: Move existing pending files into recipient subdirectories. Backward-compatible with a feature flag.
+- **Inbox scan is cheaper**: `listDirectory("requests/pending/<userId>")` instead of listing all pending + filtering by recipient.
+- **No branch management**: No multi-branch checkout, no refspec targeting, no ref cleanup.
+- **Works with stdio model**: No changes to how PACT interacts with git.
 
-**Craft Agents source config**:
-```json
-{
-  "type": "mcp",
-  "name": "PACT",
-  "slug": "pact",
-  "provider": "pact",
-  "mcp": {
-    "transport": "stdio",
-    "command": "node",
-    "args": ["path/to/pact-mcp/index.js"],
-    "env": {
-      "PACT_REPO": "/path/to/pact-repo",
-      "PACT_USER": "cory"
-    },
-    "authType": "none"
-  },
-  "tagline": "Agent-native async coordination with your team"
-}
-```
+### Cons
 
-**4 MCP Tools** (same tools, git-backed):
+- Does not eliminate contention (two senders to same recipient still conflict). But reduces it significantly.
+- Directory structure becomes deeper (one more nesting level).
+- Responses still need lookup by request_id (not partitioned).
+- Does not provide the Gerrit model's "perfect isolation" -- it is a pragmatic improvement, not an architectural shift.
 
-| Tool | What It Does Internally |
-|------|------------------------|
-| `pact_request` | Validates envelope, writes JSON to `requests/pending/{id}.json`, runs `git add + commit + push` |
-| `pact_inbox` | Runs `git pull`, scans `requests/pending/` for files where `recipient.user_id` matches current user, returns list |
-| `pact_respond` | Writes response to `responses/{request_id}.json`, moves request from `pending/` or `active/` to `completed/`, runs `git add + commit + push` |
-| `pact_status` | Runs `git pull`, reads request file, returns current status and any response |
+### PACT Philosophy Fit: EXCELLENT
 
-**Implementation notes**:
-- `git pull` runs at the start of every read operation (inbox, status) to ensure fresh state
-- `git add + commit + push` runs at the end of every write operation (request, respond)
-- Commit messages are structured: `[pact] new request: req-20260221-001 (sanity-check) -> colleague-a`
-- The MCP server is stateless between tool calls — all state lives in the repo
+No new concepts for users or operators. The directory structure is still the protocol. File locations still communicate meaning. The tool stays out of the way.
 
-### Component 3: Request Schema (UNCHANGED)
-
-**Envelope** (MCP server validates locally):
-```json
-{
-  "request_id": "req-20260221-001",
-  "request_type": "sanity-check",
-  "sender": { "user_id": "cory", "display_name": "Cory" },
-  "recipient": { "user_id": "colleague-a", "display_name": "Alex" },
-  "status": "pending",
-  "created_at": "2026-02-21T14:00:00Z",
-  "deadline": null,
-  "context_bundle": {
-    "customer": "Acme Corp",
-    "product": "Platform v3.2",
-    "issue_summary": "Memory leak in auth service after OAuth refresh",
-    "involved_repos": ["platform-auth", "oauth-service"],
-    "involved_files": [
-      "src/auth/refresh.ts:L45-L90",
-      "src/oauth/token-manager.ts:L120-L150"
-    ],
-    "investigation_so_far": "Agent found that refresh tokens are not being garbage collected...",
-    "question": "Does this match the pattern you saw last month with the session service?",
-    "zendesk_ticket": "ZD-4521"
-  },
-  "expected_response": { "type": "text" }
-}
-```
-
-### Component 4: Pacts (IMPROVED — repo-hosted)
-
-Pacts now live IN the PACT repo, not installed separately on each client.
-
-**Before (HTTP architecture)**: Pacts manually installed on each client. No sync.
-**After (git architecture)**: Pacts live in `pact-repo/pacts/`. Every `git pull` syncs them. Version-controlled for free.
-
-The local MCP server can expose pact contents as part of `pact_inbox` responses, so the receiving agent gets both the request AND the instructions for how to handle it.
-
-**Sender pact** (`pact-repo/pacts/sanity-check/sender.md`):
-```markdown
-# Sanity Check — Sender
-
-When the user wants a colleague to verify their findings:
-
-1. Gather context from the current investigation:
-   - Customer and product context
-   - Issue summary (in your own words, not raw logs)
-   - Specific repos and files you've been looking at
-   - What you've found so far
-   - The specific question you want answered
-
-2. Compose the request using pact_request with type "sanity-check"
-
-3. Include a clear, specific question — not "look at this" but "does X match pattern Y?"
-
-4. Set a deadline if urgent
-
-## Context Bundle Fields
-
-- customer: Customer name or ID
-- product: Product and version
-- issue_summary: Human-readable summary
-- involved_repos: List of repository names
-- involved_files: List of file paths with line ranges
-- investigation_so_far: What you've found
-- question: The specific thing you want checked
-- zendesk_ticket: (optional) Reference ticket
-```
-
-**Receiver pact** (`pact-repo/pacts/sanity-check/receiver.md`):
-```markdown
-# Sanity Check — Receiver
-
-When you receive a sanity-check request:
-
-1. Read the context bundle carefully
-2. Review the involved files using your local tools
-3. Investigate the specific question asked
-4. Compose your response:
-   - **Answer**: Direct yes/no/maybe with explanation
-   - **Evidence**: What you found
-   - **Concerns**: Anything the sender should know
-   - **Recommendation**: What to do next
-
-5. Submit via pact_respond
-```
-
-### Component 5: Notification (Git-Based)
-
-**MVP (Tier 1)**: Polling via `git pull`.
-- `pact_inbox` tool runs `git pull` first, then scans
-- Agent can be instructed to check inbox at session start
-- Craft Agents hook (SchedulerTick) can periodically run `pact_inbox`
-
-**Tier 2 (Brain Service)**: GitHub Actions or webhooks.
-- On push to repo, webhook fires
-- Brain service processes new requests, sends notifications
-- Slack notification, email, or Craft Agents deep link
-
-**Tier 3 (Deep Integration)**: OS notifications, UI badges in Craft Agents.
+### Viable Scale: 2-30+ concurrent users
 
 ---
 
-## Conflict Handling
+## Comparison Matrix
 
-### Why Conflicts Should Be Rare
-
-Requests are **append-only new files**. Two users creating requests simultaneously write to DIFFERENT files (`req-20260221-001.json` and `req-20260221-002.json`). Git handles this natively with no conflicts.
-
-The only conflict scenarios:
-1. **Two people respond to the same request simultaneously** — unlikely (requests have a single recipient)
-2. **Two people move the same request file** — prevented by convention (only recipient moves their own requests)
-3. **Config.json edited by two people** — rare, and standard git merge handles it
-
-### Conflict Resolution Strategy
-
-If a `git push` fails due to remote changes:
-1. MCP server runs `git pull --rebase`
-2. If rebase succeeds (no conflicts), retry push
-3. If conflict occurs, MCP server returns an error with explanation
-4. Human resolves via their agent or manually
-
-This is the same workflow developers use daily. The target users are developers.
+| Pattern | Complexity | Incrementality | Scale Ceiling | stdio Compatible | Evidence Quality |
+|---|---|---|---|---|---|
+| 1. Improved retry | Trivial | 5/5 | ~20 users | Yes | High (known pattern) |
+| 2. Branch-per-user | High | 2/5 | ~100 users | Difficult | Medium (researched, not tested) |
+| 3. Thread-per-branch (Gerrit) | Very high | 1/5 | ~10k users | Very difficult | Medium (Gerrit at Google scale) |
+| 4. Git notes | Medium | 3/5 | Unknown | Yes | Low (dead project: git-appraise) |
+| 5. Orphan branches | High | 2/5 | ~50 users | Difficult | Medium (gh-pages pattern) |
+| 6. Directory sharding | Low | 4/5 | ~30 users | Yes | High (maildir pattern) |
 
 ---
 
-## Test Plan (Updated for Git Transport)
+## Recommended Path: Layered Scaling
 
-### Test 1: Context Bundle Quality (UNCHANGED)
+Rather than choosing one pattern for all scales, layer patterns as PACT grows:
 
-Same as before. Compare agent-composed structured request vs manual markdown handoff.
+### Layer 1: Now (2-5 users)
+**Pattern 1: Improved retry** -- increase retry count, add backoff. Effort: 30 minutes.
 
-### Test 2: Receiver Agent Usefulness (UNCHANGED)
+### Layer 2: Next (5-20 users)
+**Pattern 6: Directory sharding** -- namespace pending directories by recipient. Effort: 1-2 sessions. Reduces contention and improves inbox scan performance. Fully incremental, single-branch.
 
-Same as before. Does the agent start useful work in 1-2 turns from the context bundle?
+### Layer 3: Later (20-50 users)
+**Pattern 2: Branch-per-user** -- separate inbox branches. Effort: significant. Only pursue when Layers 1-2 are insufficient. Requires solving the stdio working-tree problem first.
 
-### Test 3: Round-Trip Completion (UPDATED)
+### Layer 4: Much Later (50+ users)
+**Pattern 3 elements** -- selectively adopt Gerrit-inspired patterns (e.g., `git ls-remote` for discovery) if branch-per-user proves insufficient. Do not adopt the full model wholesale.
 
-**Goal**: Validate the complete git-based loop works end-to-end.
-
-**Method**:
-1. User A and User B both clone the PACT repo
-2. User A installs the local MCP server and pacts
-3. User A's agent composes a request via `pact_request` (writes file, commits, pushes)
-4. User B installs the local MCP server and pacts
-5. User B's agent runs `pact_inbox` (pulls, scans, finds request)
-6. User B investigates and responds via `pact_respond` (writes response, moves request, commits, pushes)
-7. User A's agent runs `pact_status` (pulls, reads response)
-
-**Success criteria**: Complete round-trip with zero manual git operations, zero Slack, zero copy-paste.
-
-### Test 4: Pact Contract Consistency (UNCHANGED)
-
-Same as before. 5+ round-trips, measure schema compliance.
-
-### Test 5: Adoption Signal (UNCHANGED)
-
-Same as before. >50% of handoffs during test period use the system.
-
-### Test 6: Git Workflow Friction (NEW)
-
-**Goal**: Determine if the git pull/push cycle introduces unacceptable friction.
-
-**Method**:
-1. Measure time for each operation: request submit, inbox check, respond, status check
-2. Compare to Slack message latency
-3. Note any git errors (auth failures, push conflicts, network issues)
-
-**Success criteria**: No single operation takes >10 seconds. Git errors occur in <5% of operations. Total round-trip latency (submit to notification) is <5 minutes (acceptable for async work).
+### Never
+**Pattern 4: Git notes** -- insufficient tooling and fragile under common git operations.
 
 ---
 
-## Phase 3 Gate Criteria (G3)
+## The Key Insight
 
-| Criterion | Target | How Measured |
-|-----------|--------|-------------|
-| Task completion | >80% round-trips complete without fallback | Test 3 |
-| Usability | Agent starts useful work in 1-2 turns | Test 2 |
-| Users tested | 2+ | Test 1-5 |
-| Context quality | At least as good as manual handoff | Test 1 |
-| Consistency | >80% schema compliance | Test 4 |
-| Adoption signal | >50% of handoffs during test period | Test 5 |
-| Git friction | <10s per operation, <5% error rate | Test 6 |
+The refactoring plan's Gerrit model is designed for Google-scale problems. PACT is a 2-person tool growing toward 10-20 users. The simplest patterns (retry improvements + directory sharding) cover the next 10-15x of growth without introducing any architectural complexity.
+
+The patterns that fit PACT's philosophy share a trait: **they are invisible to the user.** Improved retries, directory sharding, and smarter inbox scans all happen behind the tool surface. The user never needs to understand branches, refs, or git internals. This is what "stays out of the way" means.
+
+The Gerrit model violates this principle by requiring ref management, archival policies, and multi-ref push semantics. It is the right tool for Gerrit. It is not the right tool for PACT -- not yet, and possibly not ever.
 
 ---
 
-## Design Questions Status
+## Sources
 
-### Resolved
+### Primary Sources (High Confidence)
+- [GitHub Repository Limits](https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits)
+- [Git push documentation](https://git-scm.com/docs/git-push) -- `--atomic` flag semantics
+- [Git reftable documentation](https://git-scm.com/docs/reftable) -- packed-refs scaling
+- [Gerrit Quick Introduction](https://gerrit.cloudera.org/Documentation/intro-quick.html)
+- [Gerrit refs/for namespace](https://gerritcodereview-test.gsrc.io/alpha-concept-refs-for-namespace.html)
+- [Azure DevOps: no atomic push support](https://learn.microsoft.com/en-us/answers/questions/2262768/(ado)-(repo)-support-for-git-push-atomic)
+- [Kargo git-push configuration](https://docs.kargo.io/user-guide/reference-docs/promotion-steps/git-push/)
 
-1. **Transport**: Git repository. RESOLVED.
-2. **Server intelligence at MVP**: None (git is the dumb router). RESOLVED.
-3. **Request type extensibility**: Type-agnostic. Pacts define everything. RESOLVED.
-4. **User identity**: Git identity (commit author). RESOLVED.
-5. **Pact distribution**: Pacts live in the repo. Git pull syncs them. RESOLVED.
-6. **Audit trail**: Git log. RESOLVED.
-7. **Client integration**: Local MCP server (stdio transport). RESOLVED.
+### Secondary Sources (Medium Confidence)
+- [Hacker News: git ls-remote at scale](https://news.ycombinator.com/item?id=43387189) -- 14MB output report
+- [Jujutsu git compatibility: ref performance](https://docs.jj-vcs.dev/latest/git-compatibility/) -- slowdown with many refs
+- [git-appraise (Google)](https://github.com/google/git-appraise) -- archived git-notes code review
+- [Hacker News: git notes unloved feature](https://news.ycombinator.com/item?id=44345334)
+- [Graphite: Gerrit approach to code review](https://graphite.com/guides/gerrits-approach-to-code-review)
 
-### Must Resolve During Building
-
-8. **Request ID generation**: Timestamp-based? Random? Must be unique across clients.
-9. **Git authentication for MCP server**: How does the MCP server authenticate to the remote? SSH key? Token in env var?
-10. **Inbox polling automation**: Manual (agent checks) vs automated (Craft Agents hook with SchedulerTick)?
-11. **Large context bundles**: What if a bundle is very large? Git handles large files poorly. Size limit?
-
-### Can Resolve During Building
-
-12. **Request expiry**: Do unanswered requests expire?
-13. **Concurrent requests**: Multiple pending to same recipient?
-14. **Notification format**: What does a new-request notification look like in Craft Agents?
-
-### Defer to Phase 2 (Tier 2 Brain Service)
-
-15. **Brain service architecture**: GitHub Action? Standalone watcher? CI pipeline?
-16. **Enrichment protocol**: How does the brain write enrichment back to the repo?
-17. **Push notifications**: Slack integration? Email? OS-level?
-18. **Orchestration patterns**: Chain, ring, broadcast definitions.
-19. **Institutional memory**: Indexing, search, pattern detection.
-
----
-
-## Phased Roadmap (Updated)
-
-### MVP (Tier 1): Git Protocol
-
-**Goal**: Prove the complete loop works and is better than Slack + markdown.
-
-**What to build**:
-- Git repo with directory conventions (the protocol specification)
-- Local MCP server with 4 tools wrapping git operations
-- Pacts for "sanity check" request type (hosted in repo)
-- Craft Agents source config
-- Basic envelope validation
-
-**What you get for free**:
-- Sync (git push/pull)
-- Audit trail (git log)
-- Authentication (SSH keys/tokens)
-- Pact distribution (git pull syncs pacts)
-- Versioning (every commit)
-- Hosting (GitHub private repo)
-
-**Estimated scope**: Local MCP server is ~500 lines of code. Repo conventions are a README. Pacts are markdown files. This is a weekend-to-week build, not a month build.
-
-**2-user testing** with developer friend.
-
-### Phase 2 (Tier 2): Brain Service
-
-**Goal**: Add intelligence that watching the repo provides.
-
-- Service that watches the repo (GitHub Actions, webhooks, or polling)
-- LLM processes new requests: validates, enriches, adds context
-- Push notifications (Slack bot, email, Craft Agents hooks)
-- Per-request-type orchestrator pacts (search JIRA, check duplicates)
-- Multiple request types
-- Workplace deployment
-
-### Phase 3 (Tier 3): Institutional Memory
-
-**Goal**: The system gets smarter with use.
-
-- Request/response indexing and search
-- Pattern detection across history
-- Proactive context injection
-- Customer/entity profile building
-- Advanced orchestration patterns
-- Pact versioning metadata
-
----
-
-## Key Advantages of Git Transport
-
-1. **No server to build, deploy, or maintain for MVP** — the "server" is a GitHub repo
-2. **Pacts distribute automatically** — `git pull` syncs pacts to every client
-3. **Audit trail is native** — `git log` shows every request, response, and status change with timestamps and authors
-4. **Auth is solved** — SSH keys and tokens are how developers already authenticate to git
-5. **Offline-first** — compose requests locally, push when ready
-6. **Peer-to-peer capable** — two people can coordinate with just a shared repo, no infrastructure
-7. **Brain service is purely additive** — you can add and remove Tier 2 without breaking Tier 1
-8. **The protocol IS the repo structure** — no spec document needed, the conventions are self-documenting
-9. **Conflict-free by design** — append-only new files means concurrent writes target different files
-10. **Small peer-to-peer and large team both work** — same protocol, same tools, different repo access
-
----
-
-## Post-MVP Solution Testing Results (2026-02-21)
-
-### Test Plan Results (From Pre-Build Plan)
-
-| Test | Target | Actual Result | Status |
-|------|--------|--------------|--------|
-| T1: Context bundle quality | Better than manual markdown handoff | NOT TESTED — real requests used minimal context | INCONCLUSIVE |
-| T2: Receiver agent usefulness | Agent starts useful work in 1-2 turns | NOT TESTED — "ask" requests were trivial | INCONCLUSIVE |
-| T3: Round-trip completion | Complete loop without manual git | PASS — 2 round-trips, zero manual git | PASS |
-| T4: Pact consistency | >80% schema compliance over 5+ trips | PARTIAL — 2 trips, 100% compliance but small sample | PARTIAL |
-| T5: Adoption signal | >50% of handoffs during test period | NOT MEASURED — too early, no parallel Slack comparison | NOT MEASURED |
-| T6: Git workflow friction | <10s per operation, <5% error rate | PASS — sub-second operations, 0% error rate | PASS |
-
-**Assessment**: The infrastructure works perfectly. The high-value tests (T1, T2, T5) that determine whether the system is actually better than Slack have not been run. The next phase must prioritize exercising the rich context bundle workflow that was the original problem validation.
-
-### Hypothesis Validation
-
-**H1: The Minimal Complete Loop** — CONFIRMED. The loop works. Request compose, push, pull, inbox scan, respond, status check — all function as designed. Zero manual git operations needed by either user.
-
-**H2: Pacts as Protocol** — PARTIALLY CONFIRMED. The "ask" pact is simple enough that compliance is trivial. The "design-pact" contract is sophisticated but untested with real users doing real design work. The risk that PACT.md instructions are too imprecise for complex request types remains open.
-
-**H3: Git as Transport** — CONFIRMED. Push/pull cycle is fast, conflicts are zero, offline tolerance works. The tiered architecture assumption holds: Tier 1 (git) provides the complete protocol without any intelligence layer.
-
-**H4: Tiered Architecture** — CONFIRMED at Tier 1. The repo structure conventions are clean enough to support both human readability (browsing requests/completed/ in a file manager) and machine processing (JSON parsing). The protocol is genuinely transport-independent. Tier 2 brain service has not been attempted.
-
-### Architecture Observations From Implementation
-
-**What worked better than expected**:
-
-1. **Ports-and-adapters architecture** — Not planned in discovery, but the implementation used hexagonal architecture with explicit port interfaces (GitPort, ConfigPort, FilePort). This made testing clean: 65+ tests at three levels (unit, integration, acceptance) with test doubles at port boundaries. This architectural choice should be preserved going forward.
-
-2. **Zod schema validation** — The RequestEnvelopeSchema and ResponseEnvelopeSchema provide runtime validation at the protocol boundary. Malformed envelopes are caught and logged (not crashed). This is better than the discovery's suggestion of "basic envelope validation."
-
-3. **Graceful degradation** — Inbox and status tools catch git pull failures and return local data with a staleness warning. This was not explicitly planned but emerged from good error handling practices.
-
-4. **Structured logging** — JSON structured logs to stderr (stdout reserved for MCP JSON-RPC). Duration tracking on git operations. This provides the operational visibility needed for the "git friction" metric.
-
-**What is weaker than expected**:
-
-1. **Status field inconsistency** — The request envelope has a `status` field that stays "pending" even after the file is moved to completed/. The actual status is derived from directory location, making the field misleading. This should either be updated on move or removed from the envelope.
-
-2. **No attachment surfacing** — Attachments are stored on disk but the receiving agent gets only the metadata (filename, description) in the envelope. There is no mechanism for the agent to read attachment content without direct file access.
-
-3. **expected_response is hardcoded** — Every request gets `expected_response: { type: "text" }` regardless of pact type. This field was designed to carry pact-specific response expectations but is not being used.
-
-4. **No thread tools** — thread_id is a schema field but there is no pact_thread or pact_list_threads tool. The multi-round pattern documented in design-pact relies entirely on the human tracking thread IDs.
-
-### Design Questions Resolved During Building
-
-| Question | Discovery Status | Resolution |
-|----------|-----------------|------------|
-| Request ID generation | Must resolve | `req-{YYYYMMDD}-{HHmmss}-{userId}-{hex4}` — timestamp + user + random |
-| Git authentication | Must resolve | Inherited from system git config (SSH keys / tokens). PACT_REPO points to local clone. |
-| Inbox polling automation | Must resolve | Manual via pact_inbox. No automation yet. |
-| Large context bundles | Must resolve | No explicit size limit. Attachments handle large content as separate files. |
-| Request expiry | Can resolve | NOT RESOLVED — no expiry mechanism |
-| Concurrent requests | Can resolve | RESOLVED — multiple pending to same recipient works, inbox returns all |
-| Notification format | Can resolve | NOT RESOLVED — no notifications beyond polling |
-
-### What the Implementation Teaches About Phase 2
-
-The MVP confirms the protocol layer. The next phase is about **workflows and usability**, not infrastructure:
-
-1. **Thread management** — The primitive (thread_id) exists. The tooling (thread listing, thread history) does not. This is the gap between "protocol supports it" and "users can actually use it."
-
-2. **Attachment completion** — The write side works. The read side is incomplete. The receiving agent needs attachment content, not just metadata.
-
-3. **Lifecycle operations** — Cancel, amend, and draft are basic workflow operations missing from the current tool set.
-
-4. **Real workload testing** — The system must be exercised with the actual tech support handoff workflow that validated the original problem. Playful testing proved the protocol; real workloads will prove the value.
+### Codebase Analysis
+- `/Users/cory/pact/src/adapters/git-adapter.ts` -- current push retry implementation
+- `/Users/cory/pact/src/tools/pact-inbox.ts` -- current inbox scan implementation
+- `/Users/cory/pact/docs/research/protocol-design/branch-per-user-inbox-architecture.md` -- existing research
+- `/Users/cory/pact/docs/adrs/adr-001-git-as-coordination-transport.md` -- original git transport decision
+- `/Users/cory/pact/docs/adrs/adr-005-directory-as-lifecycle.md` -- directory lifecycle design

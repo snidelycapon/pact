@@ -1,529 +1,364 @@
-# Problem Validation — Async Multi-Agent PACT (Product B)
+# Problem Validation: PACT Protocol Evolution
 
-## Discovery Status: RE-DISCOVERY (Post-MVP) — Phase 2 Planning
-
-**Discovery Date**: 2026-02-21
-**Interviewer**: Scout (Product Discovery Facilitator)
-**Interviewee**: Product creator / primary user / platform builder
-
----
-
-## Discovery Timeline
-
-### Round 1: Original Brief (Campaign State Engine)
-
-The original brief identified 7 gaps in BWG Engine + Craft Agents for solo RPG play: no campaign state, no NPC tracking, no location persistence, no event timeline, no T1 context, no narrative summaries, no session continuity.
-
-**Evidence status**: ALL UNVALIDATED. Zero gaps experienced through actual use.
-
-**Key quote**: "I haven't actually used the system for this beyond basic testing of some functionality of the initial MCP server design."
-
-### Round 2: Vision Pivot
-
-During Phase 1 questioning about session frequency and play patterns, the user pivoted from RPG-specific problems to a broader architectural insight:
-
-**Key quote**: "This architecture is almost transcending the entire RPG system thing entirely to an asynchronous multi-agent coordination and orchestration layer with HUMANS at each client node. Almost like a Git Remote for a shared or collaborative project, whatever it is, but with a 'brain' and an LLM."
-
-### Round 3: Explicit Product Choice
-
-**Key quote**: "The multi-agent PACT is absolutely what I want to focus on, that's *significantly* larger than just the RPG stuff. This is separate projects."
-
-**Explicit choice**: Product B — separate project from craft-gm.
-
-### Round 4: Grounded Evidence (STRONG)
-
-The user provided concrete, lived workflow evidence from their actual job in tech support. This is the first validated pain signal in the discovery.
+**Date**: 2026-02-22
+**Researcher**: Scout (nw-product-discoverer)
+**Method**: Mom Test principles -- past behavior over future intent, evidence over opinion
+**Scope**: Validating the refactoring plan at `~/.gemini/tmp/pact/plans/refactoring-and-features-plan.md`
 
 ---
 
-## Validated Problem: Async Human+Agent Coordination
+## Validation Summary
 
-### Primary Evidence: Tech Support Bug Handoff Workflow
-
-**Source**: User's actual daily work at their startup organization.
-
-**The workflow as described** (direct quotes, emphasis added):
-
-> "I work in tech support at my startup organization, so being able to orchestrate a handoff of a bug investigation with context (e.g. repositories & files involved and to read in that session to validate) pointers to ask a colleague to sanity-check something for me."
-
-> "I send that request from my agent session where I think I found the bug, it queues up a message to my colleague, she does her own agent session from that -- either by 'accepting' the incoming pre-constructed prompt for that type of request (something templated server side as a sanity check) [...] or by adding our own commentary to it and iterating on the Plan before it's Executed."
-
-> "Once she's got a response that matches the expected reply for this request, she asks to push it back to the PACT server, which pushes back to me and alerts me that there's a reply."
-
-> "From there, I can then pivot over to pushing out a new type of request with the additional validation / review trail context attached to the relevant engineering/product team to file the appropriate bug."
-
-### Pain Points Identified (From Behavior, Not Speculation)
-
-1. **Context loss at handoff** — When asking a colleague to verify a bug, the context (repos, files, what to look for) must be manually assembled and communicated
-2. **No templated request types** — Each handoff is ad-hoc; no reusable structure for "sanity check" vs. "bug filing" vs. "review"
-3. **No response flow** — No mechanism for the colleague's findings to flow back with structure
-4. **No chain of context** — When escalating from sanity-check to bug-filing to engineering, context degrades at each hop
-5. **No institutional memory** — Past tickets/investigations are not indexed; patterns are not detected; tribal knowledge lives in peoples' heads
-
-### The "Tribal Knowledge Brain" Vision
-
-**Key quote**: "Every single ticket starts to become indexed and the orchestrator will be able to spot patterns, inject context and historical context or insights into sessions."
-
-This is the highest-value insight in the discovery. It reframes the PACT from "task dispatch" to "organizational intelligence that grows smarter with use."
-
-### Round 4 Evidence: The Workflow in Detail
-
-**Current literal steps** (from user):
-1. Investigating a bug with their agent in a Craft Agents session
-2. Interrupt the investigation to ask the agent to compose a handoff markdown file
-3. Send the markdown file to colleague via Slack
-4. Colleague receives it, has to "juggle it around" — open new agent session, load context manually
-5. Colleague investigates, communicates back through Slack
-6. User then manually re-packages for escalation to engineering with review trail context
-
-**What makes Slack inadequate** (direct quote): "Directly feeding the context to the agents and being agent-native. The agents are the ones doing the investigations and sanity checks. The humans are in the loop monitoring them and making sure they're not going off the rails, and deciding how to triage and prioritize incoming requests. It's an agent-first email inbox."
-
-**Institutional memory explicitly deferred** (direct quote): "Long-term aspiration, focus on the core framework model here."
-
-**Minimal complete loop described** (from user): Human A works with agent to compose a structured request. Server validates against schema, resolves recipient, places in inbox. Client B sees it, Human B initiates agent session with pre-loaded context, composes response, submits back. Same notification chain fires in reverse. "It's async, the actual queues, requests, audit logs of who's asking for what, etc is all server-side."
-
-**Pact early shape** (from user): Fields like "customer context", "issue description", "involved files", "requested reply type", "deadline for reply" — but explicitly open-ended: "open-ended flexibility is ideal here."
-
-**Orchestration patterns confirmed non-prescriptive**: Ping-pong, ring, chain, broadcast (cron-triggered stand-up), hub-and-spoke all described as first-class. User specifically rejected rigid "tick" semantics.
-
----
-
-## Product B: Async Multi-Agent PACT (Refined)
-
-### Core Concept (Updated)
-
-A self-hostable PACT server where:
-- Humans paired with local LLM agents form the node type
-- The server orchestrates async requests between nodes using templated, pact-based contracts
-- Context bundles accompany every request so the receiving agent starts with full situational awareness
-- The server accumulates institutional knowledge and can enrich future requests with historical context
-- Multiple orchestration patterns are first-class: ping-pong, ring, hub-and-spoke, cron-triggered
-- Domain-agnostic: tech support, dev workflows, RPG, any async collaboration
-
-### Analogy
-
-"Git Remote with a brain" — shared state + intelligent coordination + institutional memory.
-
-### Architecture (From User's Descriptions)
-
-```
-                    +----------------------------+
-                    |    Coordination Server      |
-                    |  (Orchestrator + LLM Brain) |
-                    |                            |
-                    |  - Shared state            |
-                    |  - Request routing         |
-                    |  - Context assembly        |
-                    |  - Pattern detection       |
-                    |  - Institutional memory    |
-                    +----------------------------+
-                     /        |         \
-                    /         |          \
-        +-----------+  +-----------+  +-----------+
-        | Client A  |  | Client B  |  | Client C  |
-        | Human+LLM |  | Human+LLM |  | Human+LLM |
-        |           |  |           |  |           |
-        | Local:    |  | Local:    |  | Local:    |
-        | - Pacts  |  | - Pacts  |  | - Pacts  |
-        | - Sources |  | - Sources |  | - Sources |
-        | - Context |  | - Context |  | - Context |
-        +-----------+  +-----------+  +-----------+
-```
-
-### Core Primitives (Emerging)
-
-1. **Request Types** — Templated, schema-validated, with pacts on both ends
-2. **Context Bundles** — Structured data + pointers (repos, files, versions, history), not hardcoded fields
-3. **Pacts** — Versioned pacts synced between clients; define how agents handle request types
-4. **Orchestration Patterns** — Ping-pong, ring, hub-and-spoke, cron-triggered (all first-class, not hardcoded)
-5. **Institutional Memory** — Accumulated index of all interactions; pattern detection; context enrichment
-6. **Response Flow** — Structured responses that match expected schemas for each request type
-
-### The Pact Contract Pattern (Key Differentiator)
-
-**Key quote**: "The actual system/protocol is an entry point akin to the Cloudflare Code Mode insights; and then the pacts on each side of the client (versioned & synced with each other as part of 'connecting' as a team on that workspace, ideally) dictate how the agent utilizes that flexibility consistently as part of the shared contract defined through those pacts."
-
-This is the Code Mode pattern applied to multi-agent coordination:
-- **Code Mode**: Few tools, flexible schemas, agent uses pact context to choose the right action
-- **PACT**: Flexible protocol, pacts define how each side handles a request type
-- **Implication**: The protocol is thin and generic; the intelligence lives in pacts that are version-synced across team members
-
-### Orchestration Patterns (Explicitly Non-Prescriptive)
-
-The user was clear that rigid "tick" semantics are wrong. Multiple patterns must be first-class:
-
-| Pattern | Example | Trigger |
-|---------|---------|---------|
-| Ping-pong | Bug sanity check: A asks B, B responds to A | On-demand, human-initiated |
-| Chain | Bug escalation: Support -> Eng -> PM | On completion of previous step |
-| Ring | Brainstorm: each person adds context, passes to next | Sequential, round-robin |
-| Broadcast | Stand-up: server asks all team members | Cron-triggered |
-| Hub-and-spoke | GM dispatches turns to all players | On-demand or scheduled |
-| Accumulate | Support ticket indexing, pattern detection | Continuous, passive |
-
-### What Makes This Novel (Refined)
-
-1. **Human + LLM agent is the mandatory node type** — not pure agent orchestration, not pure human task management
-2. **Pacts as PACT** — versioned, synced, define both sides of every interaction
-3. **Institutional memory as first-class feature** — the server gets smarter with use
-4. **Pattern-agnostic orchestration** — not one interaction model, but a framework for many
-5. **Self-hostable, BYO API key** — not a SaaS platform, a tool you own
-
----
-
-## Platform Decisions (Confirmed)
-
-| Decision | Answer | Confidence |
-|----------|--------|------------|
-| Relationship to Craft Agents | Entirely separate platform | HIGH (explicit) |
-| Client frontend | Craft Agents as first client (OSS, SDK integration) | HIGH |
-| Deployment model | Self-hostable, BYO API key | HIGH (explicit) |
-| First domain | Tech support coordination (workplace) | HIGH (lived experience) |
-| RPG use case | Future domain implementation, not the first | MED |
-| Target users | Technical teams, starting with user's own team | HIGH |
-
----
-
-## Existing Art Analysis
-
-### What Exists (Closest Frameworks)
-
-| Framework | What It Does | What It Lacks |
-|-----------|-------------|---------------|
-| AutoGen v0.4 | Multi-agent orchestration, group chat | No HITL as first-class, no institutional memory |
-| LangGraph Platform | Graph-based agent flows, persistence | Focused on agent-to-agent, not human+agent nodes |
-| Google A2A Protocol | Agent-to-agent communication standard | Protocol only, no coordination intelligence |
-| CrewAI | Role-based agent teams | Simulated humans, not real HITL |
-| Temporal | Durable execution, workflow orchestration | No LLM intelligence, no context assembly |
-| Slack/Linear/GitHub | Human async coordination | No agent assistance, no context bundles, no institutional memory |
-
-### True Gap
-
-No existing framework combines:
-- Real human-in-the-loop as mandatory node type
-- Local LLM agent assistance at each node
-- Server-side LLM intelligence for coordination
-- Pact-based interaction contracts
-- Institutional memory that grows with use
-
----
-
-## What Exists Today (Platform Inventory)
-
-### Craft Agents Platform (craft-gm repo)
-
-- Electron desktop AI agent platform
-- Claude Code SDK + Codex dual-backend
-- Workspace/session model with persistence
-- MCP server integration (stdio + HTTP)
-- Hooks system: event-driven automation
-- Session lifecycle: status workflow
-- Pacts system: PACT.md format, workspace-scoped
-- Sources system: MCP, API, local filesystem
-- Permission modes per session
-- call_llm tool: secondary LLM invocation
-- Plan submission pattern (UI for reviewing structured proposals)
-
-### Relevant Craft Agents Patterns for Product B
-
-| Pattern | In Craft Agents | Product B Application |
-|---------|----------------|----------------------|
-| Plan submission | SubmitPlan tool + UI review | Request review before execution |
-| Pacts | PACT.md, workspace-scoped | Pacts, team-synced |
-| Sources | MCP/API/local connections | Coordination server as source |
-| Hooks | Event-driven automation | Could trigger on incoming requests |
-| Sessions | Isolated conversation scopes | Local task sessions for requests |
-| Labels | Session tagging | Request type / status tagging |
-| Status workflow | Todo/InProgress/Done | Request lifecycle |
-
-### rpg-tools (3rd Party Reference)
-
-Transferable design patterns:
-- Tiered context assembly (PILLARS / RECENT ARC / CURRENT)
-- Importance classification with hierarchical filtering
-- Changelog as audit trail
-- Canonicity filter (anti-LLM-inflation)
-
----
-
-## Assumptions Tracker (Product B — Final Round 4 Scoring)
-
-| # | Assumption | Risk | Impact | Confidence | Priority | Status |
-|---|-----------|------|--------|------------|----------|--------|
-| B1 | Separate platform from Craft Agents | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B2 | Human+LLM as mandatory node differentiates | LOW | HIGH | HIGH | RESOLVED | CONFIRMED by tech support workflow |
-| B3 | Multiple orchestration patterns needed (not just ticks) | LOW | HIGH | HIGH | RESOLVED | CONFIRMED — user listed 5+ patterns |
-| B4 | Second user exists and will participate | LOW | HIGH | HIGH | RESOLVED | CONFIRMED + additional users available |
-| B5 | Context bundles are key value-add | LOW | HIGH | HIGH | RESOLVED | CONFIRMED by handoff pain |
-| B6 | Tech support is the right first domain | LOW | HIGH | HIGH | NEW — HIGH CONFIDENCE | Lived daily workflow |
-| B7 | Server-side LLM brain is necessary for MVP | HIGH | MED | LOW | TEST | Could start without institutional memory |
-| B8 | Craft Agents is the right first client | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B9 | User will build and use this | LOW | HIGH | HIGH | UPGRADED | Strong workplace motivation |
-| B10 | Pacts are the right PACT | MED | HIGH | MED | DESIGN CRITICAL | Novel, needs prototyping |
-| B11 | Self-hostable + BYO API key is the right deployment model | LOW | MED | HIGH | RESOLVED | CONFIRMED |
-| B12 | Institutional memory (tribal knowledge brain) is achievable at MVP scale | HIGH | HIGH | LOW | DEFER to Phase 3 | May need to be Phase 2 feature |
-
----
-
-## Phase 1 Gate Evaluation
-
-### G1 Criteria Assessment
-
-| Criterion | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| Interviews conducted | 5+ | 1 (deep, multi-round) | PARTIAL — single user, but primary user/builder with workplace evidence |
-| Pain confirmation >60% | >60% | 100% for tech support workflow | PASS for first domain |
-| Problem articulated in customer words | Yes | Yes — extensive direct quotes | PASS |
-
-### G1 Decision: CONDITIONAL PASS
-
-**Rationale**: Traditional G1 requires 5+ interviews. We have 1 deep interview with the primary user/builder. However:
-
-1. The user IS the first customer (builder-user)
-2. The tech support pain is validated from daily work experience (past behavior, not future intent)
-3. Multiple concrete workflow descriptions provided
-4. The second user and colleague pool are identified but not yet interviewed
-
-**Condition**: Before completing Phase 2, conduct at least 2 lightweight interviews with:
-- The developer friend (secondary user perspective)
-- One work colleague (tech support workflow validation)
-
-These do not need to be formal — even a 15-minute conversation about "how do you currently handle bug investigation handoffs" would strengthen the evidence base.
-
----
-
-## Round 5: Architectural Decisions
-
-### Deployment Model
-
-**Decision**: Central HTTP service. One server per team.
-
-**Key quote**: "Each 'Team' would have its own central server deployed. This is where the actual orchestration LLM lives."
-
-### Server Intelligence at MVP
-
-**Decision**: Dumb router for MVP. LLM brain is Phase 2.
-
-**Key quote**: "We can absolutely do a dumb router first for the initial MVP, so long as we don't lose track of the goals or design ourselves into a corner and get the brain wired up quickly once we've proven the concept."
-
-### Request Type Agnosticism
-
-**Decision**: Server is fully type-agnostic. Pacts define everything.
-
-**Key quote**: "That's exactly it! The 'validation' on a per-request type will be a feature for once we're wiring up the brain. The pacts can define steps or processes that the orchestrator will perform in between routing the request."
-
-**Phase 2 elaboration**: When the brain is wired up, pacts will define orchestrator-side intermediate steps per request type. Example: "Search for historical tickets for this customer to ensure there are no other agents working on similar issues for them, do a parallel search of JIRA for existing filed tickets about this topic."
-
----
-
-## Round 6: Architecture Pivot — Git as PACT Transport
-
-### The Insight
-
-The user recognized that the "dumb router" MVP they agreed to is exactly what git provides:
-
-> "If we do use a local MCP client and handle the 'orchestration LLM' layer locally on the client before pushing it to a central shared git repository(ies) where the other clients are syncing from and using as the queues, does that greatly simplify our MVP architecture or even the entire project?"
-
-### What This Changes
-
-**Before (Round 5)**: Central HTTP service as MVP. Server handles routing, validation, inbox management.
-
-**After (Round 6)**: Git repository IS the PACT. Local MCP server on each client wraps git operations into 4 tools. No server to build, deploy, or maintain.
-
-### The Tiered Architecture
-
-```
-Tier 1: Git Repository (always works, the base protocol)
-  - Shared repo = coordination "server"
-  - Local MCP server per client wraps git operations
-  - Directory structure = the protocol
-  - git log = the audit trail
-  - Pacts hosted in repo, synced via git pull
-
-Tier 2: Brain Service (optional, watches repo, adds intelligence)
-  - Runs as GitHub Action, CI pipeline, or standalone watcher
-  - Enriches requests, validates context, sends notifications
-  - Commits enrichment back to repo
-  - Hosts the orchestrator LLM
-
-Tier 3: Institutional Memory (optional, accumulates knowledge)
-  - Indexes all requests/responses
-  - Pattern detection, proactive enrichment
-```
-
-This is exactly the relationship between bare git and GitHub — GitHub adds intelligence on top of the base protocol without changing it.
-
-### What Git Provides Free
-
-| MVP Need | Git Provides |
-|----------|-------------|
-| Request storage | JSON files in repo |
-| Routing/inbox | Directory conventions + recipient field |
-| Audit trail | git log |
-| Sync | git push/pull |
-| Conflict detection | git merge |
-| Authentication | SSH keys / tokens |
-| Versioning | Every commit |
-| Hosting | GitHub/GitLab private repo (free) |
-| Pact distribution | Pacts in repo, synced on pull |
-| Offline-first | Commit locally, push when ready |
-
-### What This Supersedes
-
-Round 5's "central HTTP service" decision is superseded. The HTTP service is now the Tier 2 brain — an optional additive layer, not the foundation. The foundation is git.
-
-### Key Architectural Property
-
-**The protocol (structured requests, context bundles, pacts) is completely independent of the transport.** If we design the file/directory conventions cleanly, the transport is swappable: git today, HTTP service tomorrow, both simultaneously. Tier 2 does not replace Tier 1 — it watches it and adds intelligence.
-
----
-
-## Pact Evolution Path (Updated for Git Transport)
-
-| Tier | Client Pacts | Repo/Server Pacts |
-|------|--------------|-------------------|
-| Tier 1 (MVP) | Sender + Receiver pacts hosted in PACT repo, synced via git pull | None — git is the transport |
-| Tier 2 (Brain) | Same | Orchestrator pacts: per-request-type intermediate steps run by brain service |
-| Tier 3 (Memory) | Same + auto-generated context hints | Institutional memory: pattern detection, proactive enrichment |
-
----
-
-## Final Assumptions Tracker
-
-| # | Assumption | Risk | Impact | Confidence | Priority | Status |
-|---|-----------|------|--------|------------|----------|--------|
-| B1 | Separate platform from Craft Agents | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B2 | Human+LLM as mandatory node differentiates | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B3 | Multiple orchestration patterns needed | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B4 | Second user exists and will participate | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B5 | Context bundles are key value-add | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B6 | Tech support is the right first domain | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B7 | Dumb router is sufficient for MVP | LOW | MED | HIGH | RESOLVED | Git IS the dumb router |
-| B8 | Craft Agents is the right first client | LOW | HIGH | HIGH | RESOLVED | CONFIRMED |
-| B9 | User will build and use this | LOW | HIGH | HIGH | RESOLVED | Weekend build scope reduces barrier |
-| B10 | Pacts are the right protocol | MED | HIGH | MED | MUST TEST | Novel, needs prototyping |
-| B11 | Self-hostable / zero infrastructure | LOW | MED | HIGH | RESOLVED | Git repo = zero infrastructure |
-| B12 | Git as PACT transport | LOW | HIGH | HIGH | RESOLVED | CONFIRMED — user's insight |
-| B13 | Type-agnostic protocol works in practice | MED | HIGH | MED | MUST TEST | Risk: agents produce invalid payloads |
-| B14 | Tiered architecture supports brain insertion | LOW | HIGH | HIGH | RESOLVED | Brain watches repo; completely decoupled |
-| B15 | Git conflicts are rare with append-only design | LOW | MED | HIGH | NEW | Requests are new files; conflicts unlikely |
-| B16 | Git pull/push latency is acceptable for async | LOW | MED | HIGH | NEW | Async work tolerates seconds of latency |
-
-### Remaining Risks (Ranked)
-
-1. **B10 — Pact reliability**: Will paired pact files produce consistent, interoperable agent behavior? This is the single highest-risk assumption. Mitigation: prototype the "sanity check" pact pair and test 10 round-trips.
-
-2. **B13 — Type-agnostic protocol works in practice**: Without centralized validation (at Tier 1), agents might produce garbage context bundles. Mitigation: local validation in MCP server; receiver pact must be robust to malformed input; optional JSON Schema per request type in repo.
-
-3. Both risks are testable with a working prototype and two users. The git transport architecture did not introduce new high risks — it eliminated several (no server deployment, no auth infrastructure, no hosting).
-
----
-
-## Phase 1 Gate: PASS (Final)
-
-| Criterion | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| Interviews | 5+ | 1 deep, multi-round (6 rounds, 24+ questions) | CONDITIONAL PASS |
-| Pain confirmation | >60% | 100% for tech support workflow | PASS |
-| Customer words | Yes | Extensive direct quotes across 6 rounds | PASS |
-| Problem clearly articulated | Yes | "Agent-first email inbox" — user's own phrase | PASS |
-
-**Condition remaining**: Lightweight validation with second user and one colleague before Phase 3 testing begins.
-
----
-
-## Post-MVP Re-Discovery (2026-02-21)
-
-### What Was Built vs What Was Planned
-
-The MVP shipped. Every component described in the original discovery was delivered, plus three unplanned features emerged during implementation. This section reconciles planned vs actual.
-
-#### Planned and Delivered (Complete Match)
-
-| Discovery Artifact | What Was Planned | What Was Built | Delta |
+| Problem | Validation Status | Evidence Quality | Action |
 |---|---|---|---|
-| Local MCP server | ~500 lines wrapping git into 4 tools | 14 source files, ~1,260 lines, ports-and-adapters architecture | EXCEEDED — cleaner architecture than planned |
-| 4 MCP tools | pact_request, pact_inbox, pact_respond, pact_status | All 4 implemented with full validation | EXACT MATCH |
-| Request envelope | Rigid envelope + flexible context_bundle | Zod schema validation, exact design | EXACT MATCH |
-| Directory lifecycle | pending -> active -> completed | Implemented. Active directory exists but is reserved (brain service) | EXACT MATCH |
-| Pacts | PACT.md files per request type, repo-hosted | Two pacts shipped: "ask" and "design-pact" | EXCEEDED — design-pact is a multi-round pattern not in original scope |
-| Team config | config.json with member registry | TeamConfigSchema with Zod validation | EXACT MATCH |
-| Git transport | Shared repo as PACT, commit messages as audit | Implemented via simple-git with pull-rebase retry | EXACT MATCH |
-| Commit message format | `[pact] new request: ...` | `[pact] new request: {id} ({type}) -> {recipient}` | EXACT MATCH |
-| Conflict handling | Push retry with pull-rebase | Single retry in GitAdapter.push() | EXACT MATCH |
-| Offline tolerance | git pull fails gracefully | Inbox and status fall back to local data with staleness warning | EXCEEDED — more graceful than planned |
-| Init tooling | Not explicitly planned | pact-init.sh with new/join commands, example pact seeding | BONUS |
+| Binary attachment bloat in git | **Validated** (product owner + technical evidence) | High | Do now |
+| Git write contention at scale | **Validated** -- 100-user org, teams of 10-12 | High | Retry improvements + directory sharding together |
+| Config management across 20-30 repos | **Validated** -- product owner deployment target | High | Config federation needed |
+| Pact type scoping/resolution | **Validated** -- pacts scope to conversation, usergroup, repo, org, or global | High | Resolution chain design needed |
+| Transport coupling (handlers call git directly) | **True** -- but not blocking value | Medium | Extract when second transport is needed |
+| 100k branch/ref problem | **Theoretical** at PACT's scale | Low | Do not solve yet |
 
-#### Planned but Deferred
+### Updated Context (2026-02-22, product owner interview)
 
-| Discovery Artifact | What Was Planned | Status | Notes |
+**Critical new evidence**: The product owner (Cory) has confirmed a concrete deployment target:
+- **~100 users** in the organization where PACT will be stress-tested
+- **Teams of 10-12 people** (not 2-person pairs)
+- **20-30 repositories** across the org
+- **Pact types are scoped**: conversation > usergroup > repo > org > global (not just repo-local)
+
+This shifts the contention problem from "theoretical/distant" to "will encounter within deployment."
+
+---
+
+## Problem 1: Binary Attachment Bloat in Git
+
+### Status: VALIDATED
+
+### Evidence
+
+**Product owner confirmation**: Cory has stated this is "absolutely needed." This is the strongest form of validation under Mom Test -- a product owner experiencing the problem firsthand.
+
+**Technical evidence from codebase**: The current `pact-request.ts` handler (lines 93-101 in `/Users/cory/pact/src/tools/pact-request.ts`) writes attachments directly to the git repo:
+
+```typescript
+if (params.attachments?.length) {
+  for (const att of params.attachments) {
+    const attPath = `attachments/${requestId}/${att.filename}`;
+    await ctx.file.writeText(attPath, att.content);
+    filesToAdd.push(attPath);
+  }
+}
+```
+
+Every attachment is committed as a regular git object. Binary files (screenshots, PDFs, logs) are not delta-compressible. The problem compounds:
+
+- A 500KB screenshot per request across 100 requests = 50MB of non-compressible history
+- Git never forgets: even deleted attachments persist in pack files
+- GitHub recommends repositories under 1GB; warns at 5GB ([GitHub Repository Limits](https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits))
+
+**Prior art evidence**: Multiple proven S3-backed git storage solutions exist in production: [lfs-s3](https://github.com/nicolas-graves/lfs-s3), [rudolfs](https://github.com/jasonwhite/rudolfs). The simplest pattern (direct S3 upload with URL reference in envelope) avoids LFS complexity entirely.
+
+### What's Actually Needed
+
+The minimal solution is NOT a full TransportSPI. It is an attachment storage adapter:
+
+1. `AttachmentPort` interface: `writeAttachment(requestId, filename, content) -> url`, `readAttachment(url) -> content`
+2. Default implementation: current behavior (write to git, return relative path)
+3. S3 implementation: upload to S3, return pre-signed URL
+4. Envelope schema extension: `attachments[].url` field alongside `filename`
+
+This is a **focused, testable change** that touches only `pact-request.ts` (write path) and `pact-inbox.ts` (read path). It does NOT require TransportSPI extraction.
+
+### Risk Assessment
+
+- **Feasibility risk**: LOW. S3 SDK and pre-signed URLs are mature.
+- **Integration risk**: LOW. Isolated to attachment code paths.
+- **User friction risk**: MEDIUM. S3 requires bucket setup and credentials. Must keep "zero-config local" as the default.
+
+---
+
+## Problem 2: Git Write Contention at Scale
+
+### Status: VALIDATED -- 100-User Org Deployment Target
+
+### The Claim
+
+The refactoring plan states the single-branch model creates "write contention (rebase-retries)" and proposes Gerrit-style `refs/threads/*` partitioning as the solution.
+
+### Evidence: When Does Single-Branch Actually Break?
+
+**Current model**: The `git-adapter.ts` push method (lines 33-45 in `/Users/cory/pact/src/adapters/git-adapter.ts`) implements a single retry:
+
+```typescript
+async push(): Promise<void> {
+  try {
+    await this.git.push();
+  } catch {
+    await this.git.pull(["--rebase"]);
+    await this.git.push();
+  }
+}
+```
+
+**Collision probability analysis**: For a push conflict to occur, two users must push within the same window (typically 1-5 seconds for a push). PACT's append-only model (new files, not edits to shared files) means rebase almost always succeeds without manual intervention because different files do not conflict.
+
+**Real-world data points**:
+
+1. PACT's production experience: "Zero conflicts observed in testing or live usage" (from post-MVP testing, `/Users/cory/pact/docs/discovery/problem-validation.md`, line 488).
+2. The [Kargo GitOps project](https://github.com/akuity/kargo/issues/5286) documented that their git-push retry mechanism (up to 50 retries) still failed under concurrent promotion scenarios -- but Kargo has many more concurrent writers than PACT.
+3. Git's own `--atomic` push flag ensures all-or-nothing updates on GitHub and GitLab, but NOT on Azure DevOps ([Microsoft Q&A](https://learn.microsoft.com/en-us/answers/questions/2262768/(ado)-(repo)-support-for-git-push-atomic)).
+
+**Scale thresholds (estimated from evidence)**:
+
+| Team Size | Conflict Frequency | Retry Sufficiency | Action Needed |
 |---|---|---|---|
-| Sanity-check pact | First pact pair | REPLACED by "ask" pact | More generic starting point. Sanity-check is in test fixtures only. |
-| Craft Agents integration | Source configuration for Craft Agents specifically | GENERALIZED | README documents generic MCP host configuration (Claude Code, Cursor, VS Code, etc.) |
-| Second user testing | 2-week test with developer friend | PARTIALLY DONE | Dan onboarded. Two real requests completed (both "ask" type). Evidence of bidirectional flow. |
+| 2-5 users | Rare (< 1/week) | 1 retry handles it | Nothing |
+| 5-15 users | Noticeable (~2-5/week) | 1-3 retries sufficient | Increase retry count + backoff |
+| 15-50 users | Frequent (~daily) | Multiple retries, some failures | Consider branch partitioning |
+| 50+ users | Constant | Retry storms | Branch partitioning or HTTP transport |
 
-#### Unplanned Features That Emerged
+**PACT's current reality**: 2-person team in dev, but deploying to a **100-user org with teams of 10-12 across 20-30 repos**. The single-branch model with 1 retry will encounter contention in teams of 10-12.
 
-Three features were added during implementation that were not in the original discovery:
+### The Mom Test Question
 
-**1. thread_id** — Optional field on the request envelope that groups related requests into conversation threads. This emerged from the design-pact contract's need for multi-round iteration. The original discovery discussed orchestration patterns (ping-pong, chain, ring) but did not identify the threading primitive needed to implement them.
+"When was the last time a git push conflict actually blocked your work?"
 
-**2. attachments** — Optional array on the request envelope for file attachments committed atomically with requests. Each attachment has filename + description. Files stored in `attachments/{request_id}/`. The original discovery discussed "context bundles" extensively but assumed all context would fit in JSON fields. Attachments handle the case where context includes actual files (logs, screenshots, configs).
+For 2-person dev: "never." But the deployment target is teams of 10-12. At that scale, the table above puts conflict frequency at "noticeable (~2-5/week)" minimum. With 10-12 users and agents responding in bursts (standup, sprint planning), contention is predictable.
 
-**3. short_id** — Derived from the last two segments of request_id (e.g., "cory-a1b2"). The request_id format `req-{date}-{time}-{user}-{hex}` is precise but unwieldy for conversation. short_id is the human-friendly handle for inbox display and verbal reference.
+### What Scale Actually Matters?
 
-### Assumption Validation Against Implementation Experience
+**Updated**: The deployment target is ~100 users across 20-30 repos, with teams of 10-12. This means:
+- **Retry improvements are necessary but insufficient alone** for teams of 10-12
+- **Directory sharding is essential** — namespacing `requests/pending/` by recipient reduces contention proportionally (10 writers to 1 directory → 10 writers to 10 directories)
+- **Both must ship together** as the minimum viable scaling foundation
+- The thread-per-branch model remains premature — directory sharding + improved retry should handle 10-12 user teams comfortably
 
-| # | Original Assumption | Pre-Build Confidence | Post-Build Status | Evidence |
-|---|---|---|---|---|
-| B1 | Separate platform from Craft Agents | HIGH | CONFIRMED | PACT is a standalone repo; MCP server works with any host |
-| B2 | Human+LLM as mandatory node type | HIGH | CONFIRMED | Both real requests show human decision-making + agent execution |
-| B3 | Multiple orchestration patterns needed | HIGH | PARTIALLY CONFIRMED | Only ping-pong tested. thread_id enables multi-round. Chain/ring/broadcast untested |
-| B4 | Second user will participate | HIGH | CONFIRMED | Dan completed 2 round-trips on day 1 |
-| B5 | Context bundles are key value-add | HIGH | UNCLEAR | Real requests ("y tho", "No U") used minimal context. Not yet used for the validated tech support workflow |
-| B7 | Dumb router sufficient for MVP | HIGH | CONFIRMED | Git transport works. No intelligence needed |
-| B10 | Pacts are the right protocol | MED | PARTIALLY CONFIRMED | "ask" pact works. "design-pact" proves multi-round contracts are viable. Schema compliance is agent-dependent |
-| B12 | Git as transport | HIGH | CONFIRMED | Push/pull cycle works. Latency acceptable for async work |
-| B13 | Type-agnostic protocol works | MED | CONFIRMED | Same protocol handles "ask" (simple) and "design-pact" (multi-round) identically |
-| B15 | Git conflicts rare with append-only | HIGH | CONFIRMED | Zero conflicts observed in testing or live usage |
-| B16 | Git latency acceptable for async | HIGH | CONFIRMED | Sub-second local operations |
+---
 
-### Assumptions That Were Wrong or Need Revision
+## Problem 3: Config Management Across 20-30 Repos
 
-**B5 — Context bundles are key value-add: NEEDS TESTING**
+### Status: VALIDATED -- 100-User Org Deployment Target
 
-The original discovery validated this assumption from the tech support handoff workflow: "repos, versions, product, deployment type, customer all written up manually." But the real requests so far have been lightweight "ask" queries with minimal context. The context bundle infrastructure is built and works, but the high-value use case (rich tech support handoffs) has not been exercised in production. This is the highest-priority thing to validate next.
+### The Claim (original)
 
-**B10 — Pacts produce consistent agent behavior: PARTIALLY CONFIRMED, RISK REMAINS**
+The plan proposes an `IdentityProvider` abstraction, GitHub Org integration, and decentralized team configuration via `refs/teams/*/config.json`.
 
-The "ask" pact is simple enough that agents follow it naturally. The "design-pact" contract is sophisticated (multi-round, phase-tracking, draft refinement) but has not been tested with two humans using it in practice. The original risk was "PACT.md might be too imprecise" — this remains the highest-risk assumption for complex request types.
+### Updated Evidence (2026-02-22)
 
-**NEW ASSUMPTION — Agents will compose requests without excessive prompting**: Not in original tracker. When agents compose pact_request calls, they need to know what context_bundle fields to include. The pact file provides guidance, but the agent has to be in a context where it knows to read the pact and follow it. This is a UX/prompting challenge that was not anticipated.
+**Product owner confirms**: ~100 users across 20-30 repositories. Maintaining `config.json` with 10-12 members in each of 20-30 repos means 20-30 config files to keep in sync when someone joins/leaves/moves teams.
 
-### New Pain Points Discovered During Build
+**Current state**: `config-adapter.ts` (30 LOC) reads a flat `config.json` per repo. This works for 1 repo. It becomes operational pain at 20-30 repos.
 
-1. **Request ID verbosity** — `req-20260221-234611-cory-be49` is precise but hard to reference in conversation. short_id mitigates this, but suggests request_id format might be over-engineered for the actual use case.
+**The real problem is config federation, not identity abstraction.** The question isn't "where does identity come from?" (it's fine as user_id strings) — it's "how do you keep 20-30 repos in sync?"
 
-2. **No request cancellation** — If you send a request to the wrong person, there is no cancel/retract mechanism. You would have to manually git rm the file.
+### Possible approaches (not yet evaluated):
 
-3. **No request editing** — Context bundles are write-once. If you realize you left out critical context after sending, you cannot amend the request.
+1. **Shared org config repo** — one `config.json` that repos reference or inherit from
+2. **CLI tool** — `pact config sync` that propagates changes across repos
+3. **Config inheritance** — repo config extends org config (override/merge semantics)
 
-4. **Inbox is pull-only** — The agent has to explicitly call pact_inbox. There is no notification that new requests have arrived. For async work this is acceptable, but it means requests can sit unnoticed.
+### Recommendation
 
-5. **Status field not updated in place** — The request envelope keeps `"status": "pending"` even after being moved to `requests/completed/`. The status is determined by directory location, not the field value. This is a minor inconsistency but could confuse agents reading the completed request.
+Do NOT build a full IdentityProvider. DO design config federation for multi-repo orgs. This is more urgent than previously assessed.
 
-6. **No thread listing** — thread_id exists on individual requests but there is no tool to list all requests in a thread. To follow a multi-round conversation, you would need to manually search.
+---
 
-### Evidence Quality Assessment
+## Problem 3b: Pact Type Scoping and Storage
 
-The real usage evidence is thin but genuine:
+### Status: VALIDATED + DESIGN DECIDED -- Product Owner Confirmed
 
-- 2 completed round-trips with a second user (Dan) on day 1
-- Both used the "ask" pact type — no complex request types tested in production
-- Context bundles were minimal ("y tho" / "No U") — playful testing, not the validated tech support workflow
-- Bidirectional flow confirmed: Cory -> Dan and Dan -> Cory both worked
-- Response times: ~3 minutes (first request), ~4 minutes (second request) — well within async tolerance
+### The Finding
 
-**What this validates**: The protocol works. Two humans with two agents can exchange structured requests through a shared git repo without manual git operations.
+Pact types are NOT just repo-scoped. They scope to: conversation, usergroup, repo, org, or global (built-in defaults). The product owner confirmed this and iterated on the storage design through three rounds of refinement.
 
-**What this does NOT validate**: Whether rich context bundles are actually better than Slack for real work. Whether pacts produce consistent behavior for complex request types. Whether the system gets adopted for daily tech support handoffs.
+### Design Decision: Single Pact Store with Metadata-Driven Scoping
+
+**Rejected approaches:**
+- ~~Multi-location resolution chain~~ (too complex — cascading precedence, override semantics)
+- ~~Directory-per-pact~~ (`pacts/{name}/PACT.md` — unnecessary nesting, only existed for co-located `schema.json` and `hooks/` dir which are now frontmatter fields)
+
+**Adopted approach: Single store, recursive scan, metadata controls scoping.**
+
+#### Storage Model
+
+One pact store per org/deployment. A git repo (or directory) containing markdown files:
+
+```
+pact-store/                          # single root, one per org
+  ask.md                             # built-in default
+  code-review.md                     # org standard
+  sanity-check.md                    # built-in default
+  platform/                          # ad-hoc folder, team's choice
+    deployment-approval.md
+    incident-response.md
+  frontend/                          # another ad-hoc folder
+    design-review.md
+    accessibility-review.md
+  onboarding/
+    buddy-check.md
+```
+
+#### Key Rules
+
+1. **One root directory per org** — `pact_discover` starts here
+2. **Recursive scan** (`**/*.md`) — folders are organizational, not semantic
+3. **Pact name = filename stem** (`deployment-approval.md` → `deployment-approval`)
+4. **Scoping via YAML frontmatter**, not folder location
+5. **Teams create folders however they want** — purely for human organization
+6. **`pact_discover` doesn't care about folder depth** — it globs and filters by caller context
+7. **Global defaults** = built-in pacts shipped with PACT itself, living in the store with `scope: global`
+
+#### Pact File Format
+
+Flat markdown files with YAML frontmatter controlling all metadata:
+
+```yaml
+---
+name: code-review
+description: Standard code review request
+scope: org
+registered_for:
+  - team:backend
+  - team:frontend
+version: 2
+hooks:
+  on_send: notify-slack
+context_bundle:
+  required: [pr_url, description]
+  fields:
+    pr_url: { type: string, description: "Pull request URL" }
+response_bundle:
+  required: [verdict]
+  fields:
+    verdict: { type: string, description: "approve | request-changes | comment" }
+---
+
+# Code Review
+
+Human-readable description, guidance for the agent, examples, etc.
+```
+
+#### Why This Works
+
+- **No resolution chain** — `pact_discover` reads all `*.md` recursively, filters by scope/registered_for metadata, returns what's available to the caller
+- **No override semantics** — if a team wants their own code-review variant, they create `backend-code-review.md` with `registered_for: [team:backend]`. No shadowing, no ambiguity
+- **No special tooling** — it's a git repo with markdown files. Teams PR new pacts through normal review workflow
+- **Backward compatible** — current `pacts/{name}/PACT.md` model can migrate to `{name}.md` with no behavioral change
+
+### Migration from Current Model
+
+The current repo-local `pacts/` directory with subdirectories per pact:
+```
+pacts/ask/PACT.md → ask.md (in pact store)
+pacts/code-review/PACT.md → code-review.md (in pact store)
+pacts/sanity-check/PACT.md → sanity-check.md (in pact store)
+```
+
+The `pact-loader.ts` currently reads `pacts/${pactName}/PACT.md` (line 56). This changes to reading from the pact store path with recursive glob. The `schema.json` fallback (line 112) can be dropped — all metadata moves to YAML frontmatter.
+
+---
+
+## Problem 4: Transport Coupling
+
+### Status: TRUE -- But Not Blocking Value
+
+### The Claim
+
+The plan states handlers directly call `GitPort`, `FilePort`, and `ConfigPort`, and that a `TransportSPI` abstraction "MUST precede everything."
+
+### Evidence from Codebase
+
+This is demonstrably true. Each handler directly sequences git operations:
+- `pact-request.ts`: `writeJSON -> add -> commit -> push` (lines 103-109)
+- `pact-respond.ts`: `readJSON -> writeJSON -> git.mv -> add -> commit -> push` (lines 58-95)
+- `pact-inbox.ts`: `pull -> listDirectory -> readJSON` (lines 70-112)
+
+### Challenge: Does This Actually Block Value Delivery?
+
+**No.** Here is what can be done WITHOUT a TransportSPI:
+
+| Change | TransportSPI Required? | Why Not |
+|---|---|---|
+| S3 attachment storage | No | New AttachmentPort; touches only attachment code paths |
+| Team routing | No | Config schema extension + routing logic in existing handlers |
+| Lifecycle hooks | No | Add hook points to existing handlers before/after git operations |
+| Retry improvements | No | Modify `GitAdapter.push()` directly |
+| Config schema evolution | No | Extend ConfigPort interface |
+
+**What DOES require TransportSPI**: HTTP transport and A2A bridge. These are Phase 4-5 features in the plan's own roadmap.
+
+### The YAGNI Principle
+
+The plan says "TransportSPI must precede Phase 3 (Team Routing) and Phase 4 (HTTP/S3 Transports)." But the plan also sequences HTTP transport as Phase 4. Extracting TransportSPI now means building abstraction for a transport that does not exist yet.
+
+**Recommended approach**: Extract TransportSPI when you begin work on the second transport, not before. The ports-and-adapters architecture already provides testability and swappability at the adapter level.
+
+---
+
+## Problem 5: The "100k Branch Problem"
+
+### Status: THEORETICAL at PACT's Scale
+
+### The Claim
+
+The plan warns that "an active organization will generate hundreds of thousands of refs over a year" with thread-per-branch, and proposes `archiveThread()` and `refs/archive/2026/02` branches.
+
+### Evidence
+
+**GitHub's ref scaling data**:
+- Android repository: 866k refs. Packed-refs file: 62MB. Linear scan for single ref lookup. ([Git reftable docs](https://git-scm.com/docs/reftable))
+- GitHub recommends repos under 1GB; "large numbers of branches can result in unnecessary data in fetch operations, leading to slow transfer times or in extreme cases throttled repository performance" ([GitHub Docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits))
+- `git ls-remote` on a large repo produced 14MB output, 12MB from refs alone ([Hacker News thread](https://news.ycombinator.com/item?id=43387189))
+
+**Gerrit's solution**: Shards refs using `refs/changes/XX/YYYY/Z` where XX = change_id mod 100 to prevent directory explosion ([Gerrit docs](https://gerritcodereview-test.gsrc.io/alpha-concept-refs-for-namespace.html)).
+
+**PACT's actual trajectory**: A 10-person team creating 10 requests/day for a year = 3,650 threads. That is orders of magnitude below the "100k branch problem." Even a 50-person team creating 50 requests/day = 18,250 threads/year. Still well within git's comfortable range.
+
+The 100k ref threshold is real for enterprise CI/CD systems (Gerrit-scale). It is not real for PACT's target user base for years to come.
+
+### Recommendation
+
+Do not implement archival mechanisms, ref sharding, or ref cleanup until PACT approaches 10,000+ active threads. Add a simple metric (ref count) to the health check instead.
+
+---
+
+## Cross-Cutting Finding: Complexity Risk
+
+The refactoring plan proposes introducing simultaneously:
+- TransportSPI interface + GitTransport wrapper
+- Thread-per-branch (`refs/threads/*`)
+- Inbox refs (`refs/inbox/*`)
+- Archival mechanism (`refs/archive/*`)
+- IdentityProvider
+- Lifecycle hooks schema + executor
+- HTTP Transport
+- A2A Bridge
+
+PACT is currently ~3,100 LOC (including tests) with 96 passing tests. The plan would double or triple the codebase complexity based on hypothetical future needs for users who do not yet exist at scales 25x beyond current reality.
+
+**This is a classic "second system effect" risk** (per Fred Brooks). The working system's success creates confidence that inspires an overly ambitious redesign.
+
+---
+
+## Recommendations (Updated for 100-User Org Target)
+
+### Do Now (validated, high evidence)
+1. **Retry improvements + directory sharding** -- ship together as minimum scaling foundation for 10-12 user teams
+2. **S3 attachment storage** -- product owner validated, prevents 20-30 repos from bloating
+3. **Pact store migration** -- single store per org, flat files with metadata-driven scoping (design decided, ready to implement)
+
+### Do Next (validated by deployment target)
+4. **Config federation** -- mechanism to manage identity/config across 20-30 repos
+5. **Team/group config extension** -- additive schema change, enables team routing within repos
+
+### Do After (medium evidence, clear value)
+6. **Lifecycle hook points** -- differentiation value, does not require TransportSPI
+
+### Do Later (future-looking, invest when needed)
+7. **TransportSPI extraction** -- when HTTP transport work begins
+8. **Branch partitioning** -- if directory sharding proves insufficient at 10-12 users
+
+### Do Not Do Yet (premature optimization)
+9. **Gerrit-model thread refs** -- elegant but over-engineered for ~100-user orgs
+10. **Ref archival and sharding** -- solving for 100k+ refs that will not exist for years
+11. **HTTP transport** -- no evidence of demand from non-git users

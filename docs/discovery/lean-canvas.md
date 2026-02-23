@@ -1,300 +1,243 @@
-# Lean Canvas — Agent-Native Async PACT
+# Lean Canvas: PACT Evolution -- Validated Business Model
 
-## Discovery Phase: 4 (Market Viability) COMPLETE + POST-MVP RE-DISCOVERY
-
-**Date**: 2026-02-21
-**Product**: Agent-native async coordination ("agent-first email inbox")
-**Architecture**: Git repo as Tier 1 transport, optional brain service as Tier 2
-**All evidence below derived from discovery interviews, not speculation.**
+**Date**: 2026-02-22
+**Researcher**: Scout (nw-product-discoverer)
+**Scope**: Cost-benefit analysis for each proposed change in the refactoring plan
 
 ---
 
-## The Canvas
+## Current State: What PACT Is Today
 
-### 1. PROBLEM (Validated)
-
-**Top 3 problems** (from user's daily tech support workflow):
-
-1. **Context assembly is manual and interruptive** — Investigating a bug with an agent requires stopping to manually compose a handoff document before a colleague can help.
-
-2. **Coordination tools are not agent-native** — Slack, email, and ticketing systems speak to humans, not to the agents that are doing the actual investigative work. Every handoff requires copy-paste to bridge the gap.
-
-3. **No structured request/response flow** — Each handoff is ad-hoc. No templates, no expected response formats, no audit trail of who asked what and what came back.
-
-**Existing alternatives**:
-- Slack + markdown files (current workaround)
-- Email chains with attachments
-- Ticketing systems (Zendesk, JIRA) — human-oriented, no agent integration
-- Shared documents — no routing, no lifecycle
-
-### 2. CUSTOMER SEGMENTS (Identified)
-
-**Early adopters**:
-- Technical teams already using LLM agents for daily work (the user's own team)
-- Developer friend (testing, games) — lighter use cases
-- Teams using Craft Agents, Claude Code, or similar agent platforms
-
-**Broader segments** (future):
-- Any team doing async knowledge work where agents assist
-- Support teams, engineering teams, product teams
-- RPG groups (the original use case, now a domain implementation)
-
-### 3. UNIQUE VALUE PROPOSITION
-
-**One sentence**: An agent-first PACT where structured requests with context bundles flow between human+agent pairs via a shared git repository, so the receiving agent starts with full situational awareness instead of a cold start.
-
-**Tagline candidates** (user's own words):
-- "An agent-first email inbox"
-- "A Git Remote with a brain"
-
-### 4. SOLUTION (Validated Shape — Git Transport)
-
-**Tier 1 (MVP)**: Shared git repo + local MCP server per client.
-
-| Tool | What It Does |
-|------|-------------|
-| `pact_request` | Write structured request JSON to repo, commit, push |
-| `pact_inbox` | Pull repo, scan for pending requests addressed to user |
-| `pact_respond` | Write response, move request to completed, commit, push |
-| `pact_status` | Pull repo, read request status and any response |
-
-**Tier 2 (Phase 2)**: Brain service that watches the repo.
-- Validates and enriches requests via LLM
-- Sends push notifications (Slack, email)
-- Runs per-request-type orchestrator pacts (search JIRA, check duplicates)
-
-**Tier 3 (Phase 3)**: Institutional memory.
-- Indexes all requests/responses
-- Detects patterns, proactively enriches context
-
-**Key architectural decisions**:
-- Git repo IS the PACT server (no custom server to deploy for MVP)
-- Local MCP server wraps git operations into 4 tools
-- Pacts live in the repo, distribute via git pull
-- Type-agnostic protocol: rigid envelope, flexible payload (Code Mode pattern)
-- Tiered: Tier 1 always works, Tier 2/3 are additive and removable
-
-### 5. CHANNELS
-
-**Phase 1 (MVP testing)**:
-- Direct personal network (developer friend, work colleagues)
-- Shared GitHub/GitLab private repo
-
-**Phase 2 (early adoption)**:
-- Open source release of MCP server + repo template
-- Craft Agents community
-- Developer communities (HN, Reddit, Discord)
-
-**Phase 3 (growth)**:
-- Integration with other agent platforms
-- Technical blog posts / demos
-- Word of mouth
-
-### 6. REVENUE STREAMS
-
-**MVP**: None. Open source tool. The "server" is a git repo.
-
-**Future possibilities** (not validated, speculative):
-- Hosted brain service (Tier 2 as SaaS)
-- Enterprise brain with institutional memory
-- Managed repo + brain service bundles
-
-**Note**: Revenue is not the primary goal. This is a tool built for personal and team use.
-
-### 7. COST STRUCTURE
-
-**MVP costs**:
-- Developer time (user's own time)
-- GitHub private repo (free)
-- LLM API costs for client agents (user already has API keys)
-- Zero server hosting costs (no server to host)
-
-**Ongoing costs** (per team):
-- GitHub/GitLab private repo (free for small teams)
-- LLM inference costs at each client (BYO API key)
-- Tier 2 brain service hosting (only when added; minimal compute)
-
-**Key cost advantage of git transport**: The entire coordination infrastructure for MVP is a free GitHub private repo. There is no server to deploy, no database to maintain, no hosting to pay for.
-
-### 8. KEY METRICS
-
-**MVP success metrics**:
-
-| Metric | Target | Rationale |
-|--------|--------|-----------|
-| Round-trip completion rate | >80% without Slack fallback | Core functionality works |
-| Receiver agent startup time | <2 turns to useful work | Context bundles are effective |
-| Pact consistency | >80% schema compliance | Pacts produce reliable behavior |
-| Adoption over Slack | >50% of handoffs during test | System is actually preferred |
-| Second user initiation | At least 1 organic request | Not just responding |
-| Git operation speed | <10s per operation | Transport is fast enough |
-| Git conflict rate | <5% of operations | Append-only design works |
-
-### 9. UNFAIR ADVANTAGE
-
-**What cannot be easily copied or bought**:
-
-1. **Builder is the user** — shortest possible feedback loop between design and usage.
-
-2. **Existing platform ecosystem** — Craft Agents provides the mature client with MCP support, pacts, Plan UI, and hooks.
-
-3. **The pact pattern** — Code Mode insight applied to multi-agent coordination. Novel architectural approach.
-
-4. **Git as transport** — Eliminates the "build a server" barrier entirely. Anyone with a GitHub account can have a PACT server in 5 minutes.
-
-5. **Domain expertise** — Deep understanding of agent platforms (built Craft Agents) AND async coordination pain (daily tech support work).
+| Attribute | Value |
+|---|---|
+| Codebase | ~3,100 LOC (including tests), 96 passing tests |
+| Users | 2 (dev). **Deployment target: ~100 users, teams of 10-12, 20-30 repos** |
+| Architecture | Ports-and-adapters, 3 ports (Git, File, Config), 7 action handlers |
+| Transport | Git, single branch (main), pull-rebase-push |
+| Tools | 2 MCP tools (pact_discover, pact_do) dispatching to 7 actions |
+| Deployment | stdio subprocess via MCP SDK |
+| Identity | PACT_USER env var + config.json lookup (per repo, no federation) |
+| Attachments | Committed directly to git history |
+| Conflict handling | Single retry with pull --rebase |
+| Pact scoping | Repo-level only (`pacts/{name}/PACT.md`). **Target: single pact store per org, flat `{name}.md` files, metadata-driven scoping, recursive scan** |
 
 ---
 
-## Risk Assessment (4 Big Risks)
+## Change-by-Change Analysis
 
-### Value Risk: Will anyone use this?
+### Change 1: S3 Attachment Storage
 
-**Status**: MITIGATED (for primary user)
+**Who benefits**: Any team sharing binary attachments (screenshots, logs, PDFs).
 
-The user has daily pain with the exact workflow this solves. Risk is whether it is better enough than Slack to justify switching.
+| Dimension | Assessment |
+|---|---|
+| Development cost | 1-2 sessions. New AttachmentPort interface + S3 adapter + config. |
+| Complexity cost | Low. Isolated to attachment code paths. New port follows existing pattern. |
+| Operational cost | Medium. S3 bucket setup, IAM credentials, cost ($0.023/GB/month for S3 Standard). |
+| Risk if we DO it | Low. Well-understood pattern. Default stays git-local (zero disruption for existing users). |
+| Risk if we DON'T | Medium-High. Repository grows permanently with every binary attachment. At ~200 requests with attachments, could approach GitHub's 1GB recommendation. |
 
-**Git transport reduces value risk**: The switching cost is lower because there is no server to deploy. Clone a repo, install an MCP source, and you are running. If it does not work, you just stop using it — no infrastructure to tear down.
+**Validated by**: Product owner ("absolutely needed"), GitHub documentation (repo size limits), git-lfs ecosystem evidence.
 
-### Usability Risk: Can people figure it out?
-
-**Status**: LOW RISK (for target users)
-
-Target users are developers who use git daily. The coordination system uses tools they already understand (git push, git pull, JSON files). The MCP server abstracts the git operations, so the agent handles the mechanics.
-
-**Onboarding**: Clone repo, add MCP source config to Craft Agents, start using. Pacts are already in the repo.
-
-### Feasibility Risk: Can we build it?
-
-**Status**: VERY LOW RISK
-
-The entire MVP is a local MCP server (~500 lines) that wraps git operations and validates JSON. The user built Craft Agents (a full Electron app with multiple MCP servers). This is a weekend-to-week build.
-
-No server deployment. No database. No authentication infrastructure. No hosting. Git provides all of it.
-
-### Viability Risk: Does the business model work?
-
-**Status**: NOT APPLICABLE
-
-Open source tool. The "server" is a free GitHub repo. There is nothing to monetize and nothing to maintain at the infrastructure level. Viability means "can two people use this without it falling over" — and git has been doing that for 20 years.
+**Verdict**: DO IT. High confidence, isolated change, validated need.
 
 ---
 
-## Go/No-Go Decision
+### Change 2: TransportSPI Extraction
 
-### GO — Proceed to Build
+**Who benefits**: Future developers building HTTP or A2A transports.
 
-**Rationale**:
+| Dimension | Assessment |
+|---|---|
+| Development cost | 2-4 sessions. Refactor all 7 handlers to call TransportSPI instead of ports directly. |
+| Complexity cost | Medium. New abstraction layer. Must ensure 96 tests pass unchanged. |
+| Operational cost | None (refactoring, not new infrastructure). |
+| Risk if we DO it | Medium. Premature abstraction risk -- designing the interface without a second consumer leads to wrong abstractions. |
+| Risk if we DON'T | Low for 6-12 months. The current port interfaces already provide testability and swappability. When HTTP transport is needed, extract then with the real second consumer as guide. |
 
-1. **Problem is validated** from daily lived experience (tech support handoffs)
-2. **Solution is dramatically simpler** with git transport — no server to build or deploy
-3. **Builder is the user** — shortest possible feedback loop
-4. **Technical feasibility is trivially high** — ~500 lines of MCP server code
-5. **Second user is confirmed** — can test full loop with shared repo
-6. **MVP is tightly scoped** — local MCP server + repo conventions + 1 pact pair
-7. **Phase 2 path is clear** — brain service watches repo, adds intelligence additively
-8. **Zero infrastructure cost** — GitHub private repo is free
-9. **Pacts distribute for free** — git pull syncs pacts
-10. **Audit trail is free** — git log IS the audit
+**Not validated by**: No user has requested a non-git transport. No evidence of demand from non-git teams.
 
-**Conditions for GO**:
-- Conduct lightweight validation with second user (15-min conversation about handoff pain)
-- Define repo structure conventions (README in the repo)
-- Build the local MCP server
-- Write the sanity-check pact pair
-- Test one complete round-trip
+**Verdict**: DEFER until HTTP transport work begins. The plan's own roadmap places HTTP at Phase 4.
 
 ---
 
-## Handoff Summary
+### Change 3: Gerrit-Model Thread-Per-Branch + Inbox Refs
 
-### What Was Discovered
+**Who benefits**: Teams with 50+ concurrent users experiencing push contention storms.
 
-Started with an RPG Campaign State Engine. Through 6 rounds of Mom Test questioning (24+ questions), discovered the actual product: an agent-native async PACT for human+agent teams. Further refined through an architectural pivot to git as PACT transport.
+| Dimension | Assessment |
+|---|---|
+| Development cost | High. 4-8 sessions minimum. New ref management, multi-ref push, inbox scanning via ls-remote, archival mechanism. |
+| Complexity cost | Very high. Doubles the git interaction surface. Introduces ref lifecycle management. Requires solving stdio working-tree problem. |
+| Operational cost | Ongoing. Ref cleanup, archival cron, monitoring ref count, debugging cross-ref issues. |
+| Risk if we DO it | High. Atomic multi-ref push not supported on Azure DevOps. `git ls-remote` degrades with many refs. No sharding (unlike Gerrit). Difficult to test without production scale. |
+| Risk if we DON'T | Low for years. PACT has 2 users. Even at 20 users, improved retry + directory sharding handles contention. |
 
-### Discovery Arc
+**Not validated by**: Zero push conflicts observed in production. No user has reported contention.
 
-1. RPG Campaign State Engine (all gaps unvalidated)
-2. Vision pivot to async multi-agent coordination
-3. Explicit choice of Product B (PACT, separate from Craft Agents)
-4. Validated via daily tech support workflow (real pain, real behavior)
-5. Architectural decisions: central HTTP service, dumb router MVP, type-agnostic server
-6. **Architecture pivot**: git repo as transport, local MCP server, tiered brain service
-
-### What Was Validated
-
-- The problem (manual context assembly, non-agent-native coordination)
-- The user segment (technical teams using LLM agents daily)
-- The core loop (structured request -> sync -> context-loaded response)
-- The pact pattern (Code Mode applied to coordination)
-- The deployment model (git repo = server; self-hostable; zero infrastructure)
-- The tiered architecture (git base + optional brain + optional memory)
-
-### What Needs Testing (requires building)
-
-- Pact reliability (do paired pacts produce consistent agent behavior?)
-- Context bundle quality (better than manual markdown handoff?)
-- Receiver agent startup time (1-2 turns from context bundle?)
-- Git operation speed and conflict rate
-- Adoption signal (will users prefer this over Slack?)
-
-### Artifacts Produced
-
-| File | Contents |
-|------|----------|
-| `docs/discovery/problem-validation.md` | 6-round interview record, evidence, assumptions, gate evaluation |
-| `docs/discovery/opportunity-tree.md` | 6 scored opportunities, git-upgraded scoring, MVP boundary |
-| `docs/discovery/solution-testing.md` | Git-based MVP components, repo structure, pacts, test plan, tiered roadmap |
-| `docs/discovery/lean-canvas.md` | This file -- business model, risks, go/no-go decision |
+**Verdict**: DO NOT DO. The simplest effective patterns (retry improvements + directory sharding) cover the next 10-15x of growth at a fraction of the complexity.
 
 ---
 
-## Post-MVP Viability Update (2026-02-21)
+### Change 4: Lifecycle Hooks
 
-### Risk Reassessment After Build
+**Who benefits**: Teams wanting automation (notifications, validation, enrichment) triggered by PACT lifecycle events.
 
-| Risk | Pre-Build Status | Post-Build Status | Evidence |
-|------|-----------------|-------------------|----------|
-| Value | MITIGATED | PARTIALLY VALIDATED | Protocol works. Value proposition (better than Slack for rich handoffs) still untested with real workloads. |
-| Usability | LOW | LOW | Two users onboarded. No confusion about protocol mechanics. |
-| Feasibility | VERY LOW | CONFIRMED | 1,260 lines, 65+ tests, clean architecture, zero blocking issues. |
-| Viability | N/A (open source) | CONFIRMED | Zero infrastructure cost. Free GitHub repo. BYO compute. |
+| Dimension | Assessment |
+|---|---|
+| Development cost | 2-3 sessions (hook points only). Longer for executor + dry-run. |
+| Complexity cost | Low for hook points (add before/after calls to handlers). Medium for full executor system. |
+| Operational cost | Depends on executor. PACT defines points, not executors. |
+| Risk if we DO it (points only) | Low. Hook points are no-ops until an executor is registered. Zero behavioral change. |
+| Risk if we DON'T | Medium. Lifecycle hooks are PACT's competitive differentiator (per `/Users/cory/pact/docs/research/protocol-design/04-competitive-landscape.md`). Without them, PACT is "just another message pipe." MCP Agent Mail could expand into this space. |
 
-### What Changed In the Canvas
+**Partially validated by**: Competitive analysis shows hooks as unique differentiator. No user has explicitly requested hooks.
 
-**Problem**: Unchanged. The 3 validated problems remain. Real-world validation of the solution against these problems is the Phase 2 priority.
+**Verdict**: DO HOOK POINTS incrementally. Defer executor implementation until the first concrete use case (e.g., "send Slack notification on new request").
 
-**Customer Segments**: Expanded. The README now documents generic MCP host compatibility (Claude Code, Cursor, VS Code, etc.), not just Craft Agents. This broadens the potential user base beyond the Craft Agents ecosystem.
+---
 
-**Solution**: Delivered and exceeded. Ports-and-adapters architecture, structured logging, graceful degradation -- all improvements over the planned design. Three new protocol primitives (thread_id, attachments, short_id) extend the solution space.
+### Change 5: HTTP Transport
 
-**Channels**: On track. pact-init.sh provides the onboarding tool. README is host-agnostic. Open source release path is clear.
+**Who benefits**: Teams without shared git repos. Non-developer collaborators.
 
-**Key Metrics -- Post-MVP Actuals**:
+| Dimension | Assessment |
+|---|---|
+| Development cost | Very high. New server, REST API, persistence (SQLite/Postgres), OAuth, Docker packaging. Estimated: 2-4 weeks. |
+| Complexity cost | Very high. Separate deployable artifact with its own operational concerns. |
+| Operational cost | High. Server hosting, database management, authentication infrastructure, monitoring. |
+| Risk if we DO it | Medium-High. Large scope. Unknown demand. Could build a server nobody needs. |
+| Risk if we DON'T | Low. PACT's target users are developers with git. No evidence of demand from non-git users. |
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| Round-trip completion rate | >80% | 100% (2/2) | PASS (small sample) |
-| Receiver agent startup | <2 turns | Not measured (trivial requests) | NOT TESTED |
-| Pact consistency | >80% | 100% (2/2) | PASS (small sample) |
-| Adoption over Slack | >50% | Not measured | NOT TESTED |
-| Second user initiation | 1+ organic | 1 (Dan sent a request back) | PASS |
-| Git operation speed | <10s | <1s | PASS |
-| Git conflict rate | <5% | 0% | PASS |
+**Not validated by**: No user has requested HTTP transport. Target audience is developers with git configured.
 
-### Phase 2 Success Metrics
+**Verdict**: DO NOT DO until there is evidence of demand. Consider surveying potential users: "Would you use PACT if it did not require git?"
 
-| Metric | Target | How Measured |
-|--------|--------|-------------|
-| Rich context bundle usage | 5+ requests with 4+ context fields | Count requests with substantive context bundles |
-| Thread completion rate | 3+ multi-round threads completed | Count threads that reach resolution |
-| Attachment usage | 3+ requests with attachments | Count requests with file attachments |
-| Real workflow adoption | 2+ tech support handoffs through PACT instead of Slack | User self-report + request type diversity |
-| New pact types | 2+ new pacts created (beyond ask and design-pact) | Count pacts/ directories |
-| Cancel/amend usage | At least 1 cancel or amend exercised | Usage of lifecycle management tools |
+---
 
-### Updated Unfair Advantage
+### Change 6: IdentityProvider Abstraction
 
-The original unfair advantages hold, with one addition:
+**Who benefits**: Large organizations wanting dynamic membership via GitHub Org or LDAP.
 
-5. **Emergent protocol evolution** -- The protocol adapts to real usage patterns. thread_id, attachments, and short_id were not designed in discovery but emerged from building. The protocol is simple enough that new primitives can be added without breaking existing usage. This is evidence that the type-agnostic, pact-driven design was the right call.
+| Dimension | Assessment |
+|---|---|
+| Development cost | 1-2 sessions for abstraction. More for specific providers (GitHub API, OIDC). |
+| Complexity cost | Low-Medium. Abstraction over existing ConfigPort. |
+| Operational cost | Depends on provider. GitHub Org requires API token. OIDC requires identity server. |
+| Risk if we DO it | Medium. Premature abstraction. Designing without a real consumer. |
+| Risk if we DON'T | Low. config.json handles 2-50 members trivially. Manual updates are acceptable at this scale. |
+
+**Not validated by**: No user has requested dynamic identity. config.json works.
+
+**Verdict**: DEFER. When GitHub Org sync is needed, write a `GitHubConfigAdapter` that implements the existing `ConfigPort` interface. No new abstraction needed.
+
+---
+
+### Change 7: Team/Group Routing
+
+**Who benefits**: Teams of 3+ people who want to address requests to groups.
+
+| Dimension | Assessment |
+|---|---|
+| Development cost | 1-2 sessions. Config schema extension + routing logic in request handler. |
+| Complexity cost | Low. Additive change. Does not alter existing functionality. |
+| Operational cost | None (configuration, not infrastructure). |
+| Risk if we DO it | Low. Well-scoped, testable, backward-compatible. |
+| Risk if we DON'T | Medium. The 3rd person joining a PACT team immediately needs "@backend-team" addressing. Without it, senders must know individual recipient IDs. |
+
+**Partially validated by**: The branch-per-user research doc already proposed team config format. Teams are a natural next step.
+
+**Verdict**: DO IT when the 3rd user joins. Low cost, clear value, incremental.
+
+---
+
+### Change 8: Retry Improvements
+
+**Who benefits**: All users, as team size grows.
+
+| Dimension | Assessment |
+|---|---|
+| Development cost | < 30 minutes. One function modification. |
+| Complexity cost | Trivial. |
+| Operational cost | None. |
+| Risk if we DO it | Essentially zero. More retries with backoff is strictly better. |
+| Risk if we DON'T | Low now, grows with team size. A failed push with no fallback blocks the user. |
+
+**Validated by**: Production systems (Kargo uses 50 retries). Common practice in distributed systems.
+
+**Verdict**: DO IT immediately. Highest value-to-effort ratio of any change.
+
+---
+
+## Summary: Cost-Benefit Ordering (Updated for 100-User Org)
+
+| Change | Cost | Benefit | Evidence | When |
+|---|---|---|---|---|
+| Retry + directory sharding | Low | Survives 10-12 user teams | **High (validated)** | Before deployment |
+| S3 attachments | Low | Prevents 20-30 repos bloating | **High (validated)** | Before deployment |
+| Pact store migration | Low-Medium | Org-wide consistent workflows | **High (design decided)** | Before deployment |
+| Config federation | Medium | Manages 20-30 repos | **High (validated)** | Before deployment |
+| Team routing | Low | Enables team addressing | High | With config federation |
+| Lifecycle hook points | Low-Medium | Competitive differentiation | Medium | Post-deployment |
+| TransportSPI | Medium | Enables future transports | Low | When HTTP transport begins |
+| Gerrit thread refs | Very High | Enterprise contention | Low | If sharding insufficient |
+| HTTP Transport | Very High | Non-git users | Low | When demand is proven |
+
+---
+
+## The "What If We Do Nothing" Scenario
+
+If PACT makes ZERO architectural changes from today, deploying to a ~100-user org:
+
+| Timeframe | What Happens | Impact |
+|---|---|---|
+| Deployment day | 10-12 user teams hit push contention immediately | **High** -- blocked workflows |
+| Week 1 | Binary attachments start accumulating across 20-30 repos | Medium -- git clone slows |
+| Month 1 | Config drift across 20-30 repos as members change | Medium -- manual sync burden |
+| Month 2 | Teams want org-standard pact types, only have repo-local | Medium -- inconsistent workflows |
+| Month 3+ | 20-30 repos with growing attachment bloat | **High** -- repo size spiraling |
+
+**Key insight**: Doing nothing is NOT viable for org deployment. The deployment target demands retry+sharding, S3 attachments, and config federation as prerequisites — not nice-to-haves.
+
+---
+
+## Risk Map
+
+```
+              Probability of Needing It (within 12 months)
+                 LOW                        HIGH
+            +-------------------+-------------------+
+            |                   |                   |
+  HIGH      | Gerrit refs       | S3 Attachments    |
+  Cost      | HTTP Transport    |                   |
+            | A2A Bridge        |                   |
+            |                   |                   |
+            +-------------------+-------------------+
+            |                   |                   |
+  LOW       | IdentityProvider  | Retry improvements|
+  Cost      | TransportSPI      | Team routing      |
+            |                   | Hook points       |
+            |                   |                   |
+            +-------------------+-------------------+
+```
+
+**The optimal strategy**: Start in the bottom-right quadrant (low cost, high probability). Move to top-right only when validated. Avoid top-left entirely until evidence demands it.
+
+---
+
+## For the Product Owner
+
+### Deployment Prerequisites (all validated)
+
+The ~100 user, 20-30 repo deployment target means these are **prerequisites**, not aspirations:
+
+1. **Retry + directory sharding** — without this, 10-12 user teams will see push failures on day one
+2. **S3 attachment storage** — without this, 20-30 repos will accumulate binary bloat
+3. **Config federation** — without this, onboarding/offboarding creates manual sync across 20-30 repos
+4. **Pact store migration** — without this, teams can't share org-standard pact types across repos
+
+### Open Design Questions
+
+1. **Config federation approach**: Shared config repo? CLI sync tool? Config inheritance? Needs design.
+2. **Pact store location**: Separate git repo? Directory within an org config repo? Same repo as config federation?
+3. **Deployment timeline**: When does the org deployment start? This determines the sprint priority.
