@@ -111,7 +111,7 @@ export async function handlePactDiscover(
     }
   }
 
-  // 4. Filter by query if provided
+  // 3. Filter by query if provided
   let filtered = pacts;
   if (params.query) {
     const terms = params.query.toLowerCase().split(/\s+/);
@@ -125,7 +125,7 @@ export async function handlePactDiscover(
     });
   }
 
-  // 4b. Filter by scope if provided
+  // 4. Filter by scope if provided
   if (params.scope) {
     filtered = filtered.filter((p) => p.scope === params.scope);
   }
@@ -154,19 +154,19 @@ export async function handlePactDiscover(
 // ---------------------------------------------------------------------------
 
 /** Map PactMetadata from pact-loader into a PactCatalogEntry. */
-function toEntry(m: PactMetadata): PactCatalogEntry {
+function toEntry(pact: PactMetadata): PactCatalogEntry {
   return {
-    name: m.name,
-    description: m.description,
-    when_to_use: m.when_to_use,
-    context_bundle: m.context_bundle,
-    response_bundle: m.response_bundle,
-    has_hooks: m.has_hooks,
-    ...(m.scope ? { scope: m.scope } : {}),
-    ...(m.defaults ? { defaults: m.defaults } : {}),
-    ...(m.multi_round !== undefined ? { multi_round: m.multi_round } : {}),
-    ...(m.attachments ? { attachments: m.attachments } : {}),
-    ...(m.registered_for ? { registered_for: m.registered_for } : {}),
+    name: pact.name,
+    description: pact.description,
+    when_to_use: pact.when_to_use,
+    context_bundle: pact.context_bundle,
+    response_bundle: pact.response_bundle,
+    has_hooks: pact.has_hooks,
+    ...(pact.scope ? { scope: pact.scope } : {}),
+    ...(pact.defaults ? { defaults: pact.defaults } : {}),
+    ...(pact.multi_round !== undefined ? { multi_round: pact.multi_round } : {}),
+    ...(pact.attachments ? { attachments: pact.attachments } : {}),
+    ...(pact.registered_for ? { registered_for: pact.registered_for } : {}),
   };
 }
 

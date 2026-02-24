@@ -80,11 +80,11 @@ export async function handlePactInbox(
 
   // 3. Parse each through schema, filter by recipient == userId
   const entries: InboxEntry[] = [];
-  for (const file of files) {
-    const raw = await ctx.file.readJSON<unknown>(`requests/pending/${file}`);
+  for (const fileName of files) {
+    const raw = await ctx.file.readJSON<unknown>(`requests/pending/${fileName}`);
     const parsed = RequestEnvelopeSchema.safeParse(raw);
     if (!parsed.success) {
-      log("warn", "skipping malformed envelope", { file, errors: parsed.error.issues });
+      log("warn", "skipping malformed envelope", { file: fileName, errors: parsed.error.issues });
       continue;
     }
     const envelope = parsed.data;
@@ -110,7 +110,7 @@ export async function handlePactInbox(
         attachment_count: envelope.attachments?.length ?? 0,
         amendment_count: envelope.amendments?.length ?? 0,
         ...(envelope.attachments && envelope.attachments.length > 0
-          ? { attachments: envelope.attachments.map(a => ({ filename: a.filename, description: a.description })) }
+          ? { attachments: envelope.attachments.map(att => ({ filename: att.filename, description: att.description })) }
           : {}),
         ...(envelope.recipients && envelope.recipients.length > 0
           ? { recipients_count: envelope.recipients.length }

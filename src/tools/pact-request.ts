@@ -49,9 +49,9 @@ export async function handlePactRequest(
   if (!params.context_bundle) throw new Error("Missing required field: context_bundle");
 
   // 2. Resolve recipient list: new recipients[] or legacy recipient
-  const usedRecipientsArray = !!(params.recipients && params.recipients.length > 0);
+  const hasExplicitRecipients = !!(params.recipients && params.recipients.length > 0);
   let recipientIds: string[];
-  if (usedRecipientsArray) {
+  if (hasExplicitRecipients) {
     recipientIds = params.recipients!;
   } else if (params.recipient) {
     recipientIds = [params.recipient];
@@ -88,10 +88,10 @@ export async function handlePactRequest(
 
   // 6. Validate all recipients exist in team config and build UserRef[]
   const recipientRefs: Array<{ user_id: string; display_name: string }> = [];
-  for (const rid of recipientIds) {
-    const user = await ctx.config.lookupUser(rid);
+  for (const recipientId of recipientIds) {
+    const user = await ctx.config.lookupUser(recipientId);
     if (!user) {
-      throw new Error(`Recipient '${rid}' not found in team config`);
+      throw new Error(`Recipient '${recipientId}' not found in team config`);
     }
     recipientRefs.push({ user_id: user.user_id, display_name: user.display_name });
   }
@@ -112,7 +112,7 @@ export async function handlePactRequest(
     request_type: params.request_type,
     sender: { user_id: sender.user_id, display_name: sender.display_name },
     recipient: recipientRefs[0], // backward compat: first recipient for old readers
-    ...(usedRecipientsArray ? { recipients: recipientRefs } : {}),
+    ...(hasExplicitRecipients ? { recipients: recipientRefs } : {}),
     status: "pending",
     created_at: new Date().toISOString(),
     deadline: params.deadline ?? null,
@@ -129,10 +129,10 @@ export async function handlePactRequest(
   // 9. Write attachment files
   const filesToAdd = [`requests/pending/${requestId}.json`];
   if (params.attachments?.length) {
-    for (const att of params.attachments) {
-      const attPath = `attachments/${requestId}/${att.filename}`;
-      await ctx.file.writeText(attPath, att.content);
-      filesToAdd.push(attPath);
+    for (const attachment of params.attachments) {
+      const attachmentPath = `attachments/${requestId}/${attachment.filename}`;
+      await ctx.file.writeText(attachmentPath, attachment.content);
+      filesToAdd.push(attachmentPath);
     }
   }
 

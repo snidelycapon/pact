@@ -483,8 +483,7 @@ function extractFrontmatter(content: string): string | undefined {
   }
 
   // Extract the YAML between the delimiters
-  const yaml = content.slice(content.indexOf("\n") + 1, closingIndex);
-  return yaml;
+  return content.slice(content.indexOf("\n") + 1, closingIndex);
 }
 
 /**

@@ -83,11 +83,11 @@ export async function handlePactThread(
       continue; // Directory may not exist (e.g., cancelled/ in pre-Phase-2 repos)
     }
 
-    for (const file of files) {
-      const raw = await ctx.file.readJSON<unknown>(`${dir}/${file}`);
+    for (const fileName of files) {
+      const raw = await ctx.file.readJSON<unknown>(`${dir}/${fileName}`);
       const parsed = RequestEnvelopeSchema.safeParse(raw);
       if (!parsed.success) {
-        log("warn", "skipping malformed envelope in thread scan", { file, dir });
+        log("warn", "skipping malformed envelope in thread scan", { file: fileName, dir });
         continue;
       }
       if (parsed.data.thread_id === threadId) {
@@ -131,13 +131,13 @@ export async function handlePactThread(
       // Per-respondent directory: aggregate all response files
       const responseFiles = await ctx.file.listDirectory(responseDir);
       const responses: unknown[] = [];
-      for (const file of responseFiles) {
-        const rawResponse = await ctx.file.readJSON<unknown>(`${responseDir}/${file}`);
+      for (const fileName of responseFiles) {
+        const rawResponse = await ctx.file.readJSON<unknown>(`${responseDir}/${fileName}`);
         const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
         if (parsedResponse.success) {
           responses.push(parsedResponse.data);
         } else {
-          log("warn", "malformed response envelope in thread", { request_id: requestId, file });
+          log("warn", "malformed response envelope in thread", { request_id: requestId, file: fileName });
           responses.push(rawResponse);
         }
       }
@@ -176,21 +176,21 @@ export async function handlePactThread(
     const recipients = entry.request.recipients as Array<{ user_id: string }> | undefined;
     const recipient = entry.request.recipient as { user_id: string } | undefined;
     if (recipients) {
-      for (const r of recipients) participantSet.add(r.user_id);
+      for (const recip of recipients) participantSet.add(recip.user_id);
     } else if (recipient) {
       participantSet.add(recipient.user_id);
     }
   }
   // Also include responders from per-respondent responses
-  for (const te of threadEntries) {
-    if (te.responses) {
-      for (const resp of te.responses) {
+  for (const threadEntry of threadEntries) {
+    if (threadEntry.responses) {
+      for (const resp of threadEntry.responses) {
         const responder = (resp as Record<string, unknown>).responder as { user_id: string } | undefined;
         if (responder) participantSet.add(responder.user_id);
       }
     }
-    if (te.response) {
-      const responder = (te.response as Record<string, unknown>).responder as { user_id: string } | undefined;
+    if (threadEntry.response) {
+      const responder = (threadEntry.response as Record<string, unknown>).responder as { user_id: string } | undefined;
       if (responder) participantSet.add(responder.user_id);
     }
   }
@@ -206,13 +206,13 @@ export async function handlePactThread(
   // Aggregate responses across all entries for top-level convenience
   const allResponses: unknown[] = [];
   let singleResponse: unknown | undefined;
-  for (const te of threadEntries) {
-    if (te.responses) {
-      for (const r of te.responses) allResponses.push(r);
+  for (const threadEntry of threadEntries) {
+    if (threadEntry.responses) {
+      for (const resp of threadEntry.responses) allResponses.push(resp);
     }
-    if (te.response) {
-      allResponses.push(te.response);
-      singleResponse = te.response;
+    if (threadEntry.response) {
+      allResponses.push(threadEntry.response);
+      singleResponse = threadEntry.response;
     }
   }
 

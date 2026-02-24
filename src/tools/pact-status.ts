@@ -63,10 +63,10 @@ function resolveAttachmentPaths(
   repoPath: string,
 ): Array<{ filename: string; description: string; path: string }> | undefined {
   if (!envelope.attachments || envelope.attachments.length === 0) return undefined;
-  return envelope.attachments.map(a => ({
-    filename: a.filename,
-    description: a.description,
-    path: join(repoPath, "attachments", envelope.request_id, a.filename),
+  return envelope.attachments.map(att => ({
+    filename: att.filename,
+    description: att.description,
+    path: join(repoPath, "attachments", envelope.request_id, att.filename),
   }));
 }
 
@@ -119,9 +119,9 @@ export async function handlePactStatus(
       // Per-respondent directory: list all response files
       const responseFiles = await ctx.file.listDirectory(responseDir);
       const responses: unknown[] = [];
-      for (const file of responseFiles) {
+      for (const fileName of responseFiles) {
         const resp = parseResponseEnvelope(
-          await ctx.file.readJSON<unknown>(`${responseDir}/${file}`),
+          await ctx.file.readJSON<unknown>(`${responseDir}/${fileName}`),
           params.request_id,
         );
         responses.push(resp);
