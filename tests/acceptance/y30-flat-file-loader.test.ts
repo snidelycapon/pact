@@ -630,7 +630,7 @@ scope: global
     });
   });
 
-  it.skip("falls back to old pacts/ directory when pact-store/ does not exist", async () => {
+  it("falls back to old pacts/ directory when pact-store/ does not exist", async () => {
     ctx = createTestRepos();
 
     await given("repo has pacts in old pacts/{name}/PACT.md format only", () => {
