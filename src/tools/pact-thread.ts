@@ -40,6 +40,10 @@ export interface PactThreadResult {
   thread_id: string;
   summary: ThreadSummary;
   entries: ThreadEntry[];
+  /** Top-level flat response (single-recipient, single-entry thread) */
+  response?: unknown;
+  /** Top-level aggregated responses across all entries (group / multi-round threads) */
+  responses?: unknown[];
   message?: string;
   warning?: string;
 }
@@ -50,7 +54,9 @@ export async function handlePactThread(
   params: PactThreadParams,
   ctx: PactThreadContext,
 ): Promise<PactThreadResult> {
-  if (!params.thread_id) throw new Error("Missing required field: thread_id");
+  // Accept request_id as alias for thread_id (default thread_id equals request_id)
+  const threadId = params.thread_id ?? (params as Record<string, unknown>).request_id as string | undefined;
+  if (!threadId) throw new Error("Missing required field: thread_id");
 
   let warning: string | undefined;
 
@@ -84,7 +90,7 @@ export async function handlePactThread(
         log("warn", "skipping malformed envelope in thread scan", { file, dir });
         continue;
       }
-      if (parsed.data.thread_id === params.thread_id) {
+      if (parsed.data.thread_id === threadId) {
         entries.push({
           request: parsed.data as unknown as Record<string, unknown>,
           dir,
@@ -97,7 +103,7 @@ export async function handlePactThread(
   // 3. Empty thread
   if (entries.length === 0) {
     return {
-      thread_id: params.thread_id,
+      thread_id: threadId,
       summary: { participants: [], round_count: 0, latest_status: "unknown", request_type: "unknown" },
       entries: [],
       message: "No requests found for this thread",
@@ -197,10 +203,25 @@ export async function handlePactThread(
     request_type: (entries[0].request.request_type as string),
   };
 
+  // Aggregate responses across all entries for top-level convenience
+  const allResponses: unknown[] = [];
+  let singleResponse: unknown | undefined;
+  for (const te of threadEntries) {
+    if (te.responses) {
+      for (const r of te.responses) allResponses.push(r);
+    }
+    if (te.response) {
+      allResponses.push(te.response);
+      singleResponse = te.response;
+    }
+  }
+
   return {
-    thread_id: params.thread_id,
+    thread_id: threadId,
     summary,
     entries: threadEntries,
+    ...(allResponses.length > 1 ? { responses: allResponses } : {}),
+    ...(allResponses.length === 1 && singleResponse ? { response: singleResponse } : {}),
     ...(warning ? { warning } : {}),
   };
 }

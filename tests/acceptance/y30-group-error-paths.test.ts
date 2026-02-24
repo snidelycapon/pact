@@ -256,7 +256,7 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
   // Backward compatibility: old single-recipient format
   // =========================================================================
 
-  it.skip("inbox reads old-format requests with single recipient field", async () => {
+  it("inbox reads old-format requests with single recipient field", async () => {
     ctx = createGroupTestRepos();
 
     await given("a request exists with old-format single recipient field", () => {
@@ -275,7 +275,7 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
     });
   });
 
-  it.skip("status reads old-format single response file alongside per-respondent directory", async () => {
+  it("status reads old-format single response file alongside per-respondent directory", async () => {
     ctx = createGroupTestRepos();
 
     await given("a completed request exists with old-format single response file", () => {
@@ -308,7 +308,7 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
   // Thread with per-respondent responses
   // =========================================================================
 
-  it.skip("view_thread shows all per-respondent responses for a group request", async () => {
+  it("view_thread shows all per-respondent responses for a group request", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
