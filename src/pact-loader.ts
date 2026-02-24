@@ -26,6 +26,13 @@ export interface BundleSpec {
   fields: Record<string, BundleFieldDef>;
 }
 
+export interface AttachmentSlot {
+  slot: string;
+  required?: boolean;
+  convention?: string;
+  description?: string;
+}
+
 export interface PactMetadata {
   name: string;
   version?: string;
@@ -34,6 +41,11 @@ export interface PactMetadata {
   context_bundle: BundleSpec;
   response_bundle: BundleSpec;
   has_hooks: boolean;
+  scope?: string;
+  defaults?: Record<string, unknown>;
+  multi_round?: boolean;
+  attachments?: AttachmentSlot[];
+  registered_for?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +143,178 @@ export async function loadPactMetadata(
     response_bundle: responseBundle,
     has_hooks: false,
   };
+}
+
+/**
+ * Load pact metadata from flat-file pact store.
+ *
+ * Scans pact-store/ recursively for .md files via directory walking, parses
+ * YAML frontmatter from each .md file, and returns extended PactMetadata
+ * with scope, defaults, multi_round, attachments, and registered_for.
+ *
+ * Files without valid YAML frontmatter, malformed YAML, or missing
+ * name field are silently skipped.
+ *
+ * Returns an empty array when pact-store/ does not exist or is empty.
+ */
+export async function loadFlatFilePacts(
+  file: FilePort,
+): Promise<PactMetadata[]> {
+  const storeExists = await file.fileExists("pact-store");
+  if (!storeExists) {
+    return [];
+  }
+
+  const mdPaths = await collectMdFiles(file, "pact-store");
+  const results: PactMetadata[] = [];
+
+  for (const mdPath of mdPaths) {
+    const metadata = await parseFlatFilePact(file, mdPath);
+    if (metadata) {
+      results.push(metadata);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Recursively collect all .md file paths under a directory.
+ */
+async function collectMdFiles(
+  file: FilePort,
+  dirPath: string,
+): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await file.listDirectory(dirPath);
+  } catch {
+    return [];
+  }
+
+  const mdFiles: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.startsWith(".")) continue;
+
+    const fullPath = `${dirPath}/${entry}`;
+
+    if (entry.endsWith(".md")) {
+      mdFiles.push(fullPath);
+    } else {
+      // Try as subdirectory -- if listDirectory succeeds, it's a dir
+      const subFiles = await collectMdFiles(file, fullPath);
+      mdFiles.push(...subFiles);
+    }
+  }
+
+  return mdFiles;
+}
+
+/**
+ * Parse a single flat-file pact (.md with YAML frontmatter).
+ * Returns undefined if the file is invalid or missing the name field.
+ */
+async function parseFlatFilePact(
+  file: FilePort,
+  mdPath: string,
+): Promise<PactMetadata | undefined> {
+  let content: string;
+  try {
+    content = await file.readText(mdPath);
+  } catch {
+    return undefined;
+  }
+
+  const frontmatter = extractFrontmatter(content);
+  if (frontmatter === undefined) {
+    return undefined;
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = parseYaml(frontmatter) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return undefined;
+  }
+
+  // name field is required for flat-file pacts
+  if (typeof parsed.name !== "string" || parsed.name.trim() === "") {
+    return undefined;
+  }
+
+  const name = parsed.name;
+  const version =
+    typeof parsed.version === "string" ? parsed.version : undefined;
+  const description =
+    typeof parsed.description === "string" ? parsed.description : "";
+
+  const whenToUse = normalizeWhenToUse(parsed.when_to_use);
+  const contextBundle = parseBundleSpec(parsed.context_bundle);
+  const responseBundle = parseBundleSpec(parsed.response_bundle);
+  const hasHooks = parsed.hooks != null;
+
+  // Extended fields
+  const scope =
+    typeof parsed.scope === "string" ? parsed.scope : undefined;
+  const defaults =
+    parsed.defaults && typeof parsed.defaults === "object"
+      ? (parsed.defaults as Record<string, unknown>)
+      : undefined;
+  const multiRound =
+    typeof parsed.multi_round === "boolean" ? parsed.multi_round : undefined;
+  const attachments = parseAttachments(parsed.attachments);
+  const registeredFor = parseRegisteredFor(parsed.registered_for);
+
+  return {
+    name,
+    version,
+    description,
+    when_to_use: whenToUse,
+    context_bundle: contextBundle,
+    response_bundle: responseBundle,
+    has_hooks: hasHooks,
+    scope,
+    ...(defaults ? { defaults } : {}),
+    ...(multiRound !== undefined ? { multi_round: multiRound } : {}),
+    ...(attachments ? { attachments } : {}),
+    ...(registeredFor ? { registered_for: registeredFor } : {}),
+  };
+}
+
+/**
+ * Parse attachments array from YAML.
+ */
+function parseAttachments(raw: unknown): AttachmentSlot[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const slots: AttachmentSlot[] = [];
+  for (const item of raw) {
+    if (item && typeof item === "object") {
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.slot === "string") {
+        slots.push({
+          slot: obj.slot,
+          ...(typeof obj.required === "boolean" ? { required: obj.required } : {}),
+          ...(typeof obj.convention === "string" ? { convention: obj.convention } : {}),
+          ...(typeof obj.description === "string" ? { description: obj.description } : {}),
+        });
+      }
+    }
+  }
+  return slots.length > 0 ? slots : undefined;
+}
+
+/**
+ * Parse registered_for array from YAML.
+ */
+function parseRegisteredFor(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const items = raw.filter((item): item is string => typeof item === "string");
+  return items.length > 0 ? items : undefined;
 }
 
 /**

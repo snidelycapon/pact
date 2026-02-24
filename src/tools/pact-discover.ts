@@ -8,8 +8,8 @@
  */
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
-import { loadPactMetadata } from "../pact-loader.ts";
-import type { PactMetadata } from "../pact-loader.ts";
+import { loadPactMetadata, loadFlatFilePacts } from "../pact-loader.ts";
+import type { PactMetadata, AttachmentSlot } from "../pact-loader.ts";
 import { log } from "../logger.ts";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +41,11 @@ export interface PactCatalogEntry {
     fields: Record<string, { type: string; description: string }>;
   };
   has_hooks: boolean;
+  scope?: string;
+  defaults?: Record<string, unknown>;
+  multi_round?: boolean;
+  attachments?: AttachmentSlot[];
+  registered_for?: string[];
 }
 
 export interface DiscoverResult {
@@ -66,30 +71,38 @@ export async function handlePactDiscover(
     warning = "Using local data (remote unreachable). Results may be stale.";
   }
 
-  // 2. List pacts directory
-  let pactDirs: string[];
-  try {
-    pactDirs = await ctx.file.listDirectory("pacts");
-  } catch {
-    log("warn", "pact_discover: pacts directory not found");
-    const team = await readTeam(ctx);
-    return { pacts: [], team, ...(warning ? { warning } : {}) };
-  }
+  // 2. Try flat-file pact-store/ first, fall back to pacts/ directory
+  const flatFilePacts = await loadFlatFilePacts(ctx.file);
+  let pacts: PactCatalogEntry[];
 
-  // 3. Load metadata for each pact directory
-  const pacts: PactCatalogEntry[] = [];
-  for (const dirName of pactDirs) {
-    // Skip hidden directories (e.g. .gitkeep)
-    if (dirName.startsWith(".")) {
-      continue;
+  if (flatFilePacts.length > 0) {
+    // Use flat-file pact store
+    pacts = flatFilePacts.map(toEntry);
+  } else {
+    // Fall back to old pacts/ directory format
+    let pactDirs: string[];
+    try {
+      pactDirs = await ctx.file.listDirectory("pacts");
+    } catch {
+      log("warn", "pact_discover: pacts directory not found");
+      const team = await readTeam(ctx);
+      return { pacts: [], team, ...(warning ? { warning } : {}) };
     }
 
-    const metadata = await loadPactMetadata(ctx.file, dirName);
-    if (!metadata) {
-      continue;
-    }
+    pacts = [];
+    for (const dirName of pactDirs) {
+      // Skip hidden directories (e.g. .gitkeep)
+      if (dirName.startsWith(".")) {
+        continue;
+      }
 
-    pacts.push(toEntry(metadata));
+      const metadata = await loadPactMetadata(ctx.file, dirName);
+      if (!metadata) {
+        continue;
+      }
+
+      pacts.push(toEntry(metadata));
+    }
   }
 
   // 4. Filter by query if provided
@@ -128,6 +141,11 @@ function toEntry(m: PactMetadata): PactCatalogEntry {
     context_bundle: m.context_bundle,
     response_bundle: m.response_bundle,
     has_hooks: m.has_hooks,
+    ...(m.scope ? { scope: m.scope } : {}),
+    ...(m.defaults ? { defaults: m.defaults } : {}),
+    ...(m.multi_round !== undefined ? { multi_round: m.multi_round } : {}),
+    ...(m.attachments ? { attachments: m.attachments } : {}),
+    ...(m.registered_for ? { registered_for: m.registered_for } : {}),
   };
 }
 

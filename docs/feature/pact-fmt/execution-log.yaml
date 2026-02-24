@@ -1,0 +1,24 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-24T15:15:37Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-24T15:16:21Z'
+- d: 'NOT_APPLICABLE: 7 acceptance tests already cover all 7 distinct behaviors; unit
+    tests would duplicate without adding value'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-02-24T15:16:35Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-24T15:18:30Z'
+project_id: pact-fmt
+schema_version: '3.0'
