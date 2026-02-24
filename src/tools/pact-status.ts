@@ -85,64 +85,81 @@ export async function handlePactStatus(
     warning = "Using local data (remote unreachable). Results may be stale.";
   }
 
-  // 2. Search pending/
-  const pendingFiles = await ctx.file.listDirectory("requests/pending");
-  if (pendingFiles.includes(`${params.request_id}.json`)) {
-    const raw = await ctx.file.readJSON<unknown>(`requests/pending/${params.request_id}.json`);
+  // 2. Search directories in priority order
+  const searchDirs: Array<{ dir: string; status: PactStatusResult["status"] }> = [
+    { dir: "requests/pending", status: "pending" },
+    { dir: "requests/active", status: "active" },
+    { dir: "requests/completed", status: "completed" },
+    { dir: "requests/cancelled", status: "cancelled" },
+  ];
+
+  for (const { dir, status } of searchDirs) {
+    const files = await ctx.file.listDirectory(dir);
+    if (!files.includes(`${params.request_id}.json`)) continue;
+
+    const raw = await ctx.file.readJSON<unknown>(`${dir}/${params.request_id}.json`);
     const request = parseRequestEnvelope(raw, params.request_id);
-    const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
-    return { status: "pending", request, response: undefined, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
-  }
+    const attachmentPaths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
 
-  // 3. Search active/ (Tier 2: brain service acknowledges request)
-  const activeFiles = await ctx.file.listDirectory("requests/active");
-  if (activeFiles.includes(`${params.request_id}.json`)) {
-    const raw = await ctx.file.readJSON<unknown>(`requests/active/${params.request_id}.json`);
-    const request = parseRequestEnvelope(raw, params.request_id);
-    const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
-    return { status: "active", request, response: undefined, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
-  }
-
-  // 4. Search completed/
-  const completedFiles = await ctx.file.listDirectory("requests/completed");
-  if (completedFiles.includes(`${params.request_id}.json`)) {
-    const raw = await ctx.file.readJSON<unknown>(`requests/completed/${params.request_id}.json`);
-    const request = parseRequestEnvelope(raw, params.request_id);
-    const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
-
-    // Check for per-respondent response directory (group envelopes) vs flat response file
-    const responseDir = `responses/${params.request_id}`;
-    const hasFlatResponse = await ctx.file.fileExists(`${responseDir}.json`);
-    const hasResponseDir = await ctx.file.fileExists(responseDir);
-
-    if (hasResponseDir && !hasFlatResponse) {
-      // Per-respondent directory: list all response files
-      const responseFiles = await ctx.file.listDirectory(responseDir);
-      const responses: unknown[] = [];
-      for (const fileName of responseFiles) {
-        const resp = parseResponseEnvelope(
-          await ctx.file.readJSON<unknown>(`${responseDir}/${fileName}`),
-          params.request_id,
-        );
-        responses.push(resp);
-      }
-      return { status: "completed", request, responses, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
-    } else {
-      // Flat response file (legacy single-recipient)
-      const response = parseResponseEnvelope(await ctx.file.readJSON<unknown>(`responses/${params.request_id}.json`), params.request_id);
-      return { status: "completed", request, response, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
+    // For completed requests, also load responses
+    if (status === "completed") {
+      const responseData = await loadResponses(ctx.file, params.request_id);
+      return buildResult(status, request, attachmentPaths, warning, responseData);
     }
+
+    return buildResult(status, request, attachmentPaths, warning);
   }
 
-  // 5. Search cancelled/
-  const cancelledFiles = await ctx.file.listDirectory("requests/cancelled");
-  if (cancelledFiles.includes(`${params.request_id}.json`)) {
-    const raw = await ctx.file.readJSON<unknown>(`requests/cancelled/${params.request_id}.json`);
-    const request = parseRequestEnvelope(raw, params.request_id);
-    const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
-    return { status: "cancelled", request, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
-  }
-
-  // 6. Not found in pending/, active/, completed/, or cancelled/
   throw new Error(`Request ${params.request_id} not found in any directory`);
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+type AttachmentPathList = Array<{ filename: string; description: string; path: string }>;
+
+/** Load responses for a completed request (per-respondent directory or flat file). */
+async function loadResponses(
+  file: FilePort,
+  requestId: string,
+): Promise<{ response?: unknown; responses?: unknown[] }> {
+  const responseDir = `responses/${requestId}`;
+  const hasFlatResponse = await file.fileExists(`${responseDir}.json`);
+  const hasResponseDir = await file.fileExists(responseDir);
+
+  if (hasResponseDir && !hasFlatResponse) {
+    const responseFiles = await file.listDirectory(responseDir);
+    const responses: unknown[] = [];
+    for (const fileName of responseFiles) {
+      responses.push(parseResponseEnvelope(
+        await file.readJSON<unknown>(`${responseDir}/${fileName}`),
+        requestId,
+      ));
+    }
+    return { responses };
+  }
+
+  const response = parseResponseEnvelope(
+    await file.readJSON<unknown>(`responses/${requestId}.json`),
+    requestId,
+  );
+  return { response };
+}
+
+/** Build a PactStatusResult with optional fields. */
+function buildResult(
+  status: PactStatusResult["status"],
+  request: unknown,
+  attachmentPaths: AttachmentPathList | undefined,
+  warning: string | undefined,
+  responseData?: { response?: unknown; responses?: unknown[] },
+): PactStatusResult {
+  return {
+    status,
+    request,
+    ...responseData,
+    ...(attachmentPaths ? { attachment_paths: attachmentPaths } : {}),
+    ...(warning ? { warning } : {}),
+  };
 }

@@ -118,53 +118,12 @@ export async function handlePactThread(
     return aTime - bTime;
   });
 
-  // 5. Pair each request with its response(s) (if exists in responses/)
-  //    Check for per-respondent directory first, then fall back to flat file.
+  // 5. Pair each request with its response(s)
   const threadEntries: ThreadEntry[] = [];
   for (const entry of entries) {
     const requestId = entry.request.request_id as string;
-    const responseDir = `responses/${requestId}`;
-    const hasFlatResponse = await ctx.file.fileExists(`${responseDir}.json`);
-    const hasResponseDir = await ctx.file.fileExists(responseDir);
-
-    if (hasResponseDir && !hasFlatResponse) {
-      // Per-respondent directory: aggregate all response files
-      const responseFiles = await ctx.file.listDirectory(responseDir);
-      const responses: unknown[] = [];
-      for (const fileName of responseFiles) {
-        const rawResponse = await ctx.file.readJSON<unknown>(`${responseDir}/${fileName}`);
-        const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
-        if (parsedResponse.success) {
-          responses.push(parsedResponse.data);
-        } else {
-          log("warn", "malformed response envelope in thread", { request_id: requestId, file: fileName });
-          responses.push(rawResponse);
-        }
-      }
-      threadEntries.push({
-        request: entry.request,
-        ...(responses.length > 0 ? { responses } : {}),
-      });
-    } else {
-      // Flat response file (legacy single-recipient)
-      let response: unknown | undefined;
-      try {
-        const rawResponse = await ctx.file.readJSON<unknown>(`responses/${requestId}.json`);
-        const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
-        if (parsedResponse.success) {
-          response = parsedResponse.data;
-        } else {
-          log("warn", "malformed response envelope in thread", { request_id: requestId });
-          response = rawResponse; // Return raw so user still sees something
-        }
-      } catch {
-        // No response file exists -- that's fine (pending/cancelled requests)
-      }
-      threadEntries.push({
-        request: entry.request,
-        ...(response !== undefined ? { response } : {}),
-      });
-    }
+    const responseData = await loadResponsesForThread(ctx.file, requestId);
+    threadEntries.push({ request: entry.request, ...responseData });
   }
 
   // 6. Build summary
@@ -224,4 +183,51 @@ export async function handlePactThread(
     ...(allResponses.length === 1 && singleResponse ? { response: singleResponse } : {}),
     ...(warning ? { warning } : {}),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Load responses for a single request (per-respondent directory or flat file).
+ * Returns an object suitable for spreading into a ThreadEntry.
+ */
+async function loadResponsesForThread(
+  file: FilePort,
+  requestId: string,
+): Promise<{ response?: unknown; responses?: unknown[] }> {
+  const responseDir = `responses/${requestId}`;
+  const hasFlatResponse = await file.fileExists(`${responseDir}.json`);
+  const hasResponseDir = await file.fileExists(responseDir);
+
+  if (hasResponseDir && !hasFlatResponse) {
+    const responseFiles = await file.listDirectory(responseDir);
+    const responses: unknown[] = [];
+    for (const fileName of responseFiles) {
+      const rawResponse = await file.readJSON<unknown>(`${responseDir}/${fileName}`);
+      const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
+      if (parsedResponse.success) {
+        responses.push(parsedResponse.data);
+      } else {
+        log("warn", "malformed response envelope in thread", { request_id: requestId, file: fileName });
+        responses.push(rawResponse);
+      }
+    }
+    return responses.length > 0 ? { responses } : {};
+  }
+
+  // Flat response file (legacy single-recipient)
+  try {
+    const rawResponse = await file.readJSON<unknown>(`responses/${requestId}.json`);
+    const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
+    if (parsedResponse.success) {
+      return { response: parsedResponse.data };
+    }
+    log("warn", "malformed response envelope in thread", { request_id: requestId });
+    return { response: rawResponse };
+  } catch {
+    // No response file exists -- that's fine (pending/cancelled requests)
+    return {};
+  }
 }

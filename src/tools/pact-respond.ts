@@ -36,26 +36,7 @@ export async function handlePactRespond(
 
   // 3. Find the request - check pending, active, then completed
   const filename = `${params.request_id}.json`;
-  let sourceDir: string | undefined;
-  let alreadyCompleted = false;
-
-  const pendingFiles = await ctx.file.listDirectory("requests/pending");
-  if (pendingFiles.includes(filename)) {
-    sourceDir = "requests/pending";
-  } else {
-    const activeFiles = await ctx.file.listDirectory("requests/active");
-    if (activeFiles.includes(filename)) {
-      sourceDir = "requests/active";
-    } else {
-      const completedFiles = await ctx.file.listDirectory("requests/completed");
-      if (completedFiles.includes(filename)) {
-        sourceDir = "requests/completed";
-        alreadyCompleted = true;
-      } else {
-        throw new Error(`Request ${params.request_id} not found in any directory`);
-      }
-    }
-  }
+  const { sourceDir, alreadyCompleted } = await findRequestDir(ctx.file, filename, params.request_id);
 
   // 4. Read request envelope, validate schema, verify current user is recipient
   const raw = await ctx.file.readJSON<unknown>(`${sourceDir}/${filename}`);
@@ -124,4 +105,32 @@ export async function handlePactRespond(
   await ctx.git.push();
 
   return { status: "completed", request_id: params.request_id, message: "Response submitted" };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/** Search pending, active, and completed directories for a request file. */
+async function findRequestDir(
+  file: FilePort,
+  filename: string,
+  requestId: string,
+): Promise<{ sourceDir: string; alreadyCompleted: boolean }> {
+  const pendingFiles = await file.listDirectory("requests/pending");
+  if (pendingFiles.includes(filename)) {
+    return { sourceDir: "requests/pending", alreadyCompleted: false };
+  }
+
+  const activeFiles = await file.listDirectory("requests/active");
+  if (activeFiles.includes(filename)) {
+    return { sourceDir: "requests/active", alreadyCompleted: false };
+  }
+
+  const completedFiles = await file.listDirectory("requests/completed");
+  if (completedFiles.includes(filename)) {
+    return { sourceDir: "requests/completed", alreadyCompleted: true };
+  }
+
+  throw new Error(`Request ${requestId} not found in any directory`);
 }
