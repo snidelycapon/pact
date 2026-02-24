@@ -10,7 +10,8 @@
 
 import { join } from "node:path";
 import type { GitPort, FilePort } from "../ports.ts";
-import { RequestEnvelopeSchema, ResponseEnvelopeSchema } from "../schemas.ts";
+import { RequestEnvelopeSchema } from "../schemas.ts";
+import { loadResponseData } from "../response-loader.ts";
 import { log } from "../logger.ts";
 
 export interface PactStatusParams {
@@ -38,15 +39,6 @@ function parseRequestEnvelope(raw: unknown, requestId: string): unknown {
   if (!parsed.success) {
     log("warn", "malformed request envelope", { request_id: requestId, errors: parsed.error.issues });
     return raw; // Return raw data so the user still sees something
-  }
-  return parsed.data;
-}
-
-function parseResponseEnvelope(raw: unknown, requestId: string): unknown {
-  const parsed = ResponseEnvelopeSchema.safeParse(raw);
-  if (!parsed.success) {
-    log("warn", "malformed response envelope", { request_id: requestId, errors: parsed.error.issues });
-    return raw;
   }
   return parsed.data;
 }
@@ -103,7 +95,7 @@ export async function handlePactStatus(
 
     // For completed requests, also load responses
     if (status === "completed") {
-      const responseData = await loadResponses(ctx.file, params.request_id);
+      const responseData = await loadResponseData(ctx.file, params.request_id);
       return buildResult(status, request, attachmentPaths, warning, responseData);
     }
 
@@ -118,34 +110,6 @@ export async function handlePactStatus(
 // ---------------------------------------------------------------------------
 
 type AttachmentPathList = Array<{ filename: string; description: string; path: string }>;
-
-/** Load responses for a completed request (per-respondent directory or flat file). */
-async function loadResponses(
-  file: FilePort,
-  requestId: string,
-): Promise<{ response?: unknown; responses?: unknown[] }> {
-  const responseDir = `responses/${requestId}`;
-  const hasFlatResponse = await file.fileExists(`${responseDir}.json`);
-  const hasResponseDir = await file.fileExists(responseDir);
-
-  if (hasResponseDir && !hasFlatResponse) {
-    const responseFiles = await file.listDirectory(responseDir);
-    const responses: unknown[] = [];
-    for (const fileName of responseFiles) {
-      responses.push(parseResponseEnvelope(
-        await file.readJSON<unknown>(`${responseDir}/${fileName}`),
-        requestId,
-      ));
-    }
-    return { responses };
-  }
-
-  const response = parseResponseEnvelope(
-    await file.readJSON<unknown>(`responses/${requestId}.json`),
-    requestId,
-  );
-  return { response };
-}
 
 /** Build a PactStatusResult with optional fields. */
 function buildResult(
