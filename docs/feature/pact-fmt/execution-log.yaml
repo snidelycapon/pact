@@ -220,5 +220,60 @@ events:
   s: EXECUTED
   sid: 04-02
   t: '2026-02-24T15:58:28Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 04-02
+  t: '2026-02-24T15:58:55Z'
+- d: 'NOT_APPLICABLE: fallback logic verified by acceptance test M3-7'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-03
+  t: '2026-02-24T17:48:04Z'
+- d: 'NOT_APPLICABLE: step context established in RED_ACCEPTANCE'
+  p: PREPARE
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-02-24T17:48:04Z'
+- d: 'NOT_APPLICABLE: 7 acceptance scenarios cover all distinct behaviors'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-01
+  t: '2026-02-24T17:48:04Z'
+- d: 'NOT_APPLICABLE: scope filtering tested by acceptance scenarios C2-1, C2-2, C3-1'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 02-03
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: step context established in RED_ACCEPTANCE'
+  p: PREPARE
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: WS-3 + E1 acceptance scenarios cover all validation paths'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-01
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: step context established in RED_ACCEPTANCE'
+  p: PREPARE
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: WS-1 + WS-2 acceptance scenarios cover storage and inbox'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 03-02
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: 5 error path acceptance tests verify all validation behaviors'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 04-01
+  t: '2026-02-24T17:48:15Z'
+- d: 'NOT_APPLICABLE: backward compat tests verify old-format reading'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 04-02
+  t: '2026-02-24T17:48:16Z'
 project_id: pact-fmt
 schema_version: '3.0'
