@@ -65,6 +65,8 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     "Discover available request types, team members, and their capabilities",
     {
       query: z.string().optional().describe("Optional keyword to filter by name, description, or usage"),
+      format: z.enum(["full", "compressed"]).optional().describe("Output format: 'full' (default) returns structured objects, 'compressed' returns pipe-delimited entries"),
+      scope: z.string().optional().describe("Filter pacts by scope (e.g. 'global', 'team', 'repo')"),
     },
     async (params) => {
       ensureAdapters();
@@ -78,7 +80,7 @@ export function createMcpServer(config: McpServerConfig): McpServer {
           config: configAdapter!,
           file: file!,
         });
-        log("info", "tool invocation complete", { tool: "pact_discover", pact_count: result.pacts.length, duration_ms: Date.now() - start });
+        log("info", "tool invocation complete", { tool: "pact_discover", pact_count: result.pacts?.length ?? 0, duration_ms: Date.now() - start });
         return formatResult(result);
       } catch (err) {
         log("error", "tool invocation failed", { tool: "pact_discover", error: err instanceof Error ? err.message : String(err), duration_ms: Date.now() - start });

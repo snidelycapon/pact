@@ -18,6 +18,8 @@ import { log } from "../logger.ts";
 
 export interface PactDiscoverParams {
   query?: string;
+  format?: "full" | "compressed";
+  scope?: string;
 }
 
 export interface PactDiscoverContext {
@@ -49,7 +51,8 @@ export interface PactCatalogEntry {
 }
 
 export interface DiscoverResult {
-  pacts: PactCatalogEntry[];
+  pacts?: PactCatalogEntry[];
+  catalog?: string;
   team: Array<{ user_id: string; display_name: string }>;
   warning?: string;
 }
@@ -124,6 +127,16 @@ export async function handlePactDiscover(
 
   // 6. Read team members
   const team = await readTeam(ctx);
+
+  // 7. Compressed format: pipe-delimited catalog string
+  if (params.format === "compressed") {
+    const lines = filtered.map((p) => {
+      const ctx_req = p.context_bundle.required.join(",");
+      const res_req = p.response_bundle.required.join(",");
+      return `${p.name}|${p.description}|${p.scope ?? ""}|${ctx_req}\u2192${res_req}`;
+    });
+    return { catalog: lines.join("\n"), team, ...(warning ? { warning } : {}) };
+  }
 
   return { pacts: filtered, team, ...(warning ? { warning } : {}) };
 }

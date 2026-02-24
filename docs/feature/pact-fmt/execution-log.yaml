@@ -28,32 +28,6 @@ events:
 - d: PASS
   p: PREPARE
   s: EXECUTED
-  sid: 01-01
-  t: '2026-02-24T15:19:59Z'
-- d: PASS
-  p: RED_ACCEPTANCE
-  s: EXECUTED
-  sid: 01-01
-  t: '2026-02-24T15:20:07Z'
-- d: 'NOT_APPLICABLE: acceptance tests serve as both acceptance and unit tests for
-    this step'
-  p: RED_UNIT
-  s: SKIPPED
-  sid: 01-01
-  t: '2026-02-24T15:20:07Z'
-- d: PASS
-  p: GREEN
-  s: EXECUTED
-  sid: 01-01
-  t: '2026-02-24T15:20:07Z'
-- d: PASS
-  p: COMMIT
-  s: EXECUTED
-  sid: 01-01
-  t: '2026-02-24T15:20:07Z'
-- d: PASS
-  p: PREPARE
-  s: EXECUTED
   sid: 01-02
   t: '2026-02-24T15:21:28Z'
 - d: PASS
@@ -71,5 +45,40 @@ events:
   s: EXECUTED
   sid: 01-02
   t: '2026-02-24T15:23:46Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-02-24T15:24:15Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-02-24T15:27:02Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-02-24T15:27:02Z'
+- d: PASS (no changes needed, fallback logic already correct)
+  p: GREEN
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-02-24T15:27:02Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-03
+  t: '2026-02-24T15:27:02Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-24T15:29:16Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-24T15:30:42Z'
 project_id: pact-fmt
 schema_version: '3.0'
