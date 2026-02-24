@@ -26,6 +26,7 @@ export interface PactThreadContext {
 export interface ThreadEntry {
   request: unknown;
   response?: unknown;
+  responses?: unknown[];
 }
 
 export interface ThreadSummary {
@@ -111,37 +112,81 @@ export async function handlePactThread(
     return aTime - bTime;
   });
 
-  // 5. Pair each request with its response (if exists in responses/)
+  // 5. Pair each request with its response(s) (if exists in responses/)
+  //    Check for per-respondent directory first, then fall back to flat file.
   const threadEntries: ThreadEntry[] = [];
   for (const entry of entries) {
     const requestId = entry.request.request_id as string;
-    let response: unknown | undefined;
-    try {
-      const rawResponse = await ctx.file.readJSON<unknown>(`responses/${requestId}.json`);
-      const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
-      if (parsedResponse.success) {
-        response = parsedResponse.data;
-      } else {
-        log("warn", "malformed response envelope in thread", { request_id: requestId });
-        response = rawResponse; // Return raw so user still sees something
-      }
-    } catch {
-      // No response file exists -- that's fine (pending/cancelled requests)
-    }
+    const responseDir = `responses/${requestId}`;
+    const hasFlatResponse = await ctx.file.fileExists(`${responseDir}.json`);
+    const hasResponseDir = await ctx.file.fileExists(responseDir);
 
-    threadEntries.push({
-      request: entry.request,
-      ...(response !== undefined ? { response } : {}),
-    });
+    if (hasResponseDir && !hasFlatResponse) {
+      // Per-respondent directory: aggregate all response files
+      const responseFiles = await ctx.file.listDirectory(responseDir);
+      const responses: unknown[] = [];
+      for (const file of responseFiles) {
+        const rawResponse = await ctx.file.readJSON<unknown>(`${responseDir}/${file}`);
+        const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
+        if (parsedResponse.success) {
+          responses.push(parsedResponse.data);
+        } else {
+          log("warn", "malformed response envelope in thread", { request_id: requestId, file });
+          responses.push(rawResponse);
+        }
+      }
+      threadEntries.push({
+        request: entry.request,
+        ...(responses.length > 0 ? { responses } : {}),
+      });
+    } else {
+      // Flat response file (legacy single-recipient)
+      let response: unknown | undefined;
+      try {
+        const rawResponse = await ctx.file.readJSON<unknown>(`responses/${requestId}.json`);
+        const parsedResponse = ResponseEnvelopeSchema.safeParse(rawResponse);
+        if (parsedResponse.success) {
+          response = parsedResponse.data;
+        } else {
+          log("warn", "malformed response envelope in thread", { request_id: requestId });
+          response = rawResponse; // Return raw so user still sees something
+        }
+      } catch {
+        // No response file exists -- that's fine (pending/cancelled requests)
+      }
+      threadEntries.push({
+        request: entry.request,
+        ...(response !== undefined ? { response } : {}),
+      });
+    }
   }
 
   // 6. Build summary
   const participantSet = new Set<string>();
   for (const entry of entries) {
     const sender = (entry.request.sender as { user_id: string }).user_id;
-    const recipient = (entry.request.recipient as { user_id: string }).user_id;
     participantSet.add(sender);
-    participantSet.add(recipient);
+    // Support both single recipient and recipients[] (group envelopes)
+    const recipients = entry.request.recipients as Array<{ user_id: string }> | undefined;
+    const recipient = entry.request.recipient as { user_id: string } | undefined;
+    if (recipients) {
+      for (const r of recipients) participantSet.add(r.user_id);
+    } else if (recipient) {
+      participantSet.add(recipient.user_id);
+    }
+  }
+  // Also include responders from per-respondent responses
+  for (const te of threadEntries) {
+    if (te.responses) {
+      for (const resp of te.responses) {
+        const responder = (resp as Record<string, unknown>).responder as { user_id: string } | undefined;
+        if (responder) participantSet.add(responder.user_id);
+      }
+    }
+    if (te.response) {
+      const responder = (te.response as Record<string, unknown>).responder as { user_id: string } | undefined;
+      if (responder) participantSet.add(responder.user_id);
+    }
   }
 
   const latest = entries[entries.length - 1];
