@@ -75,11 +75,14 @@ export async function handlePactDiscover(
   }
 
   // 2. Try flat-file pact-store/ first, fall back to pacts/ directory
-  const flatFilePacts = await loadFlatFilePacts(ctx.file);
+  const pactStoreExists = await ctx.file.fileExists("pact-store");
+  const flatFilePacts = pactStoreExists
+    ? await loadFlatFilePacts(ctx.file)
+    : [];
   let pacts: PactCatalogEntry[];
 
-  if (flatFilePacts.length > 0) {
-    // Use flat-file pact store
+  if (pactStoreExists) {
+    // Use flat-file pact store (even if empty — don't fall back)
     pacts = flatFilePacts.map(toEntry);
   } else {
     // Fall back to old pacts/ directory format
@@ -120,6 +123,11 @@ export async function handlePactDiscover(
       ].join(" ").toLowerCase();
       return terms.some((term) => searchText.includes(term));
     });
+  }
+
+  // 4b. Filter by scope if provided
+  if (params.scope) {
+    filtered = filtered.filter((p) => p.scope === params.scope);
   }
 
   // 5. Sort by name for consistent ordering

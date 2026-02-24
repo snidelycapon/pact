@@ -191,7 +191,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
   // Scope filtering
   // =========================================================================
 
-  it.skip("filters catalog by scope when scope parameter is provided", async () => {
+  it("filters catalog by scope when scope parameter is provided", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has global, team, and repo-scoped pacts", () => {
@@ -217,7 +217,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
     });
   });
 
-  it.skip("returns all pacts when no scope filter is provided", async () => {
+  it("returns all pacts when no scope filter is provided", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has pacts of multiple scopes", () => {
@@ -245,7 +245,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
   // Error paths
   // =========================================================================
 
-  it.skip("returns empty catalog for scope with no matching pacts", async () => {
+  it("returns empty catalog for scope with no matching pacts", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has only global-scoped pacts", () => {
@@ -266,7 +266,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
     });
   });
 
-  it.skip("compressed format with empty pact-store returns empty catalog", async () => {
+  it("compressed format with empty pact-store returns empty catalog", async () => {
     ctx = createTestRepos();
 
     await given("pact-store is empty", () => {
@@ -292,7 +292,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
     });
   });
 
-  it.skip("invalid scope value returns empty results (not an error)", async () => {
+  it("invalid scope value returns empty results (not an error)", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has pacts", () => {
