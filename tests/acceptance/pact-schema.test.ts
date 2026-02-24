@@ -174,8 +174,8 @@ describe("schema.json: typed pacts and validation warnings", () => {
       expect(result.status).toBe("pending");
     });
 
-    await thenAssert("the response does not include validation_warnings", () => {
-      expect(result.validation_warnings).toBeUndefined();
+    await thenAssert("the response includes an empty validation_warnings array", () => {
+      expect(result.validation_warnings).toEqual([]);
     });
   });
 
@@ -203,7 +203,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
     await thenAssert("the request is submitted successfully with no warnings", () => {
       expect(result.request_id).toBeTruthy();
       expect(result.status).toBe("pending");
-      expect(result.validation_warnings).toBeUndefined();
+      expect(result.validation_warnings).toEqual([]);
     });
   });
 
@@ -236,7 +236,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
 
     await thenAssert("the request is submitted with no warnings about extra fields", () => {
       expect(result.request_id).toBeTruthy();
-      expect(result.validation_warnings).toBeUndefined();
+      expect(result.validation_warnings).toEqual([]);
     });
 
     await thenAssert("the extra fields are preserved in the request envelope", () => {
@@ -318,7 +318,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
     await thenAssert("the request submits successfully with no warnings (validation skipped)", () => {
       expect(result.request_id).toBeTruthy();
       expect(result.status).toBe("pending");
-      expect(result.validation_warnings).toBeUndefined();
+      expect(result.validation_warnings).toEqual([]);
     });
   });
 
@@ -397,7 +397,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
 
     await thenAssert("the request submits with no validation warnings", () => {
       expect(result.request_id).toBeTruthy();
-      expect(result.validation_warnings).toBeUndefined();
+      expect(result.validation_warnings).toEqual([]);
     });
   });
 
@@ -429,7 +429,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
     await thenAssert("the request is submitted identically to pre-Phase-A behavior", () => {
       expect(result.request_id).toBeTruthy();
       expect(result.status).toBe("pending");
-      expect(result.validation_warnings).toBeUndefined();
+      expect(result.validation_warnings).toEqual([]);
     });
 
     await thenAssert("the request envelope has the standard structure", () => {

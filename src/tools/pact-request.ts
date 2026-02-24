@@ -12,8 +12,6 @@
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
 import { getRequiredContextFieldsFromYaml } from "../pact-loader.ts";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 
 export interface AttachmentInput {
   filename: string;
@@ -43,7 +41,7 @@ export interface PactRequestContext {
 export async function handlePactRequest(
   params: PactRequestParams,
   ctx: PactRequestContext,
-): Promise<{ request_id: string; thread_id: string; status: string; message: string; validation_warnings?: string[] }> {
+): Promise<{ request_id: string; thread_id: string; status: string; message: string; validation_warnings: string[] }> {
   // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
   if (!params.context_bundle) throw new Error("Missing required field: context_bundle");
@@ -69,9 +67,10 @@ export async function handlePactRequest(
     throw new Error("Sender cannot be a recipient");
   }
 
-  // 5. Check pact exists: pacts/{type}/PACT.md (legacy location)
-  const pactPath = join(ctx.repoPath, "pacts", params.request_type, "PACT.md");
-  if (!existsSync(pactPath)) {
+  // 5. Check pact exists: flat-file store (new) or legacy directory
+  const flatFileExists = await ctx.file.fileExists(`pact-store/${params.request_type}.md`);
+  const legacyExists = await ctx.file.fileExists(`pacts/${params.request_type}/PACT.md`);
+  if (!flatFileExists && !legacyExists) {
     throw new Error(`No pact found for request type '${params.request_type}'`);
   }
 
@@ -152,6 +151,6 @@ export async function handlePactRequest(
     thread_id: threadId,
     status: "pending",
     message: "Request submitted",
-    ...(validationWarnings ? { validation_warnings: validationWarnings } : {}),
+    validation_warnings: validationWarnings ?? [],
   };
 }

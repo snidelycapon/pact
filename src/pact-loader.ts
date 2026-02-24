@@ -312,6 +312,7 @@ async function collectMdFiles(
 
   for (const entry of entries) {
     if (entry.startsWith(".")) continue;
+    if (entry.includes("..") || entry.includes("/")) continue;
 
     const fullPath = `${dirPath}/${entry}`;
 
