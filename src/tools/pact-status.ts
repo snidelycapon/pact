@@ -28,6 +28,7 @@ export interface PactStatusResult {
   status: "pending" | "active" | "completed" | "cancelled";
   request: unknown;
   response?: unknown;
+  responses?: unknown[];
   attachment_paths?: Array<{ filename: string; description: string; path: string }>;
   warning?: string;
 }
@@ -107,9 +108,30 @@ export async function handlePactStatus(
   if (completedFiles.includes(`${params.request_id}.json`)) {
     const raw = await ctx.file.readJSON<unknown>(`requests/completed/${params.request_id}.json`);
     const request = parseRequestEnvelope(raw, params.request_id);
-    const response = parseResponseEnvelope(await ctx.file.readJSON<unknown>(`responses/${params.request_id}.json`), params.request_id);
     const attachment_paths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
-    return { status: "completed", request, response, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
+
+    // Check for per-respondent response directory (group envelopes) vs flat response file
+    const responseDir = `responses/${params.request_id}`;
+    const hasFlatResponse = await ctx.file.fileExists(`${responseDir}.json`);
+    const hasResponseDir = await ctx.file.fileExists(responseDir);
+
+    if (hasResponseDir && !hasFlatResponse) {
+      // Per-respondent directory: list all response files
+      const responseFiles = await ctx.file.listDirectory(responseDir);
+      const responses: unknown[] = [];
+      for (const file of responseFiles) {
+        const resp = parseResponseEnvelope(
+          await ctx.file.readJSON<unknown>(`${responseDir}/${file}`),
+          params.request_id,
+        );
+        responses.push(resp);
+      }
+      return { status: "completed", request, responses, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
+    } else {
+      // Flat response file (legacy single-recipient)
+      const response = parseResponseEnvelope(await ctx.file.readJSON<unknown>(`responses/${params.request_id}.json`), params.request_id);
+      return { status: "completed", request, response, ...(attachment_paths ? { attachment_paths } : {}), ...(warning ? { warning } : {}) };
+    }
   }
 
   // 5. Search cancelled/

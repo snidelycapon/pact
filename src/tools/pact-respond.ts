@@ -37,6 +37,7 @@ export async function handlePactRespond(
   // 3. Find the request - check pending, active, then completed
   const filename = `${params.request_id}.json`;
   let sourceDir: string | undefined;
+  let alreadyCompleted = false;
 
   const pendingFiles = await ctx.file.listDirectory("requests/pending");
   if (pendingFiles.includes(filename)) {
@@ -48,9 +49,11 @@ export async function handlePactRespond(
     } else {
       const completedFiles = await ctx.file.listDirectory("requests/completed");
       if (completedFiles.includes(filename)) {
-        throw new Error(`Request ${params.request_id} is already completed`);
+        sourceDir = "requests/completed";
+        alreadyCompleted = true;
+      } else {
+        throw new Error(`Request ${params.request_id} not found in any directory`);
       }
-      throw new Error(`Request ${params.request_id} not found in any directory`);
     }
   }
 
@@ -61,6 +64,7 @@ export async function handlePactRespond(
     throw new Error(`Malformed request envelope for ${params.request_id}: ${parsed.error.issues.map((i) => i.message).join(", ")}`);
   }
   const envelope = parsed.data;
+  const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
   const isRecipient =
     envelope.recipient?.user_id === ctx.userId ||
     envelope.recipients?.some((r) => r.user_id === ctx.userId);
@@ -68,9 +72,24 @@ export async function handlePactRespond(
     throw new Error(`You are not the recipient of request ${params.request_id}`);
   }
 
+  // 4b. For completed requests: only allow if group envelope and caller hasn't responded yet
+  if (alreadyCompleted) {
+    if (!isGroupEnvelope) {
+      throw new Error(`Request ${params.request_id} is already completed`);
+    }
+    const alreadyResponded = await ctx.file.fileExists(
+      `responses/${params.request_id}/${ctx.userId}.json`,
+    );
+    if (alreadyResponded) {
+      throw new Error(`You have already responded to request ${params.request_id}`);
+    }
+  }
+
   // 5. Update status to "completed" before moving (US-015)
-  const updatedEnvelope = { ...raw as Record<string, unknown>, status: "completed" };
-  await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
+  if (!alreadyCompleted) {
+    const updatedEnvelope = { ...raw as Record<string, unknown>, status: "completed" };
+    await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
+  }
 
   // 6. Look up responder from config
   const responder = await ctx.config.lookupUser(ctx.userId);
@@ -82,17 +101,20 @@ export async function handlePactRespond(
     responded_at: new Date().toISOString(),
     response_bundle: params.response_bundle,
   };
-  const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
   const responsePath = isGroupEnvelope
     ? `responses/${params.request_id}/${ctx.userId}.json`
     : `responses/${params.request_id}.json`;
   await ctx.file.writeJSON(responsePath, response);
 
-  // 8. Git mv request to completed
-  await ctx.git.mv(`${sourceDir}/${filename}`, `requests/completed/${filename}`);
+  // 8. Git mv request to completed (skip if already there)
+  const filesToCommit = [responsePath];
+  if (!alreadyCompleted) {
+    await ctx.git.mv(`${sourceDir}/${filename}`, `requests/completed/${filename}`);
+    filesToCommit.push(`requests/completed/${filename}`);
+  }
 
-  // 9. Atomic commit (both response write + request move)
-  await ctx.git.add([responsePath, `requests/completed/${filename}`]);
+  // 9. Atomic commit (response write + request move if applicable)
+  await ctx.git.add(filesToCommit);
   const senderUserId = envelope.sender.user_id;
   await ctx.git.commit(
     `[pact] response: ${params.request_id} (${envelope.request_type}) ${ctx.userId} -> ${senderUserId}`,

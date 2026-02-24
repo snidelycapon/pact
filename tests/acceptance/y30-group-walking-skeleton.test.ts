@@ -83,7 +83,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
   // WALKING SKELETON 1: Full group request-respond lifecycle
   // =========================================================================
 
-  it.skip("Alice sends a request to Bob and Carol, both respond, Alice sees all responses", async () => {
+  it("Alice sends a request to Bob and Carol, both respond, Alice sees all responses", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
@@ -222,7 +222,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
   // WALKING SKELETON 2: Group inbox enrichment
   // =========================================================================
 
-  it.skip("inbox entries for group requests include recipient count and group reference", async () => {
+  it("inbox entries for group requests include recipient count and group reference", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });

@@ -35,6 +35,8 @@ export interface InboxEntry {
   attachments?: Array<{ filename: string; description: string }>;
   pact_description?: string;
   response_fields?: string[];
+  recipients_count?: number;
+  group_ref?: string;
 }
 
 export interface InboxThreadGroup {
@@ -110,6 +112,10 @@ export async function handlePactInbox(
         ...(envelope.attachments && envelope.attachments.length > 0
           ? { attachments: envelope.attachments.map(a => ({ filename: a.filename, description: a.description })) }
           : {}),
+        ...(envelope.recipients && envelope.recipients.length > 0
+          ? { recipients_count: envelope.recipients.length }
+          : {}),
+        ...(envelope.group_ref ? { group_ref: envelope.group_ref } : {}),
       });
     }
   }
