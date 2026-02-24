@@ -61,7 +61,10 @@ export async function handlePactRespond(
     throw new Error(`Malformed request envelope for ${params.request_id}: ${parsed.error.issues.map((i) => i.message).join(", ")}`);
   }
   const envelope = parsed.data;
-  if (envelope.recipient.user_id !== ctx.userId) {
+  const isRecipient =
+    envelope.recipient?.user_id === ctx.userId ||
+    envelope.recipients?.some((r) => r.user_id === ctx.userId);
+  if (!isRecipient) {
     throw new Error(`You are not the recipient of request ${params.request_id}`);
   }
 
@@ -72,20 +75,24 @@ export async function handlePactRespond(
   // 6. Look up responder from config
   const responder = await ctx.config.lookupUser(ctx.userId);
 
-  // 7. Write response file
+  // 7. Write response file (per-respondent directory for group envelopes, flat for legacy)
   const response = {
     request_id: params.request_id,
     responder: { user_id: responder!.user_id, display_name: responder!.display_name },
     responded_at: new Date().toISOString(),
     response_bundle: params.response_bundle,
   };
-  await ctx.file.writeJSON(`responses/${params.request_id}.json`, response);
+  const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
+  const responsePath = isGroupEnvelope
+    ? `responses/${params.request_id}/${ctx.userId}.json`
+    : `responses/${params.request_id}.json`;
+  await ctx.file.writeJSON(responsePath, response);
 
   // 8. Git mv request to completed
   await ctx.git.mv(`${sourceDir}/${filename}`, `requests/completed/${filename}`);
 
   // 9. Atomic commit (both response write + request move)
-  await ctx.git.add([`responses/${params.request_id}.json`, `requests/completed/${filename}`]);
+  await ctx.git.add([responsePath, `requests/completed/${filename}`]);
   const senderUserId = envelope.sender.user_id;
   await ctx.git.commit(
     `[pact] response: ${params.request_id} (${envelope.request_type}) ${ctx.userId} -> ${senderUserId}`,

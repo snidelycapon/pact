@@ -96,7 +96,9 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     {
       action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread"),
       request_type: z.string().optional().describe("The type of request (for send action)"),
-      recipient: z.string().optional().describe("The user_id of the recipient (for send action)"),
+      recipient: z.string().optional().describe("The user_id of the recipient (for send action, single-recipient backward compat)"),
+      recipients: z.array(z.string()).optional().describe("Array of user_id strings (for send action, group addressing)"),
+      group_ref: z.string().optional().describe("Optional group reference label (for send action, e.g. '@backend-team')"),
       context_bundle: z.record(z.string(), z.any()).optional().describe("Flexible context payload (for send action)"),
       request_id: z.string().optional().describe("The request ID (for respond, cancel, amend, check_status actions)"),
       response_bundle: z.record(z.string(), z.any()).optional().describe("Flexible response payload (for respond action)"),

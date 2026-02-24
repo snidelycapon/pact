@@ -80,5 +80,65 @@ events:
   s: EXECUTED
   sid: 02-01
   t: '2026-02-24T15:30:42Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-01
+  t: '2026-02-24T15:31:07Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-24T15:32:24Z'
+- d: SKIP
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-24T15:32:29Z'
+- d: SKIP
+  p: RED_UNIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-24T15:32:33Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-24T15:32:38Z'
+- d: SKIP
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-02
+  t: '2026-02-24T15:32:45Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-24T15:36:07Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-24T15:36:08Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-24T15:36:09Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 02-03
+  t: '2026-02-24T15:36:10Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-24T15:38:55Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 03-01
+  t: '2026-02-24T15:42:11Z'
 project_id: pact-fmt
 schema_version: '3.0'

@@ -3,6 +3,10 @@
  *
  * Validates inputs, builds a request envelope, writes it to
  * requests/pending/{id}.json, commits, and pushes.
+ *
+ * Supports both:
+ *   - recipients: string[]  (new group addressing)
+ *   - recipient: string     (legacy single-recipient)
  */
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
@@ -19,7 +23,9 @@ export interface AttachmentInput {
 
 export interface PactRequestParams {
   request_type: string;
-  recipient: string;
+  recipient?: string;
+  recipients?: string[];
+  group_ref?: string;
   context_bundle: Record<string, unknown>;
   deadline?: string;
   thread_id?: string;
@@ -40,16 +46,36 @@ export async function handlePactRequest(
 ): Promise<{ request_id: string; thread_id: string; status: string; message: string; validation_warnings?: string[] }> {
   // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
-  if (!params.recipient) throw new Error("Missing required field: recipient");
   if (!params.context_bundle) throw new Error("Missing required field: context_bundle");
 
-  // 2. Check pact exists: pacts/{type}/PACT.md
+  // 2. Resolve recipient list: new recipients[] or legacy recipient
+  const usedRecipientsArray = !!(params.recipients && params.recipients.length > 0);
+  let recipientIds: string[];
+  if (usedRecipientsArray) {
+    recipientIds = params.recipients!;
+  } else if (params.recipient) {
+    recipientIds = [params.recipient];
+  } else {
+    throw new Error("Missing required field: recipient or recipients");
+  }
+
+  // 3. Validate non-empty
+  if (recipientIds.length === 0) {
+    throw new Error("Recipients list must not be empty");
+  }
+
+  // 4. Validate sender not in recipients
+  if (recipientIds.includes(ctx.userId)) {
+    throw new Error("Sender cannot be a recipient");
+  }
+
+  // 5. Check pact exists: pacts/{type}/PACT.md (legacy location)
   const pactPath = join(ctx.repoPath, "pacts", params.request_type, "PACT.md");
   if (!existsSync(pactPath)) {
     throw new Error(`No pact found for request type '${params.request_type}'`);
   }
 
-  // 2b. Schema validation: warn on missing required context fields
+  // 5b. Schema validation: warn on missing required context fields
   let validationWarnings: string[] | undefined;
   const requiredFields = await getRequiredContextFieldsFromYaml(ctx.file, params.request_type);
   if (requiredFields) {
@@ -60,28 +86,33 @@ export async function handlePactRequest(
     }
   }
 
-  // 3. Validate recipient in config
-  const recipient = await ctx.config.lookupUser(params.recipient);
-  if (!recipient) {
-    throw new Error(`Recipient '${params.recipient}' not found in team config`);
+  // 6. Validate all recipients exist in team config and build UserRef[]
+  const recipientRefs: Array<{ user_id: string; display_name: string }> = [];
+  for (const rid of recipientIds) {
+    const user = await ctx.config.lookupUser(rid);
+    if (!user) {
+      throw new Error(`Recipient '${rid}' not found in team config`);
+    }
+    recipientRefs.push({ user_id: user.user_id, display_name: user.display_name });
   }
 
-  // 4. Look up sender
+  // 7. Look up sender
   const sender = await ctx.config.lookupUser(ctx.userId);
   if (!sender) {
     throw new Error(`Sender '${ctx.userId}' not found in team config`);
   }
 
-  // 5. Generate ID and build envelope
+  // 8. Generate ID and build envelope
   const requestId = generateRequestId(ctx.userId);
   const attachmentMeta = params.attachments?.map(({ filename, description }) => ({ filename, description }));
   const threadId = params.thread_id ?? requestId;
-  const envelope = {
+  const envelope: Record<string, unknown> = {
     request_id: requestId,
     thread_id: threadId,
     request_type: params.request_type,
     sender: { user_id: sender.user_id, display_name: sender.display_name },
-    recipient: { user_id: recipient.user_id, display_name: recipient.display_name },
+    recipient: recipientRefs[0], // backward compat: first recipient for old readers
+    ...(usedRecipientsArray ? { recipients: recipientRefs } : {}),
     status: "pending",
     created_at: new Date().toISOString(),
     deadline: params.deadline ?? null,
@@ -90,7 +121,12 @@ export async function handlePactRequest(
     ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}),
   };
 
-  // 6. Write attachment files
+  // Include group_ref if provided
+  if (params.group_ref) {
+    envelope.group_ref = params.group_ref;
+  }
+
+  // 9. Write attachment files
   const filesToAdd = [`requests/pending/${requestId}.json`];
   if (params.attachments?.length) {
     for (const att of params.attachments) {
@@ -100,11 +136,14 @@ export async function handlePactRequest(
     }
   }
 
-  // 7. Write envelope, commit, push
+  // 10. Write envelope, commit, push
+  const recipientLabel = recipientIds.length === 1
+    ? recipientIds[0]
+    : `[${recipientIds.join(",")}]`;
   await ctx.file.writeJSON(`requests/pending/${requestId}.json`, envelope);
   await ctx.git.add(filesToAdd);
   await ctx.git.commit(
-    `[pact] new request: ${requestId} (${params.request_type}) -> ${params.recipient}`,
+    `[pact] new request: ${requestId} (${params.request_type}) -> ${recipientLabel}`,
   );
   await ctx.git.push();
 

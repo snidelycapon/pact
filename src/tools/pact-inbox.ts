@@ -86,7 +86,10 @@ export async function handlePactInbox(
       continue;
     }
     const envelope = parsed.data;
-    if (envelope.recipient.user_id === ctx.userId) {
+    const isRecipient =
+      envelope.recipient?.user_id === ctx.userId ||
+      envelope.recipients?.some((r) => r.user_id === ctx.userId);
+    if (isRecipient) {
       const bundle = envelope.context_bundle as Record<string, unknown>;
       const parts = envelope.request_id.split("-");
       const shortId = parts.slice(-2).join("-");
