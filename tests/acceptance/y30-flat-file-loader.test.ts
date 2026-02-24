@@ -317,7 +317,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
   // Milestone 2: Pact Inheritance
   // =========================================================================
 
-  it.skip("resolves child pact by merging with parent at load time", async () => {
+  it("resolves child pact by merging with parent at load time", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has a request base pact and a backend variant", () => {
@@ -376,7 +376,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     });
   });
 
-  it.skip("catalog shows both base and variant as flat entries, no hierarchy", async () => {
+  it("catalog shows both base and variant as flat entries, no hierarchy", async () => {
     ctx = createTestRepos();
 
     await given("pact-store has a base pact and its variant", () => {
@@ -405,7 +405,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
   // Milestone 3: Error Paths and Edge Cases
   // =========================================================================
 
-  it.skip("skips pact with missing parent in extends chain", async () => {
+  it("skips pact with missing parent in extends chain", async () => {
     ctx = createTestRepos();
 
     const orphanVariant = `---
@@ -491,7 +491,7 @@ response_bundle:
     });
   });
 
-  it.skip("rejects deep inheritance (grandchild extending a child)", async () => {
+  it("rejects deep inheritance (grandchild extending a child)", async () => {
     ctx = createTestRepos();
 
     const grandchild = `---

@@ -46,6 +46,8 @@ export interface PactMetadata {
   multi_round?: boolean;
   attachments?: AttachmentSlot[];
   registered_for?: string[];
+  /** @internal Used during inheritance resolution, stripped from output. */
+  extends?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,16 +168,130 @@ export async function loadFlatFilePacts(
   }
 
   const mdPaths = await collectMdFiles(file, "pact-store");
-  const results: PactMetadata[] = [];
+  const loaded: PactMetadata[] = [];
 
   for (const mdPath of mdPaths) {
     const metadata = await parseFlatFilePact(file, mdPath);
     if (metadata) {
-      results.push(metadata);
+      loaded.push(metadata);
     }
   }
 
-  return results;
+  return resolveInheritance(loaded);
+}
+
+/**
+ * Resolve single-level pact inheritance.
+ *
+ * Variants (pacts with `extends`) are merged against their parent:
+ *   - description, scope, registered_for: child replaces parent wholesale
+ *   - context_bundle.fields: shallow-merge (parent + child, child wins)
+ *   - context_bundle.required: child replaces parent
+ *   - response_bundle: inherited from parent when child omits it
+ *   - defaults: shallow-merge (parent + child, child wins)
+ *   - extends field is consumed and stripped from output
+ *
+ * Orphan variants (parent not found) are excluded.
+ * Deep inheritance (grandchild) is rejected: grandchild excluded.
+ */
+function resolveInheritance(loaded: PactMetadata[]): PactMetadata[] {
+  // Index all pacts by name
+  const byName = new Map<string, PactMetadata>();
+  for (const pact of loaded) {
+    byName.set(pact.name, pact);
+  }
+
+  // Identify base pacts and variants
+  const bases: PactMetadata[] = [];
+  const variants: PactMetadata[] = [];
+
+  for (const pact of loaded) {
+    if (pact.extends) {
+      variants.push(pact);
+    } else {
+      bases.push(pact);
+    }
+  }
+
+  const resolved: PactMetadata[] = [...bases];
+
+  for (const variant of variants) {
+    const parentName = variant.extends!;
+    const parent = byName.get(parentName);
+
+    // Orphan: parent not found → exclude
+    if (!parent) continue;
+
+    // Deep inheritance: parent itself extends → exclude grandchild
+    if (parent.extends) continue;
+
+    // Merge child over parent
+    const merged = mergeChildOverParent(parent, variant);
+    resolved.push(merged);
+  }
+
+  return resolved;
+}
+
+/**
+ * Merge a child variant over its parent pact.
+ * Returns a new PactMetadata with extends stripped.
+ */
+function mergeChildOverParent(
+  parent: PactMetadata,
+  child: PactMetadata,
+): PactMetadata {
+  // context_bundle: shallow-merge fields, child required replaces parent
+  const mergedContextFields = {
+    ...parent.context_bundle.fields,
+    ...child.context_bundle.fields,
+  };
+  const mergedContextBundle: BundleSpec = {
+    required: child.context_bundle.required,
+    fields: mergedContextFields,
+  };
+
+  // response_bundle: child's if non-empty, else parent's
+  const childHasResponseFields =
+    Object.keys(child.response_bundle.fields).length > 0 ||
+    child.response_bundle.required.length > 0;
+  const mergedResponseBundle = childHasResponseFields
+    ? child.response_bundle
+    : parent.response_bundle;
+
+  // defaults: shallow-merge, child wins
+  const mergedDefaults =
+    parent.defaults || child.defaults
+      ? { ...(parent.defaults ?? {}), ...(child.defaults ?? {}) }
+      : undefined;
+
+  const result: PactMetadata = {
+    name: child.name,
+    version: child.version ?? parent.version,
+    description: child.description || parent.description,
+    when_to_use: child.when_to_use.length > 0
+      ? child.when_to_use
+      : parent.when_to_use,
+    context_bundle: mergedContextBundle,
+    response_bundle: mergedResponseBundle,
+    has_hooks: child.has_hooks || parent.has_hooks,
+    scope: child.scope ?? parent.scope,
+    ...(mergedDefaults ? { defaults: mergedDefaults } : {}),
+    ...(child.multi_round !== undefined
+      ? { multi_round: child.multi_round }
+      : parent.multi_round !== undefined
+        ? { multi_round: parent.multi_round }
+        : {}),
+    ...(child.attachments ?? parent.attachments
+      ? { attachments: child.attachments ?? parent.attachments }
+      : {}),
+    ...(child.registered_for ?? parent.registered_for
+      ? { registered_for: child.registered_for ?? parent.registered_for }
+      : {}),
+  };
+
+  // extends is NOT included — consumed by resolution
+  return result;
 }
 
 /**
@@ -269,6 +385,8 @@ async function parseFlatFilePact(
     typeof parsed.multi_round === "boolean" ? parsed.multi_round : undefined;
   const attachments = parseAttachments(parsed.attachments);
   const registeredFor = parseRegisteredFor(parsed.registered_for);
+  const extendsParent =
+    typeof parsed.extends === "string" ? parsed.extends : undefined;
 
   return {
     name,
@@ -283,6 +401,7 @@ async function parseFlatFilePact(
     ...(multiRound !== undefined ? { multi_round: multiRound } : {}),
     ...(attachments ? { attachments } : {}),
     ...(registeredFor ? { registered_for: registeredFor } : {}),
+    ...(extendsParent ? { extends: extendsParent } : {}),
   };
 }
 
