@@ -254,20 +254,6 @@ describe("pact_do(send): submit a PACT request", () => {
     });
   });
 
-  it("rejects request missing required field: context_bundle", async () => {
-    ctx = createTestRepos();
-    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-
-    await when("Alice submits a request without a context_bundle", async () => {
-      await expect(
-        server.callTool("pact_do", { action: "send",
-          request_type: "sanity-check",
-          recipient: "bob",
-          // context_bundle omitted
-        }),
-      ).rejects.toThrow(/missing required field.*context_bundle/i);
-    });
-  });
 
   // =========================================================================
   // Protocol Extensions: thread_id and attachments (US-002a)
@@ -477,6 +463,42 @@ describe("pact_do(send): submit a PACT request", () => {
     await thenAssert("no request file is created (compose mode is read-only)", async () => {
       const pending = listDir(ctx.aliceRepo, "requests/pending");
       expect(pending).toHaveLength(0);
+    });
+  });
+
+  it("throws pact-not-found when compose mode gets unknown request_type", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    await when("Alice sends with an unknown request_type and no context_bundle", async () => {
+      await expect(
+        server.callTool("pact_do", { action: "send",
+          request_type: "nonexistent-pact",
+          // context_bundle intentionally omitted — triggers compose mode
+        }),
+      ).rejects.toThrow(/no pact found.*nonexistent-pact/i);
+    });
+  });
+
+  it("compose-mode response excludes send-only fields (request_id, thread_id, status)", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    await when("Alice sends with request_type but no context_bundle", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        // context_bundle intentionally omitted
+      })) as Record<string, unknown>;
+
+      // Compose-mode structural assertions
+      expect(result.mode).toBe("compose");
+      expect(typeof result.has_hooks).toBe("boolean");
+      expect(result.scope).toBe("global");
+
+      // Send-only fields must NOT be present
+      expect("request_id" in result).toBe(false);
+      expect("thread_id" in result).toBe(false);
+      expect("status" in result).toBe(false);
     });
   });
 });

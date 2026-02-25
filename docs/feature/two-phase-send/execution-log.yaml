@@ -19,5 +19,30 @@ events:
   s: EXECUTED
   sid: 01-01
   t: '2026-02-25T19:49:59Z'
+- d: PASS
+  p: COMMIT
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-25T19:50:24Z'
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-02-25T19:52:24Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-02-25T19:52:54Z'
+- d: 'NOT_APPLICABLE: acceptance tests are the test level for this feature'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-02
+  t: '2026-02-25T19:52:56Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-02
+  t: '2026-02-25T19:57:46Z'
 project_id: two-phase-send
 schema_version: '3.0'
