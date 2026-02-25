@@ -149,8 +149,8 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
         request_id: requestId,
         request_type: "sanity-check",
         status: "pending",
-        sender: { user_id: "alice", display_name: "Alice" },
-        recipient: { user_id: "bob", display_name: "Bob" },
+        sender: { user_id: "alice", display_name: "alice" },
+        recipient: { user_id: "bob" },
         context_bundle: {
           customer: "Acme Corp",
           question: "Does this match the session service pattern?",
@@ -165,7 +165,7 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
       })) as { requests: Array<{ request_id: string; sender: string }> };
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].request_id).toBe(requestId);
-      expect(inbox.requests[0].sender).toBe("Alice");
+      expect(inbox.requests[0].sender).toBe("alice");
     });
   });
 
@@ -450,7 +450,7 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it("passes through recipient validation error from send handler unchanged", async () => {
+  it("accepts unknown recipients without validation error", async () => {
     ctx = createTestRepos();
 
     await given("the team has YAML pacts installed", () => {
@@ -459,14 +459,13 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
 
     await when("Alice sends to unknown recipient 'charlie' via pact_do", async () => {
       const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      await expect(
-        server.callTool("pact_do", {
-          action: "send",
-          request_type: "sanity-check",
-          recipient: "charlie",
-          context_bundle: { question: "Recipient validation test" },
-        }),
-      ).rejects.toThrow(/charlie.*not found in team config/i);
+      const result = (await server.callTool("pact_do", {
+        action: "send",
+        request_type: "sanity-check",
+        recipient: "charlie",
+        context_bundle: { question: "Recipient validation test" },
+      })) as { request_id: string };
+      expect(result.request_id).toBeTruthy();
     });
   });
 

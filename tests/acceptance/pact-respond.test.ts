@@ -86,7 +86,7 @@ describe("pact_respond: submit a response to a request", () => {
       const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}.json`);
       expect(response).toMatchObject({
         request_id: requestId,
-        responder: { user_id: "bob", display_name: "Bob" },
+        responder: { user_id: "bob", display_name: "bob" },
         response_bundle: {
           answer: "YES - same pattern as ZD-4102",
           recommendation: "Apply finally-block cleanup",
@@ -181,7 +181,7 @@ describe("pact_respond: submit a response to a request", () => {
     await thenAssert("response has Bob's identity from config, not tool input", async () => {
       const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}.json`);
       expect(response.responder.user_id).toBe("bob");
-      expect(response.responder.display_name).toBe("Bob");
+      expect(response.responder.display_name).toBe("bob");
     });
   });
 

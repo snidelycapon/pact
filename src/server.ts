@@ -13,10 +13,14 @@ import { FileAdapter } from "./adapters/file-adapter.ts";
 import { handlePactDiscover } from "./tools/pact-discover.ts";
 import type { PactDiscoverParams } from "./tools/pact-discover.ts";
 import { handlePactDo } from "./tools/pact-do.ts";
+import type { UserConfig } from "./schemas.ts";
+import { normalizeId } from "./normalize.ts";
 
 export interface PactServerConfig {
   repoPath: string;
   userId: string;
+  displayName?: string;
+  subscriptions?: string[];
 }
 
 export interface PactServer {
@@ -24,9 +28,13 @@ export interface PactServer {
 }
 
 export function createPactServer(config: PactServerConfig): PactServer {
-  // Adapters are lazily created on first callTool invocation so that
-  // createPactServer itself remains a pure factory (simple-git validates
-  // the directory exists at construction time).
+  const normalizedUserId = normalizeId(config.userId);
+  const userConfig: UserConfig = {
+    user_id: normalizedUserId,
+    display_name: config.displayName ?? config.userId,
+    subscriptions: (config.subscriptions ?? []).map(normalizeId),
+  };
+
   let git: GitAdapter | undefined;
   let configAdapter: ConfigAdapter | undefined;
   let file: FileAdapter | undefined;
@@ -34,7 +42,7 @@ export function createPactServer(config: PactServerConfig): PactServer {
   function ensureAdapters() {
     if (!git) {
       git = new GitAdapter(config.repoPath);
-      configAdapter = new ConfigAdapter(config.repoPath);
+      configAdapter = new ConfigAdapter(userConfig);
       file = new FileAdapter(config.repoPath);
     }
   }
@@ -45,16 +53,15 @@ export function createPactServer(config: PactServerConfig): PactServer {
         case "pact_discover":
           ensureAdapters();
           return handlePactDiscover(params as unknown as PactDiscoverParams, {
-            userId: config.userId,
+            userId: normalizedUserId,
             repoPath: config.repoPath,
             git: git!,
-            config: configAdapter!,
             file: file!,
           });
         case "pact_do":
           ensureAdapters();
           return handlePactDo(params, {
-            userId: config.userId,
+            userId: normalizedUserId,
             repoPath: config.repoPath,
             git: git!,
             config: configAdapter!,

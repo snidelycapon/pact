@@ -1,14 +1,16 @@
 /**
  * Handler for the pact_respond tool.
  *
- * Validates the request exists and the current user is the designated
- * recipient, writes a response envelope to responses/, moves the
- * request from pending/ to completed/ via git mv, and commits
- * atomically.
+ * Validates the request exists and the current user is a recipient,
+ * writes a response envelope to responses/, moves the request from
+ * pending/ to completed/ via git mv, and commits atomically.
+ *
+ * Responder identity comes from local user config, not a shared registry.
  */
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { RequestEnvelopeSchema } from "../schemas.ts";
+import { normalizeId } from "../normalize.ts";
 
 export interface PactRespondParams {
   request_id: string;
@@ -47,8 +49,8 @@ export async function handlePactRespond(
   const envelope = parsed.data;
   const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
   const isRecipient =
-    envelope.recipient?.user_id === ctx.userId ||
-    envelope.recipients?.some((r) => r.user_id === ctx.userId);
+    normalizeId(envelope.recipient?.user_id ?? "") === ctx.userId ||
+    envelope.recipients?.some((r) => normalizeId(r.user_id) === ctx.userId);
   if (!isRecipient) {
     throw new Error(`You are not the recipient of request ${params.request_id}`);
   }
@@ -72,13 +74,14 @@ export async function handlePactRespond(
     await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
   }
 
-  // 6. Look up responder from config
-  const responder = await ctx.config.lookupUser(ctx.userId);
+  // 6. Get responder identity from local config
+  const userConfig = await ctx.config.readUserConfig();
+  const responder = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
   // 7. Write response file (per-respondent directory for group envelopes, flat for legacy)
   const response = {
     request_id: params.request_id,
-    responder: { user_id: responder!.user_id, display_name: responder!.display_name },
+    responder,
     responded_at: new Date().toISOString(),
     response_bundle: params.response_bundle,
   };

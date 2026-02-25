@@ -1,13 +1,13 @@
 /**
  * Handler for the pact_discover tool.
  *
- * Pulls latest from remote, scans pacts/ directory for subdirectories,
- * loads YAML frontmatter metadata via pact-loader, optionally filters
- * by keyword query, and returns a structured catalog alongside team members.
+ * Pulls latest from remote, scans pact-store/ (or legacy pacts/)
+ * for pact definitions, loads YAML frontmatter metadata, optionally
+ * filters by keyword query, and returns a structured catalog.
  * Falls back to local data with a warning when git pull fails.
  */
 
-import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
+import type { GitPort, FilePort } from "../ports.ts";
 import { loadPactMetadata, loadFlatFilePacts } from "../pact-loader.ts";
 import type { PactMetadata, AttachmentSlot } from "../pact-loader.ts";
 import { log } from "../logger.ts";
@@ -26,7 +26,6 @@ export interface PactDiscoverContext {
   userId: string;
   repoPath: string;
   git: GitPort;
-  config: ConfigPort;
   file: FilePort;
 }
 
@@ -53,7 +52,6 @@ export interface PactCatalogEntry {
 export interface DiscoverResult {
   pacts?: PactCatalogEntry[];
   catalog?: string;
-  team: Array<{ user_id: string; display_name: string }>;
   warning?: string;
 }
 
@@ -91,8 +89,7 @@ export async function handlePactDiscover(
       pactDirs = await ctx.file.listDirectory("pacts");
     } catch {
       log("warn", "pact_discover: pacts directory not found");
-      const team = await readTeam(ctx);
-      return { pacts: [], team, ...(warning ? { warning } : {}) };
+      return { pacts: [], ...(warning ? { warning } : {}) };
     }
 
     pacts = [];
@@ -133,20 +130,17 @@ export async function handlePactDiscover(
   // 5. Sort by name for consistent ordering
   filtered.sort((a, b) => a.name.localeCompare(b.name));
 
-  // 6. Read team members
-  const team = await readTeam(ctx);
-
-  // 7. Compressed format: pipe-delimited catalog string
+  // 6. Compressed format: pipe-delimited catalog string
   if (params.format === "compressed") {
     const lines = filtered.map((p) => {
       const ctx_req = p.context_bundle.required.join(",");
       const res_req = p.response_bundle.required.join(",");
       return `${p.name}|${p.description}|${p.scope ?? ""}|${ctx_req}\u2192${res_req}`;
     });
-    return { catalog: lines.join("\n"), team, ...(warning ? { warning } : {}) };
+    return { catalog: lines.join("\n"), ...(warning ? { warning } : {}) };
   }
 
-  return { pacts: filtered, team, ...(warning ? { warning } : {}) };
+  return { pacts: filtered, ...(warning ? { warning } : {}) };
 }
 
 // ---------------------------------------------------------------------------
@@ -168,22 +162,4 @@ function toEntry(pact: PactMetadata): PactCatalogEntry {
     ...(pact.attachments ? { attachments: pact.attachments } : {}),
     ...(pact.registered_for ? { registered_for: pact.registered_for } : {}),
   };
-}
-
-/** Read team members from config, mapping to the required shape. */
-async function readTeam(
-  ctx: PactDiscoverContext,
-): Promise<Array<{ user_id: string; display_name: string }>> {
-  try {
-    const members = await ctx.config.readTeamMembers();
-    return members.map((m) => ({
-      user_id: m.user_id,
-      display_name: m.display_name,
-    }));
-  } catch (error) {
-    log("warn", "pact_discover: failed to read team members", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
 }

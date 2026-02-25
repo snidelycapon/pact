@@ -2,22 +2,24 @@
  * Handler for the pact_inbox tool.
  *
  * Pulls latest from remote, scans requests/pending/ for envelopes
- * addressed to the current user, groups by thread_id when multiple
- * pending requests share a thread, and returns summaries sorted by
- * created_at ascending. Falls back to local data with a warning
- * when the remote is unreachable.
+ * addressed to the current user or any of their subscriptions,
+ * groups by thread_id when multiple pending requests share a thread,
+ * and returns summaries sorted by created_at ascending.
+ * Falls back to local data with a warning when the remote is unreachable.
  */
 
-import type { GitPort, FilePort } from "../ports.ts";
+import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { RequestEnvelopeSchema } from "../schemas.ts";
 import { loadFlatFilePactByName, loadPactMetadata } from "../pact-loader.ts";
 import type { PactMetadata } from "../pact-loader.ts";
 import { log } from "../logger.ts";
+import { normalizeId } from "../normalize.ts";
 
 export interface PactInboxContext {
   userId: string;
   repoPath: string;
   git: GitPort;
+  config: ConfigPort;
   file: FilePort;
 }
 
@@ -75,10 +77,15 @@ export async function handlePactInbox(
     warning = "Using local data (remote unreachable). Results may be stale.";
   }
 
-  // 2. List pending directory
+  // 2. Build the set of inbox names to match against
+  //    Always includes user_id, plus any subscriptions from local config
+  const userConfig = await ctx.config.readUserConfig();
+  const inboxNames = new Set<string>([ctx.userId, ...userConfig.subscriptions]);
+
+  // 3. List pending directory
   const files = await ctx.file.listDirectory("requests/pending");
 
-  // 3. Parse each through schema, filter by recipient == userId
+  // 4. Parse each through schema, filter by recipient matching any inbox name
   const entries: InboxEntry[] = [];
   for (const fileName of files) {
     const raw = await ctx.file.readJSON<unknown>(`requests/pending/${fileName}`);
@@ -88,10 +95,20 @@ export async function handlePactInbox(
       continue;
     }
     const envelope = parsed.data;
-    const isRecipient =
-      envelope.recipient?.user_id === ctx.userId ||
-      envelope.recipients?.some((r) => r.user_id === ctx.userId);
-    if (isRecipient) {
+
+    // Check if any recipient matches any of our inbox names
+    const recipientIds: string[] = [];
+    if (envelope.recipient?.user_id) {
+      recipientIds.push(normalizeId(envelope.recipient.user_id));
+    }
+    if (envelope.recipients) {
+      for (const r of envelope.recipients) {
+        recipientIds.push(normalizeId(r.user_id));
+      }
+    }
+    const isForMe = recipientIds.some((id) => inboxNames.has(id));
+
+    if (isForMe) {
       const bundle = envelope.context_bundle as Record<string, unknown>;
       const parts = envelope.request_id.split("-");
       const shortId = parts.slice(-2).join("-");
@@ -120,7 +137,7 @@ export async function handlePactInbox(
     }
   }
 
-  // 4. Enrich entries with pact metadata (cached per request_type)
+  // 5. Enrich entries with pact metadata (cached per request_type)
   //    Try flat-file pact-store/ first, fall back to legacy pacts/ directory
   const pactCache = new Map<string, PactMetadata | null>();
   for (const entry of entries) {
@@ -143,7 +160,7 @@ export async function handlePactInbox(
     }
   }
 
-  // 5-6. Group by thread_id and sort by created_at
+  // 6-7. Group by thread_id and sort by created_at
   const requests = groupByThread(entries);
 
   return { requests, ...(warning ? { warning } : {}) };

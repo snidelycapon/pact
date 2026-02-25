@@ -724,6 +724,64 @@ describe("pact_do(inbox): check inbox for pending requests", () => {
     });
   });
 
+  // =========================================================================
+  // Subscription Inbox
+  // =========================================================================
+
+  it("shows requests addressed to a subscribed inbox name", async () => {
+    ctx = createTestRepos();
+
+    await given("Alice sends a request addressed to 'backend-team'", async () => {
+      seedRequest(ctx.aliceRepo, {
+        requestId: "req-20260221-150000-alice-sub1",
+        recipient: "backend-team",
+        sender: "alice",
+        senderName: "alice",
+        question: "Subscription inbox test",
+      });
+    });
+
+    await when("Bob checks inbox with subscription to 'backend-team'", async () => {
+      const bobServer = createPactServer({
+        repoPath: ctx.bobRepo,
+        userId: "bob",
+        subscriptions: ["backend-team"],
+      });
+      const inbox = (await bobServer.callTool("pact_do", { action: "inbox" })) as any;
+
+      expect(inbox.requests).toHaveLength(1);
+      expect(inbox.requests[0].request_id).toBe("req-20260221-150000-alice-sub1");
+    });
+  });
+
+  it("does not show subscription-addressed requests to non-subscribers", async () => {
+    ctx = createTestRepos();
+
+    await given("Alice sends a request addressed to 'backend-team'", async () => {
+      seedRequest(ctx.aliceRepo, {
+        requestId: "req-20260221-150000-alice-sub2",
+        recipient: "backend-team",
+        sender: "alice",
+        senderName: "alice",
+        question: "Non-subscriber should not see this",
+      });
+    });
+
+    await when("Bob checks inbox without any subscriptions", async () => {
+      const bobServer = createPactServer({
+        repoPath: ctx.bobRepo,
+        userId: "bob",
+      });
+      const inbox = (await bobServer.callTool("pact_do", { action: "inbox" })) as any;
+
+      expect(inbox.requests).toHaveLength(0);
+    });
+  });
+
+  // =========================================================================
+  // Read-Only Invariant
+  // =========================================================================
+
   it("inbox is a read-only operation -- no commits or pushes", async () => {
     ctx = createTestRepos();
 

@@ -15,7 +15,7 @@ import { z } from "zod";
 
 const UserRefSchema = z.object({
   user_id: z.string(),
-  display_name: z.string(),
+  display_name: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -80,19 +80,13 @@ export const ResponseEnvelopeSchema = z.object({
 export type ResponseEnvelope = z.infer<typeof ResponseEnvelopeSchema>;
 
 // ---------------------------------------------------------------------------
-// Team Configuration
+// User Configuration (local ~/.pact.json)
 // ---------------------------------------------------------------------------
 
-const TeamMemberSchema = z.object({
+export const UserConfigSchema = z.object({
   user_id: z.string(),
   display_name: z.string(),
+  subscriptions: z.array(z.string()).optional().default([]),
 });
 
-export const TeamConfigSchema = z.object({
-  team_name: z.string(),
-  version: z.number(),
-  members: z.array(TeamMemberSchema),
-});
-
-export type TeamConfig = z.infer<typeof TeamConfigSchema>;
-export type TeamMember = z.infer<typeof TeamMemberSchema>;
+export type UserConfig = z.infer<typeof UserConfigSchema>;

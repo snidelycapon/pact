@@ -96,8 +96,8 @@ describe("Walking Skeleton: complete round-trip", () => {
         request_id: requestId,
         request_type: "sanity-check",
         status: "pending",
-        sender: { user_id: "alice", display_name: "Alice" },
-        recipient: { user_id: "bob", display_name: "Bob" },
+        sender: { user_id: "alice", display_name: "alice" },
+        recipient: { user_id: "bob" },
       });
     });
 
@@ -108,7 +108,7 @@ describe("Walking Skeleton: complete round-trip", () => {
       expect(inbox.requests).toHaveLength(1);
       expect(inbox.requests[0].request_id).toBe(requestId);
       expect(inbox.requests[0].request_type).toBe("sanity-check");
-      expect(inbox.requests[0].sender).toBe("Alice");
+      expect(inbox.requests[0].sender).toBe("alice");
       expect(inbox.requests[0].pact_path).toContain("pact-store/sanity-check.md");
     });
 
@@ -147,7 +147,7 @@ describe("Walking Skeleton: complete round-trip", () => {
       const responseData = readRepoJSON(ctx.aliceRepo, responseFile) as any;
       expect(responseData).toMatchObject({
         request_id: requestId,
-        responder: { user_id: "bob", display_name: "Bob" },
+        responder: { user_id: "bob", display_name: "bob" },
         response_bundle: {
           answer: "YES - same pattern as ZD-4102",
         },
@@ -161,7 +161,7 @@ describe("Walking Skeleton: complete round-trip", () => {
         request_id: requestId,
       }) as any;
       expect(status.status).toBe("completed");
-      expect(status.response.responder.display_name).toBe("Bob");
+      expect(status.response.responder.display_name).toBe("bob");
       expect(status.response.response_bundle.answer).toBe(
         "YES - same pattern as ZD-4102",
       );

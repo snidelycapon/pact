@@ -2,7 +2,7 @@
  * MCP server factory for PACT.
  *
  * Creates an McpServer instance with the 2 collapsed PACT tools registered:
- *   - pact_discover: pact + team discovery
+ *   - pact_discover: pact catalog discovery
  *   - pact_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread)
  *
  * Used by:
@@ -21,10 +21,13 @@ import { log } from "./logger.ts";
 import { handlePactDiscover } from "./tools/pact-discover.ts";
 import type { PactDiscoverParams } from "./tools/pact-discover.ts";
 import { handlePactDo } from "./tools/pact-do.ts";
+import type { UserConfig } from "./schemas.ts";
 
 export interface McpServerConfig {
   repoPath: string;
   userId: string;
+  displayName: string;
+  subscriptions: string[];
 }
 
 /**
@@ -37,6 +40,12 @@ export function createMcpServer(config: McpServerConfig): McpServer {
 
   const server = new McpServer({ name: "PACT", version: "1.0.0" });
 
+  const userConfig: UserConfig = {
+    user_id: config.userId,
+    display_name: config.displayName,
+    subscriptions: config.subscriptions,
+  };
+
   // Lazily-initialized adapters (git validates directory at construction)
   let git: GitAdapter | undefined;
   let configAdapter: ConfigAdapter | undefined;
@@ -45,7 +54,7 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   function ensureAdapters() {
     if (!git) {
       git = new GitAdapter(config.repoPath);
-      configAdapter = new ConfigAdapter(config.repoPath);
+      configAdapter = new ConfigAdapter(userConfig);
       file = new FileAdapter(config.repoPath);
     }
   }
@@ -62,7 +71,7 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   // -- pact_discover --
   server.tool(
     "pact_discover",
-    "Discover available request types, team members, and their capabilities",
+    "Discover available request types and their capabilities",
     {
       query: z.string().optional().describe("Optional keyword to filter by name, description, or usage"),
       format: z.enum(["full", "compressed"]).optional().describe("Output format: 'full' (default) returns structured objects, 'compressed' returns pipe-delimited entries"),
@@ -77,7 +86,6 @@ export function createMcpServer(config: McpServerConfig): McpServer {
           userId: config.userId,
           repoPath: config.repoPath,
           git: git!,
-          config: configAdapter!,
           file: file!,
         });
         log("info", "tool invocation complete", { tool: "pact_discover", pact_count: result.pacts?.length ?? 0, duration_ms: Date.now() - start });

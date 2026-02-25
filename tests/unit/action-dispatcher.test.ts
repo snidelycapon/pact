@@ -56,8 +56,11 @@ function makeCtx(): DispatchContext {
       log: vi.fn(),
     },
     config: {
-      readTeamMembers: vi.fn(),
-      lookupUser: vi.fn(),
+      readUserConfig: vi.fn().mockResolvedValue({
+        user_id: "alice",
+        display_name: "Alice",
+        subscriptions: [],
+      }),
     },
     file: {
       readJSON: vi.fn(),

@@ -280,15 +280,6 @@ describe("pact_discover: discover available request types and team", () => {
       });
     });
 
-    await thenAssert("the catalog includes team members from config", () => {
-      expect(result.team).toHaveLength(2);
-      expect(result.team).toEqual(
-        expect.arrayContaining([
-          { user_id: "alice", display_name: "Alice" },
-          { user_id: "bob", display_name: "Bob" },
-        ]),
-      );
-    });
   });
 
   // =========================================================================
@@ -502,9 +493,6 @@ File a bug report for triage.
       expect(result.pacts).toEqual([]);
     });
 
-    await thenAssert("team members are still returned even with empty pact results", () => {
-      expect(result.team).toHaveLength(2);
-    });
   });
 
   it("matches query against when_to_use content for discovery", async () => {
@@ -671,9 +659,6 @@ File a bug report for triage.
       expect(result.pacts).toHaveLength(0);
     });
 
-    await thenAssert("team members are still returned", () => {
-      expect(result.team).toHaveLength(2);
-    });
   });
 
   it("handles PACT.md with valid frontmatter delimiters but empty YAML", async () => {

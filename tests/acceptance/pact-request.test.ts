@@ -83,8 +83,8 @@ describe("pact_do(send): submit a PACT request", () => {
         request_id: requestId,
         request_type: "sanity-check",
         status: "pending",
-        sender: { user_id: "alice", display_name: "Alice" },
-        recipient: { user_id: "bob", display_name: "Bob" },
+        sender: { user_id: "alice", display_name: "alice" },
+        recipient: { user_id: "bob" },
         expected_response: { type: "text" },
         context_bundle: {
           customer: "Acme Corp",
@@ -137,7 +137,7 @@ describe("pact_do(send): submit a PACT request", () => {
         `requests/pending/${result.request_id}.json`,
       );
       expect(envelope.sender.user_id).toBe("alice");
-      expect(envelope.sender.display_name).toBe("Alice");
+      expect(envelope.sender.display_name).toBe("alice");
     });
   });
 
@@ -189,23 +189,18 @@ describe("pact_do(send): submit a PACT request", () => {
   // Error Paths
   // =========================================================================
 
-  it("rejects request to a recipient not in team config", async () => {
+  it("accepts request to any recipient without config validation", async () => {
     ctx = createTestRepos();
     const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-    await when("Alice tries to send a request to unknown recipient 'charlie'", async () => {
-      await expect(
-        server.callTool("pact_do", { action: "send",
-          request_type: "sanity-check",
-          recipient: "charlie",
-          context_bundle: { question: "Unknown recipient test" },
-        }),
-      ).rejects.toThrow(/charlie.*not found in team config/i);
-    });
-
-    await thenAssert("no file is created and no commit is made", async () => {
-      const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
+    await when("Alice sends a request to unknown recipient 'charlie'", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        recipient: "charlie",
+        context_bundle: { question: "Unknown recipient test" },
+      })) as { request_id: string; status: string };
+      expect(result.request_id).toBeTruthy();
+      expect(result.status).toBe("pending");
     });
   });
 

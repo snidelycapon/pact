@@ -13,7 +13,7 @@ import { describe, it, expect } from "vitest";
 import {
   RequestEnvelopeSchema,
   ResponseEnvelopeSchema,
-  TeamConfigSchema,
+  UserConfigSchema,
   AmendmentEntrySchema,
 } from "../../src/schemas.ts";
 
@@ -122,21 +122,31 @@ describe("ResponseEnvelopeSchema", () => {
   });
 });
 
-describe("TeamConfigSchema", () => {
-  it("parses a valid team config", () => {
+describe("UserConfigSchema", () => {
+  it("parses a valid user config with subscriptions", () => {
     const valid = {
-      team_name: "Test Team",
-      version: 1,
-      members: [
-        { user_id: "alice", display_name: "Alice" },
-        { user_id: "bob", display_name: "Bob" },
-      ],
+      user_id: "alice",
+      display_name: "Alice",
+      subscriptions: ["backend-team", "leads"],
     };
-    const result = TeamConfigSchema.safeParse(valid);
+    const result = UserConfigSchema.safeParse(valid);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.members).toHaveLength(2);
-      expect(result.data.team_name).toBe("Test Team");
+      expect(result.data.user_id).toBe("alice");
+      expect(result.data.display_name).toBe("Alice");
+      expect(result.data.subscriptions).toEqual(["backend-team", "leads"]);
+    }
+  });
+
+  it("defaults subscriptions to empty array when omitted", () => {
+    const minimal = {
+      user_id: "bob",
+      display_name: "Bob",
+    };
+    const result = UserConfigSchema.safeParse(minimal);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.subscriptions).toEqual([]);
     }
   });
 });

@@ -208,12 +208,6 @@ describe("pact_discover: discover available request types and team", () => {
       }
     });
 
-    await thenAssert("the result includes team members", () => {
-      expect(Array.isArray(result.team)).toBe(true);
-      expect(result.team.length).toBeGreaterThan(0);
-      expect(result.team[0]).toHaveProperty("user_id");
-      expect(result.team[0]).toHaveProperty("display_name");
-    });
   });
 
   // =========================================================================

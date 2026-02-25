@@ -82,34 +82,27 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
   // Error: Invalid recipients
   // =========================================================================
 
-  it("rejects send when recipients array contains unknown user_id", async () => {
+  it("accepts send to unknown recipients without validation", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-    let error: any;
+    let requestId: string;
 
-    await when("Alice sends to a mix of valid and invalid recipients", async () => {
-      try {
-        await aliceServer.callTool("pact_do", {
-          action: "send",
-          request_type: "sanity-check",
-          recipients: ["bob", "nonexistent-user"],
-          context_bundle: { question: "Will this fail?" },
-        });
-      } catch (e) {
-        error = e;
-      }
+    await when("Alice sends to a mix of known and unknown recipients", async () => {
+      const result = (await aliceServer.callTool("pact_do", {
+        action: "send",
+        request_type: "sanity-check",
+        recipients: ["bob", "nonexistent-user"],
+        context_bundle: { question: "Will this fail?" },
+      })) as { request_id: string };
+      requestId = result.request_id;
     });
 
-    await thenAssert("send fails with error identifying the unknown user", () => {
-      expect(error).toBeDefined();
-      expect(String(error)).toMatch(/nonexistent-user/i);
-    });
-
-    await thenAssert("no request file was created", () => {
+    await thenAssert("the request was created successfully", () => {
+      expect(requestId).toBeTruthy();
       const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
+      expect(pending).toHaveLength(1);
     });
   });
 

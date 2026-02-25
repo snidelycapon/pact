@@ -7,11 +7,16 @@
  * Supports both:
  *   - recipients: string[]  (new group addressing)
  *   - recipient: string     (legacy single-recipient)
+ *
+ * Recipients are not validated against a registry — PACT delivers
+ * to whatever address the sender provides. IDs are normalized
+ * (lowercase, hyphens-for-spaces).
  */
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
 import { getRequiredContextFieldsFromYaml } from "../pact-loader.ts";
+import { normalizeId } from "../normalize.ts";
 
 export interface AttachmentInput {
   filename: string;
@@ -50,9 +55,9 @@ export async function handlePactRequest(
   const hasExplicitRecipients = !!(params.recipients && params.recipients.length > 0);
   let recipientIds: string[];
   if (hasExplicitRecipients) {
-    recipientIds = params.recipients!;
+    recipientIds = params.recipients!.map(normalizeId);
   } else if (params.recipient) {
-    recipientIds = [params.recipient];
+    recipientIds = [normalizeId(params.recipient)];
   } else {
     throw new Error("Missing required field: recipient or recipients");
   }
@@ -85,21 +90,12 @@ export async function handlePactRequest(
     }
   }
 
-  // 6. Validate all recipients exist in team config and build UserRef[]
-  const recipientRefs: Array<{ user_id: string; display_name: string }> = [];
-  for (const recipientId of recipientIds) {
-    const user = await ctx.config.lookupUser(recipientId);
-    if (!user) {
-      throw new Error(`Recipient '${recipientId}' not found in team config`);
-    }
-    recipientRefs.push({ user_id: user.user_id, display_name: user.display_name });
-  }
+  // 6. Build recipient refs (no config lookup — just use normalized IDs)
+  const recipientRefs = recipientIds.map((id) => ({ user_id: id }));
 
-  // 7. Look up sender
-  const sender = await ctx.config.lookupUser(ctx.userId);
-  if (!sender) {
-    throw new Error(`Sender '${ctx.userId}' not found in team config`);
-  }
+  // 7. Get sender identity from local config
+  const userConfig = await ctx.config.readUserConfig();
+  const sender = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
   // 8. Generate ID and build envelope
   const requestId = generateRequestId(ctx.userId);
@@ -109,7 +105,7 @@ export async function handlePactRequest(
     request_id: requestId,
     thread_id: threadId,
     request_type: params.request_type,
-    sender: { user_id: sender.user_id, display_name: sender.display_name },
+    sender,
     recipient: recipientRefs[0], // backward compat: first recipient for old readers
     ...(hasExplicitRecipients ? { recipients: recipientRefs } : {}),
     status: "pending",

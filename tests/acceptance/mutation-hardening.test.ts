@@ -1451,7 +1451,7 @@ describe("Mutation hardening: response-loader tolerateMissing branch", () => {
       // Verify it was parsed by ResponseEnvelopeSchema (typed path)
       expect(status.response.responder).toBeDefined();
       expect(status.response.responder.user_id).toBe("bob");
-      expect(status.response.responder.display_name).toBe("Bob");
+      expect(status.response.responder.display_name).toBe("bob");
       expect(typeof status.response.responded_at).toBe("string");
       expect(status.response.request_id).toBe(requestId);
       expect(status.response.response_bundle.answer).toBe("Typed answer");

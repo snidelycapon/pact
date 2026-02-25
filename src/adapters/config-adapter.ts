@@ -1,30 +1,21 @@
 /**
- * ConfigPort adapter that reads team configuration from config.json.
+ * ConfigPort adapter that holds pre-loaded user configuration.
  *
- * Reads {repoPath}/config.json, validates it with Zod TeamConfigSchema,
- * and provides team member lookup.
+ * Config is read once at startup (index.ts) and passed in.
+ * No file I/O at runtime — config is static for the process lifetime.
  */
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { ConfigPort } from "../ports.ts";
-import { TeamConfigSchema, type TeamMember } from "../schemas.ts";
+import type { UserConfig } from "../schemas.ts";
 
 export class ConfigAdapter implements ConfigPort {
-  private readonly configPath: string;
+  private readonly userConfig: UserConfig;
 
-  constructor(repoPath: string) {
-    this.configPath = join(repoPath, "config.json");
+  constructor(userConfig: UserConfig) {
+    this.userConfig = userConfig;
   }
 
-  async readTeamMembers(): Promise<TeamMember[]> {
-    const raw = await readFile(this.configPath, "utf-8");
-    const config = TeamConfigSchema.parse(JSON.parse(raw));
-    return config.members;
-  }
-
-  async lookupUser(userId: string): Promise<TeamMember | undefined> {
-    const members = await this.readTeamMembers();
-    return members.find((m) => m.user_id === userId);
+  async readUserConfig(): Promise<UserConfig> {
+    return this.userConfig;
   }
 }

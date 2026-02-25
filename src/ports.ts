@@ -9,7 +9,7 @@
  * asynchronous (git, file I/O, config reads).
  */
 
-import type { TeamMember } from "./schemas.ts";
+import type { UserConfig } from "./schemas.ts";
 
 // ---------------------------------------------------------------------------
 // GitPort -- wraps git operations on the local repo clone
@@ -25,12 +25,11 @@ export interface GitPort {
 }
 
 // ---------------------------------------------------------------------------
-// ConfigPort -- reads team configuration from config.json
+// ConfigPort -- reads local user configuration (~/.pact.json)
 // ---------------------------------------------------------------------------
 
 export interface ConfigPort {
-  readTeamMembers(): Promise<TeamMember[]>;
-  lookupUser(userId: string): Promise<TeamMember | undefined>;
+  readUserConfig(): Promise<UserConfig>;
 }
 
 // ---------------------------------------------------------------------------
