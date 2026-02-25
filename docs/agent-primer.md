@@ -27,6 +27,7 @@ You have access to PACT, a git-backed protocol for async requests between humans
 | `view_thread` | View conversation history | `thread_id` |
 | `amend` | Update a pending request | `request_id`, `fields`, optional: `note` |
 | `cancel` | Cancel a pending request | `request_id`, optional: `reason` |
+| `subscribe` | Subscribe to a list inbox | `recipient` (the list ID, e.g. `+backend-team`) |
 
 ### Workflow
 
@@ -38,9 +39,11 @@ You have access to PACT, a git-backed protocol for async requests between humans
 
 ### Addressing & Subscriptions
 
-- **Send to anyone.** Address requests to any ID string — a person (`cory`), a role (`on-call`), a team (`backend-team`). PACT delivers without validation.
-- **IDs are normalized.** Lowercase, hyphens-for-spaces. `Cory` → `cory`, `Backend Team` → `backend-team`.
-- **Your inbox = your user ID + subscriptions.** Your primary inbox is your `PACT_USER`. You can subscribe to additional inboxes (e.g. `backend-team`) in your local config. All subscribed inboxes are checked together.
+- **Send to anyone.** Address requests to any ID string — a person (`cory`), a role (`on-call`), a list (`+backend-team`). PACT delivers without validation.
+- **`+` prefix = list/group.** By convention, IDs starting with `+` are subscribable lists (e.g. `+backend-team`, `+on-call`). Plain IDs (e.g. `cory`) are individual users. PACT does not enforce this — it's a naming convention agents honor.
+- **IDs are normalized.** Lowercase, hyphens-for-spaces. `Cory` → `cory`, `+Backend Team` → `+backend-team`.
+- **Your inbox = your user ID + subscriptions.** Your primary inbox is your `PACT_USER`. You can subscribe to additional inboxes (e.g. `+backend-team`) via the `subscribe` action. All subscribed inboxes are checked together.
+- **Subscribers can respond.** If you received a request via subscription, you can respond to it — you don't need to be named directly.
 - **No team registry.** PACT has no concept of "who exists." Discover teammates through your organization's tools (GitHub, Slack, org wiki, etc.) or just address them by convention.
 
 ### Key Rules

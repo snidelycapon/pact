@@ -3,7 +3,7 @@
  *
  * Creates an McpServer instance with the 2 collapsed PACT tools registered:
  *   - pact_discover: pact catalog discovery
- *   - pact_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread)
+ *   - pact_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread, subscribe)
  *
  * Used by:
  * - src/index.ts (production: connects to StdioServerTransport)
@@ -28,6 +28,7 @@ export interface McpServerConfig {
   userId: string;
   displayName: string;
   subscriptions: string[];
+  configPath?: string;
 }
 
 /**
@@ -54,7 +55,7 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   function ensureAdapters() {
     if (!git) {
       git = new GitAdapter(config.repoPath);
-      configAdapter = new ConfigAdapter(userConfig);
+      configAdapter = new ConfigAdapter(userConfig, config.configPath);
       file = new FileAdapter(config.repoPath);
     }
   }
@@ -100,13 +101,13 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   // -- pact_do --
   server.tool(
     "pact_do",
-    "Perform an action (send, respond, cancel, amend, check_status, inbox, view_thread)",
+    "Perform an action (send, respond, cancel, amend, check_status, inbox, view_thread, subscribe)",
     {
-      action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread"),
+      action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe"),
       request_type: z.string().optional().describe("The type of request (for send action)"),
       recipient: z.string().optional().describe("The user_id of the recipient (for send action, single-recipient backward compat)"),
       recipients: z.array(z.string()).optional().describe("Array of user_id strings (for send action, group addressing)"),
-      group_ref: z.string().optional().describe("Optional group reference label (for send action, e.g. '@backend-team')"),
+      group_ref: z.string().optional().describe("Optional group reference label (for send action, e.g. '+backend-team')"),
       context_bundle: z.record(z.string(), z.any()).optional().describe("Flexible context payload (for send action)"),
       request_id: z.string().optional().describe("The request ID (for respond, cancel, amend, check_status actions)"),
       response_bundle: z.record(z.string(), z.any()).optional().describe("Flexible response payload (for respond action)"),

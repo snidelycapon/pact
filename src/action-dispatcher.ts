@@ -13,6 +13,7 @@ import { handlePactAmend } from "./tools/pact-amend.ts";
 import { handlePactStatus } from "./tools/pact-status.ts";
 import { handlePactInbox } from "./tools/pact-inbox.ts";
 import { handlePactThread } from "./tools/pact-thread.ts";
+import { handlePactSubscribe } from "./tools/pact-subscribe.ts";
 
 export interface DispatchContext {
   userId: string;
@@ -35,6 +36,7 @@ const ACTION_MAP: Record<string, ActionHandler> = {
   check_status: handlePactStatus as ActionHandler,
   inbox: handlePactInbox as ActionHandler,
   view_thread: handlePactThread as ActionHandler,
+  subscribe: handlePactSubscribe as ActionHandler,
 };
 
 const VALID_ACTIONS = Object.keys(ACTION_MAP);

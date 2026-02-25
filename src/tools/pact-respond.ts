@@ -48,9 +48,21 @@ export async function handlePactRespond(
   }
   const envelope = parsed.data;
   const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
-  const isRecipient =
-    normalizeId(envelope.recipient?.user_id ?? "") === ctx.userId ||
-    envelope.recipients?.some((r) => normalizeId(r.user_id) === ctx.userId);
+
+  // Build the set of IDs this user can respond as: their own ID + subscriptions
+  const userConfig = await ctx.config.readUserConfig();
+  const myIds = new Set<string>([ctx.userId, ...userConfig.subscriptions]);
+
+  const recipientIds: string[] = [];
+  if (envelope.recipient?.user_id) {
+    recipientIds.push(normalizeId(envelope.recipient.user_id));
+  }
+  if (envelope.recipients) {
+    for (const r of envelope.recipients) {
+      recipientIds.push(normalizeId(r.user_id));
+    }
+  }
+  const isRecipient = recipientIds.some((id) => myIds.has(id));
   if (!isRecipient) {
     throw new Error(`You are not the recipient of request ${params.request_id}`);
   }
@@ -74,8 +86,7 @@ export async function handlePactRespond(
     await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
   }
 
-  // 6. Get responder identity from local config
-  const userConfig = await ctx.config.readUserConfig();
+  // 6. Get responder identity from local config (already loaded above)
   const responder = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
   // 7. Write response file (per-respondent directory for group envelopes, flat for legacy)

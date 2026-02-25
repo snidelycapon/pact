@@ -396,6 +396,67 @@ describe("pact_respond: submit a response to a request", () => {
     });
   });
 
+  // =========================================================================
+  // Subscription-Based Respond
+  // =========================================================================
+
+  it("allows a subscriber to respond to a request addressed to a subscribed list", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260225-140000-alice-sub1";
+
+    await given("Alice sends a request addressed to '+backend-team'", async () => {
+      seedPendingRequest(ctx.aliceRepo, requestId, "+backend-team", "alice");
+    });
+
+    await when("Bob (subscribed to +backend-team) responds", async () => {
+      gitPull(ctx.bobRepo);
+      const bobServer = createPactServer({
+        repoPath: ctx.bobRepo,
+        userId: "bob",
+        subscriptions: ["+backend-team"],
+      });
+
+      const result = await bobServer.callTool("pact_do", { action: "respond",
+        request_id: requestId,
+        response_bundle: { answer: "Handled by subscriber" },
+      });
+
+      expect((result as any).status).toBe("completed");
+    });
+
+    await thenAssert("response is written with Bob's identity", async () => {
+      const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}.json`);
+      expect(response.responder.user_id).toBe("bob");
+      expect(response.response_bundle.answer).toBe("Handled by subscriber");
+    });
+
+    await thenAssert("request moves to completed", async () => {
+      expect(listDir(ctx.bobRepo, "requests/pending")).toHaveLength(0);
+      expect(listDir(ctx.bobRepo, "requests/completed")).toHaveLength(1);
+    });
+  });
+
+  it("rejects response from a user not subscribed to the addressed list", async () => {
+    ctx = createTestRepos();
+    const requestId = "req-20260225-140000-alice-sub2";
+
+    await given("Alice sends a request addressed to '+backend-team'", async () => {
+      seedPendingRequest(ctx.aliceRepo, requestId, "+backend-team", "alice");
+    });
+
+    await when("Bob (no subscriptions) tries to respond", async () => {
+      gitPull(ctx.bobRepo);
+      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
+
+      await expect(
+        bobServer.callTool("pact_do", { action: "respond",
+          request_id: requestId,
+          response_bundle: { answer: "Should be rejected" },
+        }),
+      ).rejects.toThrow(/not the recipient/i);
+    });
+  });
+
   it("retries push after rebase when remote has new commits", async () => {
     ctx = createTestRepos();
     const requestId = "req-20260221-143022-alice-a1b2";

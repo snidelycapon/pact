@@ -30,6 +30,7 @@ export interface GitPort {
 
 export interface ConfigPort {
   readUserConfig(): Promise<UserConfig>;
+  updateSubscriptions(subscriptions: string[]): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

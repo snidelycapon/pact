@@ -67,6 +67,7 @@ const server = createMcpServer({
   userId,
   displayName,
   subscriptions,
+  configPath,
 });
 const transport = new StdioServerTransport();
 await server.connect(transport);
