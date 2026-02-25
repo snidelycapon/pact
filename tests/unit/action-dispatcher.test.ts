@@ -35,6 +35,9 @@ vi.mock("../../src/tools/pact-thread.ts", () => ({
 vi.mock("../../src/tools/pact-subscribe.ts", () => ({
   handlePactSubscribe: vi.fn().mockResolvedValue({ mocked: "subscribe" }),
 }));
+vi.mock("../../src/tools/pact-unsubscribe.ts", () => ({
+  handlePactUnsubscribe: vi.fn().mockResolvedValue({ mocked: "unsubscribe" }),
+}));
 
 import { dispatchAction } from "../../src/action-dispatcher.ts";
 import type { DispatchContext } from "../../src/action-dispatcher.ts";
@@ -46,6 +49,7 @@ import { handlePactStatus } from "../../src/tools/pact-status.ts";
 import { handlePactInbox } from "../../src/tools/pact-inbox.ts";
 import { handlePactThread } from "../../src/tools/pact-thread.ts";
 import { handlePactSubscribe } from "../../src/tools/pact-subscribe.ts";
+import { handlePactUnsubscribe } from "../../src/tools/pact-unsubscribe.ts";
 
 function makeCtx(): DispatchContext {
   return {
@@ -200,6 +204,15 @@ describe("dispatchAction", () => {
     expect(result).toEqual({ mocked: "subscribe" });
   });
 
+  it("routes 'unsubscribe' to handlePactUnsubscribe", async () => {
+    const ctx = makeCtx();
+    const params = { action: "unsubscribe", recipient: "backend-team" };
+    const result = await dispatchAction(params, ctx);
+
+    expect(handlePactUnsubscribe).toHaveBeenCalledOnce();
+    expect(result).toEqual({ mocked: "unsubscribe" });
+  });
+
   // --- Context passing ---
 
   it("passes params and context to the handler", async () => {
@@ -220,39 +233,39 @@ describe("dispatchAction", () => {
   it("throws exact 'Missing required field: action' message for undefined action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({}, ctx)).rejects.toThrow(
-      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe",
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Missing required field: action' message for null action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: null }, ctx)).rejects.toThrow(
-      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe",
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Invalid action' message for empty string action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: "" }, ctx)).rejects.toThrow(
-      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe",
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Invalid action' message for numeric action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: 123 }, ctx)).rejects.toThrow(
-      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe",
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Unknown action' message for unknown action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: "deploy" }, ctx)).rejects.toThrow(
-      "Unknown action 'deploy'. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe",
+      "Unknown action 'deploy'. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
-  it("includes all 8 valid actions in error message for unknown action", async () => {
+  it("includes all 9 valid actions in error message for unknown action", async () => {
     const ctx = makeCtx();
     try {
       await dispatchAction({ action: "nope" }, ctx);
@@ -267,6 +280,7 @@ describe("dispatchAction", () => {
       expect(msg).toContain("inbox");
       expect(msg).toContain("view_thread");
       expect(msg).toContain("subscribe");
+      expect(msg).toContain("unsubscribe");
     }
   });
 

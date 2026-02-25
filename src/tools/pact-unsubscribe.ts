@@ -1,9 +1,8 @@
 /**
- * Handler for the subscribe action.
+ * Handler for the unsubscribe action.
  *
- * Adds an ID to the user's subscription list. Subscriptions control
- * which requests appear in the inbox — any request addressed to a
- * subscribed ID is visible alongside requests addressed to the user directly.
+ * Removes an ID from the user's subscription list. If the ID is not
+ * currently subscribed, this is a no-op (idempotent).
  *
  * Persists the change to ~/.pact.json (or PACT_CONFIG path) so it
  * survives server restarts.
@@ -12,20 +11,20 @@
 import type { ConfigPort } from "../ports.ts";
 import { normalizeId } from "../normalize.ts";
 
-export interface PactSubscribeContext {
+export interface PactUnsubscribeContext {
   userId: string;
   config: ConfigPort;
 }
 
-export interface SubscribeResult {
-  subscribed?: string;
+export interface UnsubscribeResult {
+  unsubscribed?: string;
   subscriptions: string[];
 }
 
-export async function handlePactSubscribe(
+export async function handlePactUnsubscribe(
   params: Record<string, unknown>,
-  ctx: PactSubscribeContext,
-): Promise<SubscribeResult> {
+  ctx: PactUnsubscribeContext,
+): Promise<UnsubscribeResult> {
   const raw = params.recipient;
   const userConfig = await ctx.config.readUserConfig();
   const current = new Set(userConfig.subscriptions);
@@ -41,13 +40,13 @@ export async function handlePactSubscribe(
 
   const id = normalizeId(raw);
 
-  if (!current.has(id)) {
-    current.add(id);
+  if (current.has(id)) {
+    current.delete(id);
     await ctx.config.updateSubscriptions([...current]);
   }
 
   return {
-    subscribed: id,
+    unsubscribed: id,
     subscriptions: [...current],
   };
 }
