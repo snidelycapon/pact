@@ -1,14 +1,24 @@
-# Observability Design: pact-fmt
+# Observability Design: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt (Group Envelope Primitives)
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Architect**: Apex (nw-platform-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-q6y observability-design (pre-apathy, 2026-02-23)
 
 ---
 
 ## Existing Observability
 
-PACT uses structured JSON logging to stderr. The logger (`src/logger.ts`) writes one JSON object per line with fields: `ts`, `level`, `msg`, plus arbitrary fields.
+PACT uses structured JSON logging to stderr. The logger (`src/logger.ts`) writes one JSON object per line:
+
+```typescript
+log(level: LogLevel, msg: string, fields?: Record<string, unknown>): void
+```
+
+Output format:
+```json
+{"ts":"2026-02-24T10:00:00.000Z","level":"info","msg":"tool invocation complete","tool":"pact_do","action":"send","duration_ms":312}
+```
 
 Current log points (from `src/`):
 - **mcp-server.ts**: Tool invocation start/complete/failed (tool name, action, duration_ms)
@@ -22,134 +32,124 @@ Current log points (from `src/`):
 
 ---
 
-## Group Operation Log Events
-
-### New Log Points for pact-fmt
+## New Log Events for pact-y30
 
 Each new log point follows the existing pattern: `log(level, msg, fields)`.
 
-#### 1. Group Send (pact-request.ts)
+### 1. Flat-File Pact Scan (pact-loader.ts)
+
+```typescript
+// After scanning pact store
+log("info", "pact store loaded", {
+  store_root,                      // e.g., "./pact-store"
+  pacts_found: count,              // total .md files found
+  inheritance_resolved: inheritCount,  // pacts with extends
+  scan_ms: elapsed,
+});
+
+// When a pact extends a missing parent
+log("warn", "pact extends missing parent", {
+  pact: childName,
+  extends: parentName,
+  store_root,
+});
+
+// When circular or multi-level inheritance is detected
+log("warn", "invalid inheritance chain", {
+  pact: name,
+  extends: parentName,
+  reason,                          // "circular" | "multi-level"
+});
+```
+
+**Why**: The flat-file loader is new code with recursive glob and inheritance. Logging scan results and resolution errors enables diagnosing missing or misconfigured pacts.
+
+### 2. Group Send (pact-request.ts)
 
 ```typescript
 // After successful group request creation
-log("info", "group request sent", {
+log("info", "request sent", {
   action: "send",
   request_id,
-  group_ref,                    // e.g., "@backend-team"
-  recipients_count,             // e.g., 4
-  response_mode,                // from defaults_applied
-  visibility,                   // from defaults_applied
-  claimable,                    // from defaults_applied
+  recipients_count,                // 1 for single, >1 for group
+  group_ref,                       // e.g., "@backend-team" (omitted if null)
 });
 ```
 
-**Why**: Distinguish group sends from 1-to-1 sends. `recipients_count > 1` marks group operations. `response_mode` and `visibility` are critical for debugging completion and access issues.
+**Why**: Distinguish group sends from 1-to-1 sends. `recipients_count > 1` marks group operations.
 
-#### 2. Claim Attempt (pact-claim.ts)
-
-```typescript
-// Successful claim
-log("info", "request claimed", {
-  action: "claim",
-  request_id,
-  claimed_by: userId,
-  group_ref,
-});
-
-// Claim rejected: already claimed
-log("info", "claim rejected: already claimed", {
-  action: "claim",
-  request_id,
-  claimed_by: existingClaimer,    // who already claimed it
-  attempted_by: userId,
-});
-
-// Claim rejected: not claimable
-log("warn", "claim rejected: not claimable", {
-  action: "claim",
-  request_id,
-  attempted_by: userId,
-});
-
-// Claim rejected: not a recipient
-log("warn", "claim rejected: not a recipient", {
-  action: "claim",
-  request_id,
-  attempted_by: userId,
-});
-```
-
-**Why**: Claim is the highest-concurrency operation in pact-fmt. Logging both success and rejection reasons enables debugging race conditions (ERR1) without inspecting git history.
-
-#### 3. Response with Completion Tracking (pact-respond.ts)
+### 3. Per-Respondent Response (pact-respond.ts)
 
 ```typescript
-// Response recorded for group request
-log("info", "group response recorded", {
+// Response written to per-respondent directory
+log("info", "response recorded", {
   action: "respond",
   request_id,
   responder: userId,
-  response_mode,
-  responses_received: count,       // current count after this response
-  responses_needed: recipientsLength, // total recipients
-  completed: isComplete,           // did this response trigger completion?
+  storage: "per-respondent",       // vs "legacy" for old single-file format
   group_ref,
 });
 ```
 
-**Why**: `responses_received` vs `responses_needed` gives at-a-glance progress for `all` mode requests. `completed` flag marks the transition event. Essential for debugging ERR3 (partial responses).
+**Why**: Log the storage format used. During migration period, this distinguishes new per-respondent writes from legacy single-file reads.
 
-#### 4. Visibility Filtering (pact-status.ts, pact-thread.ts)
-
-```typescript
-// When visibility filtering removes responses
-log("debug", "visibility filter applied", {
-  action,                          // "check_status" or "view_thread"
-  request_id,
-  visibility,                     // "private" or "shared"
-  requesting_user: userId,
-  total_responses: allCount,
-  visible_responses: filteredCount,
-});
-```
-
-**Why**: Debug-level only. Helps diagnose ERR4 (private response visibility). Not logged in production by default (`PACT_LOG_LEVEL=info` skips debug).
-
-#### 5. Inbox Group Enrichment (pact-inbox.ts)
+### 4. Inbox Group Entries (pact-inbox.ts)
 
 ```typescript
 // When inbox includes group requests
-log("debug", "inbox group entries", {
+log("debug", "inbox scan complete", {
   action: "inbox",
   user_id: userId,
   total_entries: totalCount,
-  group_entries: groupCount,
-  claimed_entries: claimedCount,
+  group_entries: groupCount,       // entries where recipients_count > 1
 });
 ```
 
-**Why**: Debug-level. Helps verify inbox filtering logic is working correctly for group requests.
+**Why**: Debug-level. Helps verify inbox filtering is correctly matching the user against `recipients[]`.
+
+### 5. Inheritance Resolution (pact-loader.ts)
+
+```typescript
+// Successful inheritance merge
+log("debug", "inheritance resolved", {
+  child: childName,
+  parent: parentName,
+  merged_sections: ["defaults", "context_bundle"],  // which sections were inherited
+});
+```
+
+**Why**: Debug-level. Helps diagnose unexpected catalog entries when inheritance produces surprising results.
+
+### 6. Compressed Catalog Generation (pact-discover.ts)
+
+```typescript
+// After generating compressed catalog
+log("debug", "catalog generated", {
+  total_pacts: count,
+  scope_filter: scope || "none",   // if filtered by scope
+  format: "pipe-delimited",
+  estimated_tokens: tokenEstimate,
+});
+```
+
+**Why**: Debug-level. Validates token efficiency assumptions.
 
 ---
 
 ## Log Field Reference
 
-### New Fields (pact-fmt)
+### New Fields (pact-y30)
 
 | Field | Type | Present On | Purpose |
 |-------|------|-----------|---------|
-| `group_ref` | string | send, claim, respond | Group identifier (e.g., "@backend-team") |
-| `recipients_count` | number | send | How many recipients in the group |
-| `response_mode` | string | send, respond | "any", "all", or "none_required" |
-| `visibility` | string | send, status/thread filtering | "shared" or "private" |
-| `claimable` | boolean | send | Whether request accepts claims |
-| `claimed_by` | string | claim (success and rejection) | user_id of claimer |
-| `attempted_by` | string | claim (rejection) | user_id of rejected claimer |
-| `responses_received` | number | respond | Running count of responses |
-| `responses_needed` | number | respond | Total recipients (for all mode) |
-| `completed` | boolean | respond | Whether this response triggered completion |
-| `visible_responses` | number | status/thread | Count after visibility filter |
-| `total_responses` | number | status/thread | Count before visibility filter |
+| `store_root` | string | pact store scan | Pact store directory path |
+| `pacts_found` | number | pact store scan | Count of .md files found |
+| `inheritance_resolved` | number | pact store scan | Count of pacts with extends |
+| `scan_ms` | number | pact store scan | Scan duration |
+| `group_ref` | string | send, respond | Group identifier (e.g., "@backend-team") |
+| `recipients_count` | number | send | How many recipients in the request |
+| `storage` | string | respond | "per-respondent" or "legacy" |
+| `group_entries` | number | inbox | Inbox entries with >1 recipient |
 
 ### Existing Fields (Unchanged)
 
@@ -165,70 +165,77 @@ log("debug", "inbox group entries", {
 
 ---
 
-## Performance Metrics
+## Error Classification (Post-Apathy)
 
-### What to Measure (via Existing Log Fields)
+### Errors That Exist
 
-No new infrastructure. These metrics are derivable from structured logs using standard text processing tools (jq, grep).
+| Error | Detection | Severity | Notes |
+|-------|-----------|----------|-------|
+| **Missing parent pact** | `msg == "pact extends missing parent"` warn | warn | Pact author error. Catalog shows child without inherited fields. |
+| **Invalid inheritance** | `msg == "invalid inheritance chain"` warn | warn | Circular or multi-level. Pact loads without inheritance. |
+| **Malformed envelope** | Existing warn logs in inbox/status/thread | warn | JSON parse failure on request or response files. |
+| **Git push conflict** | Existing warn in git-adapter | warn | Retry handles it. Only notable if retries exhaust. |
+| **User not in recipients** | Respond handler rejects | error | User tried to respond to a request they're not on. |
+| **Pact store empty** | `pacts_found == 0` in scan log | warn | Store root exists but contains no .md files. |
 
-| Metric | How to Derive | Fields |
-|--------|--------------|--------|
-| **Claim resolution time** | `claimed_at - created_at` from envelope | Available in envelope JSON, not logged (use git for audit) |
-| **Response completion rate** | `responses_received / responses_needed` from respond logs | `responses_received`, `responses_needed` |
-| **Time to first response** | First respond log `ts` - send log `ts` for same `request_id` | `ts`, `request_id` |
-| **Claim race frequency** | Count "claim rejected: already claimed" logs | `msg` field |
-| **Group vs 1-to-1 ratio** | Count send logs where `recipients_count > 1` | `recipients_count` |
-| **Visibility filter impact** | `total_responses - visible_responses` from debug logs | `total_responses`, `visible_responses` |
+### Errors That No Longer Exist (Apathy Audit)
 
-### Example: Extract Claim Race Frequency
-
-```bash
-# Count claim rejections in the last hour
-cat /tmp/pact-stderr.log | \
-  jq -r 'select(.msg == "claim rejected: already claimed") | .request_id' | \
-  sort | uniq -c | sort -rn
-```
-
-### Example: Response Completion Progress
-
-```bash
-# Find incomplete all-mode requests
-cat /tmp/pact-stderr.log | \
-  jq -r 'select(.action == "respond" and .response_mode == "all" and .completed == false) |
-    "\(.request_id): \(.responses_received)/\(.responses_needed)"'
-```
+| Removed Error | Why |
+|---------------|-----|
+| Claim race condition | No claim action |
+| Claim spoofing | No claim action |
+| Stale claim | No claim action |
+| Response completion failure | No completion logic; first response completes |
+| Partial response timeout | No response counting |
+| Visibility filter mismatch | No visibility filtering |
+| Defaults merge conflict | No defaults-merge function |
 
 ---
 
-## Error Tracking
+## Diagnostic Patterns
 
-### ERR1: Claim Race Condition
+### Pattern 1: "Why can't I find this pact in the catalog?"
 
-**Detection**: `msg == "claim rejected: already claimed"` at info level.
-**Context fields**: `request_id`, `claimed_by` (winner), `attempted_by` (loser).
-**Expected frequency**: Rare at ~100 users. If frequent, indicates UX issue (multiple agents racing on same inbox).
+```bash
+# Check if the pact file was found during scan
+PACT_LOG_LEVEL=debug node dist/index.js 2>debug.log
+jq 'select(.msg == "pact store loaded")' debug.log
+# Check pacts_found count
 
-### ERR2: Stale Claims
+# If using inheritance, check if parent exists
+jq 'select(.msg == "pact extends missing parent")' debug.log
+```
 
-**Detection**: Not logged (apathetic design). Sender uses `check_status` to see unclaimed requests.
-**Observation**: No log event needed. The absence of a claim log for a claimable request is the signal.
+### Pattern 2: "Group request not showing in my inbox"
 
-### ERR3: Partial Response Timeout
+```bash
+# Check if user is in recipients
+jq '.recipients[].user_id' requests/pending/req-*.json | grep "username"
 
-**Detection**: Respond logs where `completed == false` and `response_mode == "all"`.
-**Context fields**: `responses_received`, `responses_needed`, `request_id`.
-**No automatic alert**: Sender checks status manually. PACT is apathetic about nudging.
+# Check inbox scan results
+PACT_LOG_LEVEL=debug node dist/index.js 2>debug.log
+jq 'select(.msg == "inbox scan complete")' debug.log
+```
 
-### ERR4: Private Response Access
+### Pattern 3: "Where are the responses?"
 
-**Detection**: Debug log "visibility filter applied" where `total_responses > visible_responses`.
-**Context fields**: `requesting_user`, `visibility`, `total_responses`, `visible_responses`.
-**Expected behavior**: This is normal for private-mode requests. Only notable if a user reports missing responses.
+```bash
+# Check response directory
+ls responses/req-20260224-*/
 
-### Git Push Failures
+# Check if per-respondent or legacy format
+jq 'select(.msg == "response recorded")' /tmp/pact-stderr.log
+# Look at storage field: "per-respondent" vs "legacy"
+```
 
-**Detection**: Existing "git push conflict, retrying with pull-rebase" warn log in git-adapter.
-**Impact on group ops**: Claim retries are the primary case. The existing retry mechanism handles this.
+### Pattern 4: "Pact catalog shows wrong values"
+
+```bash
+# Check inheritance resolution
+PACT_LOG_LEVEL=debug node dist/index.js 2>debug.log
+jq 'select(.msg == "inheritance resolved")' debug.log
+# Shows which sections were inherited from parent
+```
 
 ---
 
@@ -236,19 +243,14 @@ cat /tmp/pact-stderr.log | \
 
 ### Request Lifecycle (Group)
 
-A complete group request lifecycle produces this log sequence:
+A group request lifecycle produces this log sequence:
 
 ```
 1. {"level":"info", "msg":"tool invocation start", "tool":"pact_do", "action":"send"}
-2. {"level":"info", "msg":"group request sent", "action":"send", "request_id":"req-...", "group_ref":"@backend-team", "recipients_count":4}
+2. {"level":"info", "msg":"request sent", "action":"send", "request_id":"req-...", "group_ref":"@backend-team", "recipients_count":4}
 3. {"level":"info", "msg":"tool invocation complete", "tool":"pact_do", "action":"send", "duration_ms":312}
 ...
-4. {"level":"info", "msg":"request claimed", "action":"claim", "request_id":"req-...", "claimed_by":"kenji"}
-...
-5. {"level":"info", "msg":"group response recorded", "action":"respond", "request_id":"req-...", "responder":"kenji", "responses_received":1, "responses_needed":4, "completed":false}
-6. {"level":"info", "msg":"group response recorded", "action":"respond", "request_id":"req-...", "responder":"maria", "responses_received":2, "responses_needed":4, "completed":false}
-...
-7. {"level":"info", "msg":"group response recorded", "action":"respond", "request_id":"req-...", "responder":"priya", "responses_received":4, "responses_needed":4, "completed":true}
+4. {"level":"info", "msg":"response recorded", "action":"respond", "request_id":"req-...", "responder":"kenji", "storage":"per-respondent"}
 ```
 
 **Correlation key**: `request_id`. All events for a single request share the same `request_id`.
@@ -259,9 +261,19 @@ A complete group request lifecycle produces this log sequence:
 # All log events for a specific group
 jq 'select(.group_ref == "@backend-team")' /tmp/pact-stderr.log
 
-# All claim events
-jq 'select(.action == "claim")' /tmp/pact-stderr.log
+# All respond events
+jq 'select(.action == "respond")' /tmp/pact-stderr.log
 ```
+
+### Cross-User Correlation
+
+Each user runs their own PACT process, so logs are local. To correlate across users:
+
+1. **Git history** is the shared audit trail (all users push to same remote)
+2. **Response directory** contains all respondent files with `responded_at` timestamps
+3. **Envelope JSON** contains timestamps from the sender
+
+There is no centralized log aggregation, by design.
 
 ---
 
@@ -270,8 +282,8 @@ jq 'select(.action == "claim")' /tmp/pact-stderr.log
 | Omitted | Rationale |
 |---------|-----------|
 | External log aggregation | Local dev tool. Logs go to stderr, readable by MCP host or redirected to file |
-| Metrics service (Prometheus, etc.) | No HTTP server to expose /metrics. jq on log files is sufficient |
+| Metrics service (Prometheus, etc.) | No HTTP server to expose /metrics |
 | Distributed tracing | Single process, no distributed system |
-| Log sampling | Volume is trivially low (~100 users, each generating <100 log lines/day) |
-| Structured error codes in logs | Error types are in `msg` field. Formal codes add complexity without value at this scale |
-| Request-scoped correlation IDs | `request_id` already serves this role. No need for a separate trace ID |
+| Log sampling | Volume is trivially low (~100 users, <100 log lines/day each) |
+| Structured error codes | Error types are in `msg` field. Codes add complexity without value at this scale |
+| Claim/completion/visibility logging | Cut by apathy audit. These are agent concerns, not observable protocol events |

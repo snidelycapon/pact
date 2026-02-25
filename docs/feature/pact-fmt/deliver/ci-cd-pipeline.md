@@ -1,8 +1,9 @@
-# CI/CD Pipeline: pact-fmt
+# CI/CD Pipeline: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt (Group Envelope Primitives)
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Architect**: Apex (nw-platform-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-q6y ci-cd-pipeline (pre-apathy, 2026-02-23)
 
 ---
 
@@ -42,34 +43,43 @@ Single job (`check`), ~2-3 minutes. Adequate for current scope.
                   | push/PR to main  |
                   +--------+---------+
                            |
-                  +--------v---------+
-                  |   check (matrix) |  Node 20 + 22
-                  |   typecheck      |
-                  |   test:unit      |
-                  |   test:integration|
-                  |   test:acceptance |
-                  |   build          |
-                  |   verify dist    |
-                  +--------+---------+
-                           |
               +------------+------------+
               |                         |
     +---------v----------+   +----------v----------+
-    |   security (main)  |   | mutation (main only) |
-    |   npm audit        |   | stryker             |
-    |   secret scan      |   | ~5-10 min           |
-    +--------------------+   +---------------------+
+    |   check (matrix)   |   |   security          |
+    |   typecheck        |   |   npm audit          |
+    |   test:unit        |   |   license check      |
+    |   test:integration |   |   secret scan        |
+    |   test:acceptance  |   +---------------------+
+    |   build            |
+    |   verify dist      |
+    +---------+----------+
+              |
+              | (main only, after check passes)
+              v
+    +---------+----------+
+    |   mutation         |
+    |   stryker          |
+    |   ~5-10 min        |
+    +--------------------+
 ```
 
 ### Stage 1: check (Existing, Unchanged)
 
 Matrix job: Node 20 + 22. Runs on every push and PR.
 
-No changes. This is the core quality gate.
+No changes needed. This is the core quality gate.
+
+**Quality gates**:
+- TypeScript compiles with zero errors (`--noEmit`)
+- All unit tests pass
+- All integration tests pass
+- All acceptance tests pass
+- `dist/index.js` is produced
 
 ### Stage 2: security (New)
 
-Runs on: push to main AND pull requests. Lightweight -- does not need matrix testing.
+Runs in parallel with `check` on every push and PR. Lightweight -- single Node version, no matrix.
 
 ```yaml
   security:
@@ -86,28 +96,34 @@ Runs on: push to main AND pull requests. Lightweight -- does not need matrix tes
       - name: Install dependencies
         run: bun install
 
-      - name: Audit dependencies
+      - name: Audit production dependencies
         run: npm audit --omit=dev
-        continue-on-error: false
 
-      - name: Check for secrets in codebase
+      - name: Check licenses
         run: |
-          # Scan tracked source files for high-confidence secret patterns
-          if git ls-files -- '*.ts' '*.js' '*.json' | \
-            xargs grep -lE 'AKIA[A-Z0-9]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY|sk-[a-zA-Z0-9]{48}|ghp_[a-zA-Z0-9]{36}'; then
-            echo "::error::Potential secrets detected in codebase"
+          # Verify all runtime deps use permissive licenses
+          npx license-checker --production --onlyAllow \
+            'MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;0BSD'
+
+      - name: Scan for hardcoded secrets
+        run: |
+          if git ls-files -- '*.ts' '*.js' '*.json' ':!package-lock.json' ':!bun.lockb' | \
+            xargs grep -lE \
+              'AKIA[A-Z0-9]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY|sk-[a-zA-Z0-9]{48}|ghp_[a-zA-Z0-9]{36}' \
+            2>/dev/null; then
+            echo "::error::Potential secrets detected in tracked files"
             exit 1
           fi
 ```
 
 **Rationale**:
-- `npm audit --omit=dev`: Only audits the 4 runtime dependencies. DevDependencies (vitest, esbuild, stryker, typescript) are not shipped.
-- Secret scan: Simple grep for high-confidence patterns (AWS keys, private keys, OpenAI keys, GitHub PATs). No third-party scanning tool needed for a 4-dep project.
-- Runs on PRs too so issues are caught before merge.
+- `npm audit --omit=dev`: Only audits the 4 runtime dependencies. DevDependencies are not shipped.
+- License check: All 4 runtime deps are MIT/ISC today. Gate ensures no GPL/AGPL sneaks in via transitive deps.
+- Secret scan: Simple grep for high-confidence patterns. No third-party scanning tool needed for a 4-dep project.
 
 ### Stage 3: mutation (New, Main-Only)
 
-Runs on: push to main only. Too slow for PR feedback loops (~5-10 minutes).
+Runs on push to main only, after `check` passes. Too slow for PR feedback (~5-10 minutes).
 
 ```yaml
   mutation:
@@ -139,14 +155,14 @@ Runs on: push to main only. Too slow for PR feedback loops (~5-10 minutes).
 ```
 
 **Rationale**:
-- Main-only: Stryker runs ~5-10 min with 4 concurrency and 60s timeout per mutant. Too slow for PR iteration.
-- Runs after `check` succeeds (`needs: check`) to avoid wasting CI minutes on broken builds.
-- Report uploaded as artifact for review. HTML reporter already configured in `stryker.config.json`.
-- `if: always()` on upload ensures report is available even if mutation score is below threshold.
+- Main-only: Stryker runs ~5-10 min with concurrency 4 and 60s timeout per mutant. Too slow for PR iteration.
+- `needs: check`: No wasted CI minutes on broken builds.
+- Report uploaded as artifact. HTML reporter already configured in `stryker.config.json`.
+- `if: always()` on upload ensures report is saved even if mutation score is low.
 
-### Stryker Configuration Update
+### Stryker Configuration (Existing, No Change Needed)
 
-Add pact-fmt files to mutation targets in `stryker.config.json`:
+The current `stryker.config.json` already targets the 11 files that pact-y30 modifies:
 
 ```json
 {
@@ -161,14 +177,15 @@ Add pact-fmt files to mutation targets in `stryker.config.json`:
     "src/tools/pact-status.ts",
     "src/tools/pact-inbox.ts",
     "src/tools/find-pending-request.ts",
-    "src/schemas.ts",
-    "src/tools/pact-claim.ts",
-    "src/defaults-merge.ts"
-  ]
+    "src/schemas.ts"
+  ],
+  "testRunner": "vitest",
+  "reporters": ["clear-text", "html"],
+  "concurrency": 4
 }
 ```
 
-Two new files: `pact-claim.ts` (domain logic with branching) and `defaults-merge.ts` (pure function with merge logic). Both are high-value mutation testing targets.
+No new files to add (no `pact-claim.ts`, no `defaults-merge.ts`). The existing targets cover all modified components.
 
 ---
 
@@ -236,11 +253,18 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev
 
+      - name: Check licenses
+        run: |
+          npx license-checker --production --onlyAllow \
+            'MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;0BSD'
+
       - name: Scan for hardcoded secrets
         run: |
-          if git ls-files -- '*.ts' '*.js' '*.json' | \
-            xargs grep -lE 'AKIA[A-Z0-9]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY|sk-[a-zA-Z0-9]{48}|ghp_[a-zA-Z0-9]{36}'; then
-            echo "::error::Potential secrets detected in codebase"
+          if git ls-files -- '*.ts' '*.js' '*.json' ':!package-lock.json' ':!bun.lockb' | \
+            xargs grep -lE \
+              'AKIA[A-Z0-9]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY|sk-[a-zA-Z0-9]{48}|ghp_[a-zA-Z0-9]{36}' \
+            2>/dev/null; then
+            echo "::error::Potential secrets detected in tracked files"
             exit 1
           fi
 
@@ -280,61 +304,102 @@ jobs:
 |-------|-------|-----------------|
 | **check** (matrix) | Yes -- full test suite, both Node versions | Yes |
 | **security** | Yes -- catch issues before merge | Yes |
-| **mutation** | No -- too slow for PR iteration | Yes -- quality gate on main |
+| **mutation** | No -- too slow for PR iteration | Yes -- quality signal on main |
 
 ### PR Requirements (Enforced by Branch Protection)
 
-- `check` must pass (both matrix entries)
+- `check` must pass (both matrix entries: Node 20 and 22)
 - `security` must pass
 - At least 1 review approval
 - Branch must be up to date with main
 
 ### Why Full Suite on Every Change
 
-PACT is a modular monolith. Schema changes in `schemas.ts` affect every handler. Defaults-merge is called from both `pact-discover` and `pact-request`. The action dispatcher touches all handlers. There is no safe subset of tests to skip.
+PACT is a modular monolith. Schema changes in `schemas.ts` affect every handler. The pact-loader feeds `pact-discover`. The action dispatcher touches all handlers. There is no safe subset of tests to skip.
 
 **Cost**: ~3 minutes for `check` (parallel matrix). Acceptable for a project this size.
 
 ---
 
-## Future Considerations
+## npm Publish Workflow
 
-### npm Publish (When Ready)
-
-When PACT is ready for npm distribution, add a release job:
+Tag-based release workflow, separate from CI. Triggered manually or by pushing a version tag.
 
 ```yaml
+# .github/workflows/publish.yml
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
   publish:
-    if: github.ref == 'refs/heads/main' && startsWith(github.ref, 'refs/tags/v')
-    needs: [check, security]
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # npm provenance
+      id-token: write    # npm provenance
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun run build
-      - run: npm publish --provenance
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Verify dist
+        run: test -f dist/index.js
+
+      - name: Publish
+        run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
-Triggered by version tags (`v0.2.0`). Uses npm provenance for supply chain security. Not needed until pact-fmt is complete and tested.
+**Release process**:
+1. Update `version` in `package.json`
+2. Commit: `chore: release v0.2.0`
+3. Tag: `git tag v0.2.0`
+4. Push: `git push origin main --tags`
+5. GitHub Actions runs publish workflow
+6. npm provenance ensures supply chain integrity
 
-### Mutation Score Threshold
+---
 
-Once baseline mutation score is established on main, add a threshold check:
+## Future: Mutation Score Threshold
+
+Once baseline mutation score is established on main, add a threshold:
 
 ```yaml
       - name: Check mutation score
         run: |
-          SCORE=$(npx stryker run --reporters json | jq '.schemaVersion' ...)
-          # Parse score from Stryker JSON output and fail if below threshold
+          npx stryker run 2>&1 | tee stryker-output.txt
+          # Stryker exits non-zero if score is below thresholds.break
+```
+
+Configure in `stryker.config.json`:
+```json
+{
+  "thresholds": {
+    "high": 80,
+    "low": 70,
+    "break": 60
+  }
+}
 ```
 
 Defer until baseline is known. Premature thresholds cause false failures.

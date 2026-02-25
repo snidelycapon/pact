@@ -1,19 +1,156 @@
-# Monitoring & Alerting: pact-fmt
+# Monitoring & Alerting: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt (Group Envelope Primitives)
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Architect**: Apex (nw-platform-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-q6y monitoring-alerting (pre-apathy, 2026-02-23)
 
 ---
 
 ## Context
 
-PACT is a local dev tool. There is no production server to monitor, no uptime SLA, no alerting infrastructure. "Monitoring" means: **how do developers and their agents debug problems when group operations behave unexpectedly?**
+PACT is a local dev tool. There is no production server to monitor, no uptime SLA, no alerting infrastructure. "Monitoring" for this project means:
 
-This document covers:
-1. Git commit audit trail for group operations
-2. Debugging workflows for pact-fmt error paths
-3. Log correlation patterns for request lifecycle
+1. **Code quality metrics** -- test coverage, mutation score, build health
+2. **Dependency health** -- audit results, outdated packages
+3. **Project velocity** -- DORA metrics adapted for a local tool
+4. **Git audit trail** -- the primary debugging mechanism for group operations
+
+---
+
+## Code Quality Metrics
+
+### Test Coverage
+
+Tracked via vitest's built-in coverage reporter. Not currently in CI (add when coverage tooling is configured).
+
+| Metric | Current | Target (post pact-y30) |
+|--------|---------|------------------------|
+| Unit test count | 96 | ~130 (new loader, schema, group scenarios) |
+| Integration test count | (in 96 total) | +10-15 (inheritance, per-respondent) |
+| Acceptance test count | (in 96 total) | +5-8 (group send/respond/inbox end-to-end) |
+
+**Quality gate**: All tests must pass on both Node 20 and 22. No test skip annotations without a linked issue.
+
+### Mutation Score (Stryker)
+
+Tracked via Stryker mutation testing, run on push to main. Report uploaded as CI artifact.
+
+| Metric | Meaning |
+|--------|---------|
+| **Mutation score** | % of mutants killed by tests |
+| **Survived mutants** | Mutants that tests did not detect -- test gaps |
+| **No coverage mutants** | Mutants in code not covered by any test |
+
+**Current targets** (11 mutation files):
+
+| File | Expected Mutation Score |
+|------|----------------------|
+| `schemas.ts` | High (Zod validation catches most mutations) |
+| `pact-loader.ts` | Medium-high (new glob + inheritance logic needs thorough tests) |
+| `pact-request.ts` | High (recipients validation) |
+| `pact-respond.ts` | High (per-respondent write path) |
+| `pact-inbox.ts` | High (filter logic) |
+| `pact-status.ts` | Medium (directory read + backward compat) |
+| `pact-thread.ts` | Medium (directory read + backward compat) |
+| `pact-discover.ts` | Medium (catalog format generation) |
+| `action-dispatcher.ts` | High (routing is simple) |
+
+**Threshold strategy**: Establish baseline after pact-y30 implementation. Set `thresholds.break` at 10 points below baseline. Avoid premature thresholds.
+
+### Build Health
+
+| Metric | Source | Target |
+|--------|--------|--------|
+| Build pass rate (main) | GitHub Actions | >95% (occasional infra flakiness OK) |
+| Build pass rate (PRs) | GitHub Actions | >90% (iteration is expected) |
+| Build duration | GitHub Actions | <5 min for `check` job |
+| TypeScript errors | `bun run typecheck` | 0 errors at all times |
+
+---
+
+## Dependency Health
+
+### npm Audit
+
+Run on every push and PR (see ci-cd-pipeline.md `security` job).
+
+| Metric | Gate |
+|--------|------|
+| Critical vulnerabilities (production) | 0 -- blocks merge |
+| High vulnerabilities (production) | 0 -- blocks merge |
+| Moderate vulnerabilities (production) | Assessed per-case |
+| Dev dependency vulnerabilities | Not gated (not shipped) |
+
+**Current runtime dependencies** (4 total):
+- `@modelcontextprotocol/sdk` ^1.24.3
+- `simple-git` ^3.32.1
+- `yaml` ^2.8.2
+- `zod` ^4.0.0
+
+### Outdated Dependencies
+
+Not automated in CI. Manual check periodically:
+
+```bash
+npm outdated
+```
+
+**Update strategy**:
+- Patch versions: Update freely, run full test suite
+- Minor versions: Update, review changelog, run full test suite
+- Major versions: Evaluate breaking changes, create dedicated PR
+
+### License Compliance
+
+Run on every push and PR (see ci-cd-pipeline.md `security` job).
+
+**Allowed licenses**: MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD
+
+---
+
+## CI Health Dashboard
+
+GitHub Actions provides built-in visibility. No external dashboard needed.
+
+### Key Views
+
+| View | URL Pattern | What It Shows |
+|------|-------------|---------------|
+| Workflow runs | `/{repo}/actions` | Pass/fail history for all branches |
+| Branch protection | `/{repo}/settings/branches` | Required checks status |
+| PR checks | PR page "Checks" tab | Per-PR quality gate results |
+| Mutation report | Workflow run "Artifacts" | Stryker HTML report (14-day retention) |
+
+### Flakiness Detection
+
+If `check` job fails on main without code changes:
+
+1. Check if failure is in tests (test flakiness) or infrastructure (npm registry, GitHub Actions outage)
+2. For test flakiness: file issue, fix the test. PACT tests use deterministic IDs and no real git remotes in unit tests -- flakiness should be rare.
+3. For infrastructure: re-run the workflow. No automatic retry.
+
+---
+
+## DORA Metrics (Adapted)
+
+DORA metrics for a local dev tool without production deployment:
+
+| DORA Metric | Adaptation for PACT | How to Measure |
+|-------------|--------------------|----|
+| **Deployment frequency** | npm publish frequency | Count `v*` tags per month |
+| **Lead time for changes** | PR open to merge time | GitHub PR analytics |
+| **Change failure rate** | Reverts on main / total merges | `git log --oneline --grep="revert"` |
+| **Time to restore** | Time from bug report to fix merge | Issue close time in GitHub |
+
+### Current Targets (Pre-1.0)
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| Publish frequency | Monthly or on-demand | Pre-1.0, no SLA |
+| PR lead time | < 1 day | Small team, short-lived branches |
+| Change failure rate | < 10% | Adequate test coverage should prevent regressions |
+| Time to restore | < 1 day | Small codebase, single maintainer can hotfix quickly |
 
 ---
 
@@ -26,10 +163,8 @@ Every PACT state change produces a git commit. This is the primary audit mechani
 | Operation | Commit Message Pattern | Files Touched |
 |-----------|----------------------|---------------|
 | Group send | `pact: send {request_type} to {group_ref} ({n} recipients)` | `requests/pending/{id}.json` |
-| Claim | `pact: {user_id} claims {request_id}` | `requests/pending/{id}.json` (mutated) |
 | Group respond | `pact: {user_id} responds to {request_id}` | `responses/{id}/{user_id}.json` |
-| Completion (any) | `pact: complete {request_id} (first response)` | `requests/completed/{id}.json` (git mv) |
-| Completion (all) | `pact: complete {request_id} (all responded)` | `requests/completed/{id}.json` (git mv) |
+| Completion | `pact: complete {request_id}` | `requests/completed/{id}.json` (git mv) |
 
 ### Audit Queries
 
@@ -37,200 +172,50 @@ Every PACT state change produces a git commit. This is the primary audit mechani
 # All group sends in the last week
 git log --oneline --since="1 week ago" --grep="recipients)"
 
-# All claims for a specific request
-git log --oneline --all --grep="claims req-20260223"
-
 # Who responded to a group request
-git log --oneline -- "responses/req-20260223-100000-cory-a1b2/"
+git log --oneline -- "responses/req-20260224-100000-cory-a1b2/"
 
 # Timeline of a complete group request lifecycle
-git log --oneline --all -- \
-  "requests/*/req-20260223-100000-cory-a1b2.json" \
-  "responses/req-20260223-100000-cory-a1b2/"
-
-# View the exact state of an envelope at claim time
-git show <claim-commit-hash>:requests/pending/req-20260223-100000-cory-a1b2.json
+git log --oneline -- \
+  "requests/*/req-20260224-100000-cory-a1b2.json" \
+  "responses/req-20260224-100000-cory-a1b2/"
 ```
-
-### Advantages Over Log-Based Audit
-
-- **Immutable**: Git history cannot be silently edited (without force push)
-- **Distributed**: Every team member has a full copy
-- **Diffable**: `git diff` shows exact state changes (what fields were modified during claim)
-- **Time-travel**: `git show <commit>:<path>` reconstructs any historical state
 
 ---
 
-## Debugging Workflows
+## Debugging Workflows (Post-Apathy)
 
-### ERR1: Claim Race Condition
+### "Group request not showing in inbox"
 
-**Symptom**: User reports "I tried to claim but it was already taken."
-
-**Debugging steps**:
-
-1. **Check stderr logs** (if available):
+1. Verify user is in `recipients[]`:
    ```bash
-   jq 'select(.action == "claim" and .request_id == "req-...")' /tmp/pact-stderr.log
+   jq '.recipients[].user_id' requests/pending/req-*.json | grep "username"
    ```
-   Look for: `"msg": "claim rejected: already claimed"` with `claimed_by` and `attempted_by`.
+2. Check inbox scan debug log (see observability-design.md).
 
-2. **Check git history**:
+### "Response directory is empty"
+
+1. Check if response used legacy single-file format:
    ```bash
-   git log --oneline --all --grep="claims req-20260223"
+   ls responses/req-20260224-*.json  # old format
+   ls responses/req-20260224-*/      # new format
    ```
-   Shows who claimed and when.
+2. Check respond log for `storage` field.
 
-3. **Inspect envelope state**:
+### "Catalog shows unexpected values for inherited pact"
+
+1. Check inheritance resolution in debug logs.
+2. Inspect parent and child pact files directly:
    ```bash
-   git show HEAD:requests/pending/req-20260223-100000-cory-a1b2.json | jq '{claimed, claimed_by, claimed_at}'
-   ```
-
-**Resolution**: This is expected behavior. The first claimer wins. The agent should present alternative unclaimed requests.
-
-### ERR2: Stale Claim (No One Claims)
-
-**Symptom**: Sender asks "Why hasn't anyone picked up my request?"
-
-**Debugging steps**:
-
-1. **Check request state**:
-   ```bash
-   jq '{claimed, claimable: .defaults_applied.claimable, recipients}' \
-     requests/pending/req-20260223-100000-cory-a1b2.json
-   ```
-   Verify: `claimable: true`, `claimed: false` (or absent).
-
-2. **Check inbox visibility for recipients**:
-   Each recipient's agent should see this in their inbox. Verify by running the inbox action as a specific user:
-   ```bash
-   PACT_USER=kenji node dist/index.js  # Then send inbox request via MCP
+   head -30 pact-store/parent.md pact-store/child.md
    ```
 
-**Resolution**: PACT is apathetic about nudging. Sender can re-send, direct-message a specific person, or amend the request with urgency context.
+### Git Push Failure
 
-### ERR3: All-Mode Partial Responses
-
-**Symptom**: `response_mode: all` request stays pending even though "most people responded."
-
-**Debugging steps**:
-
-1. **Count responses**:
-   ```bash
-   ls responses/req-20260223-100000-cory-a1b2/ | wc -l
-   # Compare with recipients count
-   jq '.recipients | length' requests/*/req-20260223-100000-cory-a1b2.json
-   ```
-
-2. **Identify missing respondents**:
-   ```bash
-   # Who has responded
-   ls responses/req-20260223-100000-cory-a1b2/
-   # kenji.json  maria.json  tomas.json
-
-   # Who should have responded
-   jq -r '.recipients[].user_id' requests/*/req-20260223-100000-cory-a1b2.json
-   # kenji  maria  tomas  priya
-
-   # Missing: priya
-   ```
-
-3. **Check stderr logs** (if available):
-   ```bash
-   jq 'select(.request_id == "req-..." and .action == "respond")' /tmp/pact-stderr.log
-   ```
-   Shows `responses_received` vs `responses_needed` progression.
-
-**Resolution**: Sender uses `check_status` to see progress. They can contact the missing respondent directly, or cancel and re-send to a smaller group.
-
-### ERR4: Private Response Visibility
-
-**Symptom**: User asks "Where are the other responses? I can only see mine."
-
-**Debugging steps**:
-
-1. **Check visibility setting**:
-   ```bash
-   jq '.defaults_applied.visibility' requests/*/req-20260223-100000-cory-a1b2.json
-   # "private"
-   ```
-
-2. **Verify response files exist** (admin check):
-   ```bash
-   ls -la responses/req-20260223-100000-cory-a1b2/
-   ```
-
-3. **Check who is requesting** (from stderr debug logs):
-   ```bash
-   jq 'select(.msg == "visibility filter applied" and .request_id == "req-...")' /tmp/pact-stderr.log
-   ```
-   Shows `requesting_user`, `total_responses`, `visible_responses`.
-
-**Resolution**: This is by design. `visibility: private` means respondents only see their own response. The requester (sender) sees all responses. If the pact author wants shared visibility, they change the pact definition.
-
-### General: Git Push Failure on Group Operation
-
-**Symptom**: Agent reports "Failed to push" or operation seems to hang.
-
-**Debugging steps**:
-
-1. **Check git status**:
-   ```bash
-   cd $PACT_REPO && git status
-   ```
-
-2. **Check for rebase in progress**:
-   ```bash
-   ls .git/rebase-merge/ 2>/dev/null && echo "Rebase in progress"
-   ```
-
-3. **Check stderr for retry logs**:
-   ```bash
-   jq 'select(.msg | contains("push conflict"))' /tmp/pact-stderr.log
-   ```
-
-**Resolution**: If rebase is stuck, `git rebase --abort` and retry the operation. The git-adapter already retries once. If the remote is consistently ahead, it may indicate high concurrency -- increase retry count in git-adapter.
-
----
-
-## Log Correlation Patterns
-
-### Correlating a Full Group Lifecycle
-
-Use `request_id` as the correlation key across all log events:
-
-```bash
-REQUEST_ID="req-20260223-100000-cory-a1b2"
-
-# Full timeline for one request
-jq "select(.request_id == \"$REQUEST_ID\" or (.msg | contains(\"$REQUEST_ID\")))" \
-  /tmp/pact-stderr.log
-```
-
-Expected event sequence for a claimed, all-mode group request:
-
-```
-[T+0ms]    info  tool invocation start       action=send
-[T+50ms]   info  group request sent          recipients_count=4, response_mode=all
-[T+300ms]  info  tool invocation complete     duration_ms=300
-...
-[T+5min]   info  request claimed             claimed_by=kenji
-...
-[T+10min]  info  group response recorded     responder=kenji, 1/4, completed=false
-[T+2hr]    info  group response recorded     responder=maria, 2/4, completed=false
-[T+3hr]    info  group response recorded     responder=tomas, 3/4, completed=false
-[T+5hr]    info  group response recorded     responder=priya, 4/4, completed=true
-```
-
-### Correlating Across Users
-
-Since each user runs their own PACT process, logs are local to each machine. To correlate across users:
-
-1. **Git history** is the shared audit trail (all users push to same remote)
-2. **Envelope JSON** contains timestamps from all participants
-3. **Response directory** contains all respondent files with `responded_at` timestamps
-
-There is no centralized log aggregation, by design.
+1. Check git status: `cd $PACT_REPO && git status`
+2. Check for rebase in progress: `ls .git/rebase-merge/ 2>/dev/null`
+3. Check stderr for retry logs: `jq 'select(.msg | contains("push conflict"))' /tmp/pact-stderr.log`
+4. Resolution: `git rebase --abort` and retry. The git-adapter retries once automatically.
 
 ---
 
@@ -241,7 +226,10 @@ There is no centralized log aggregation, by design.
 | External alerting (PagerDuty, etc.) | Local dev tool. No one is on-call for PACT |
 | Uptime monitoring | No server. Process starts/stops with MCP host |
 | Error rate dashboards | Volume is too low to trend. Individual debugging suffices |
-| SLI/SLO definitions | No service to measure. Git push latency varies by network |
+| SLI/SLO definitions | No service to measure |
 | Automated remediation | Nothing to remediate. Retry logic is built into git-adapter |
 | Log forwarding | Each developer's logs stay on their machine. Git is the shared record |
-| Health checks | Stdio process. If it's not responding, the MCP host restarts it |
+| Claim metrics | No claim action (apathy audit) |
+| Completion metrics | No completion logic (apathy audit) |
+| Visibility metrics | No visibility filtering (apathy audit) |
+| Runtime APM | No long-running server to profile |

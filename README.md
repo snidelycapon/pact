@@ -71,15 +71,24 @@ Replace the paths and user ID with your own values. See `examples/source-config.
 
 ## Available Tools
 
+PACT exposes two MCP tools:
+
 | Tool | Description |
 |------|-------------|
-| `pact_request` | Submit a structured request to a team member |
-| `pact_inbox` | Check your inbox for pending requests |
-| `pact_respond` | Respond to a pending request |
-| `pact_status` | Check the status of a request |
-| `pact_cancel` | Cancel a pending request you sent |
-| `pact_amend` | Amend a pending request you sent |
-| `pact_thread` | View the full history of a request thread |
+| `pact_discover` | Browse the pact catalog, look up pact definitions, and list team members |
+| `pact_do` | Execute an action (see below) |
+
+### Actions (`pact_do`)
+
+| Action | Description |
+|--------|-------------|
+| `send` | Submit a structured request to one or more recipients |
+| `inbox` | Check your inbox for pending requests |
+| `respond` | Respond to a pending request |
+| `check_status` | Check the status of a request |
+| `view_thread` | View the full history of a request thread |
+| `cancel` | Cancel a pending request you sent |
+| `amend` | Amend a pending request you sent |
 
 ## Environment Variables
 
@@ -105,15 +114,22 @@ The shared git repo follows this layout:
 ```
 pact-team/
   config.json              # Team membership
+  pact-store/              # Pact definitions (flat .md files with YAML frontmatter)
+    ask.md
+    review.md
+    propose.md
+    ...
   requests/
     pending/               # New requests awaiting response
-    active/                # Reserved for future use
-    completed/             # Responded requests (moved by pact_respond)
-    cancelled/             # Cancelled requests (moved by pact_cancel)
+    completed/             # Responded requests
+    cancelled/             # Cancelled requests
   responses/               # Response data keyed by request ID
-  pacts/
-    ask/
-      PACT.md             # Contract for the "ask a question" request type
+    {request_id}.json      # Single-recipient response
+    {request_id}/          # Multi-recipient responses (one file per responder)
+      {user_id}.json
+  attachments/             # File attachments keyed by request ID
+    {request_id}/
+      {filename}
 ```
 
-Request lifecycle: `pending/` -> `completed/` (via `pact_respond`) or `pending/` -> `cancelled/` (via `pact_cancel`). Responses are written to `responses/`. Requests support threading (`thread_id`), amendments (`pact_amend`), and file attachments.
+Request lifecycle: `pending/` -> `completed/` (via respond) or `pending/` -> `cancelled/` (via cancel). Requests support multiple recipients, threading (`thread_id`), amendments, and file attachments.

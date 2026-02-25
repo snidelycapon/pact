@@ -1,14 +1,15 @@
-# Platform Architecture: pact-fmt
+# Platform Architecture: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt (Group Envelope Primitives)
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Architect**: Apex (nw-platform-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-q6y platform-architecture (pre-apathy, 2026-02-23)
 
 ---
 
 ## Platform Overview
 
-PACT is a **local development tool**, not a cloud service. The "platform" is a developer's machine running an MCP host (e.g., Craft Agents, Claude Code). There are no servers, containers, load balancers, or cloud resources to architect.
+PACT is a **local development tool**, not a cloud service. The "platform" is a developer's machine running an MCP host. There are no servers, containers, load balancers, or cloud resources.
 
 ```
 Developer Machine
@@ -50,17 +51,16 @@ stdout <-- JSON-RPC encoder <---------------------------------------------+
 stderr --> structured JSON log
 ```
 
-### Component Layout (post pact-fmt)
+### Component Layout (post pact-y30)
 
 ```
 src/
   index.ts              Entry point (stdio transport setup)
   server.ts             MCP server configuration
   mcp-server.ts         Tool registration + request routing
-  action-dispatcher.ts  Action string -> handler mapping (adds: "claim")
-  schemas.ts            Zod schemas (adds: GroupDefaults, recipients[], claim fields)
-  pact-loader.ts        PACT.md YAML parser (adds: defaults section parsing)
-  defaults-merge.ts     NEW: Pure function, protocol + pact defaults merge
+  action-dispatcher.ts  Action string -> handler mapping (7 actions, unchanged)
+  schemas.ts            Zod schemas (adds: recipients[], group_ref)
+  pact-loader.ts        Flat-file glob + inheritance resolution (replaces dir-per-pact)
   logger.ts             Structured JSON to stderr
   request-id.ts         Deterministic ID generation
   ports.ts              Port interfaces (GitPort, ConfigPort, FilePort)
@@ -69,19 +69,21 @@ src/
     file-adapter.ts     fs/promises wrapper
     config-adapter.ts   config.json reader
   tools/
-    pact-request.ts     Send action (adds: recipients[], defaults_applied)
-    pact-respond.ts     Respond action (adds: per-respondent files, completion logic)
-    pact-claim.ts       NEW: Claim action (exclusive claim via git atomic write)
-    pact-inbox.ts       Inbox action (adds: group filtering, claim status enrichment)
-    pact-status.ts      Status action (adds: visibility filtering)
-    pact-thread.ts      Thread action (adds: visibility filtering)
-    pact-discover.ts    Discovery action (adds: merged defaults in catalog)
+    pact-do.ts          Action entry point
+    pact-request.ts     Send action (adds: recipients[], group_ref)
+    pact-respond.ts     Respond action (adds: per-respondent files)
+    pact-inbox.ts       Inbox action (adds: multi-recipient filtering)
+    pact-status.ts      Status action (adds: directory response read)
+    pact-thread.ts      Thread action (adds: directory response read)
+    pact-discover.ts    Discovery action (adds: compressed catalog, scope filter)
     pact-cancel.ts      Cancel action (unchanged)
     pact-amend.ts       Amend action (unchanged)
     find-pending-request.ts  Shared utility (unchanged)
 ```
 
-**File count**: ~22 source files (from ~20). LOC estimate: ~2,800 (from ~2,200).
+**File count**: ~20 source files (unchanged). **LOC estimate**: ~2,600 (from ~2,200).
+
+No new files created. No `pact-claim.ts`. No `defaults-merge.ts`. All changes are modifications to existing files.
 
 ### Dependency Graph
 
@@ -90,10 +92,9 @@ src/
                     /           \
            pact-discover    action-dispatcher
                |            /   |   |   \  ...
-           pact-loader   send respond claim inbox status thread
-               |           |     |     |
-           defaults-merge  |     |     |
-                          \|/   \|/   \|/
+           pact-loader   send respond inbox status thread
+                          |     |     |
+                         \|/   \|/   \|/
                          ports.ts (interfaces)
                             |
                     adapters/ (implementations)
@@ -101,7 +102,7 @@ src/
                     git repo + fs + config.json
 ```
 
-All dependencies point inward. No handler depends on another handler. Adapters implement port interfaces. `defaults-merge.ts` is a pure function with zero dependencies.
+All dependencies point inward. No handler depends on another handler. Adapters implement port interfaces. No new modules in the dependency graph -- just schema and logic changes within existing files.
 
 ---
 
@@ -112,11 +113,11 @@ All dependencies point inward. No handler depends on another handler. Adapters i
 | Component | Implementation | Notes |
 |-----------|---------------|-------|
 | **Runtime** | Node.js 20+ | LTS. Matrix-tested against 20 and 22 in CI |
-| **Package manager** | bun | Fast installs, lockfile in repo |
+| **Package manager** | Bun | Fast installs, lockfile in repo |
 | **Build** | esbuild via `build.ts` | Single ESM bundle `dist/index.js`, externalized deps |
 | **Type checking** | TypeScript 5.x strict mode | `noEmit`, `noUncheckedIndexedAccess` |
 | **Testing** | vitest (unit, integration, acceptance) | 96 tests, 3-tier structure |
-| **Mutation testing** | Stryker (vitest runner) | 9 core files targeted, 4 concurrency |
+| **Mutation testing** | Stryker (vitest runner) | 11 core files targeted, 4 concurrency |
 | **CI** | GitHub Actions | Matrix Node 20/22, typecheck + tests + build |
 | **Distribution** | npm package (`files: ["dist/"]`) | Single artifact |
 | **Transport** | stdio (JSON-RPC) | No HTTP, no WebSocket, no ports to bind |
@@ -124,16 +125,17 @@ All dependencies point inward. No handler depends on another handler. Adapters i
 | **Logging** | Structured JSON to stderr | 4 levels, field-based, $0 cost |
 | **Config** | `config.json` in repo | Team members, read by ConfigAdapter |
 
-### What pact-fmt Adds (Zero New Infrastructure)
+### What pact-y30 Adds (Zero New Infrastructure)
 
 No new dependencies. No new services. No new ports. No new adapters.
 
 The feature adds:
-- 2 new TypeScript source files (`pact-claim.ts`, `defaults-merge.ts`)
-- Schema extensions (Zod, already in use)
-- Domain logic changes in 9 existing files
-- File layout change: `responses/{id}/{user}.json` (directory per request)
-- New Stryker mutation targets: `pact-claim.ts`, `defaults-merge.ts`
+- Schema extensions in `schemas.ts` (Zod, already in use)
+- Flat-file glob + inheritance resolution in `pact-loader.ts`
+- `recipients[]` and `group_ref` handling in 4 action handlers
+- Per-respondent directory layout in `pact-respond.ts`
+- Compressed catalog format in `pact-discover.ts`
+- 8 default pact `.md` files in `pact-store/`
 
 ### What Does NOT Exist (By Design)
 
@@ -147,7 +149,10 @@ The feature adds:
 | Secret management | `PACT_USER` and `PACT_REPO` env vars, no secrets |
 | CDN/static hosting | CLI tool, no web UI |
 | Health endpoints | No HTTP server to expose them on |
-| Feature flags | ~2,800 LOC -- code branching is sufficient |
+| Feature flags | ~2,600 LOC -- code branching is sufficient |
+| Claim action | Agent coordination, not transport (apathy audit) |
+| Defaults-merge module | Agents read frontmatter directly (apathy audit) |
+| Response completion logic | First response completes, agents coordinate the rest (apathy audit) |
 
 ---
 
@@ -158,18 +163,18 @@ The feature adds:
 - ~100 users across teams of 10-12
 - 20-30 repositories with pact stores
 - Group sizes: 2-12 recipients per request
-- Concurrency: git retry/rebase handles claim races
+- Concurrency: git retry/rebase handles push races
 
 ### Scaling Limits (Known, Accepted)
 
 | Dimension | Limit | Bottleneck | Mitigation (if needed) |
 |-----------|-------|-----------|----------------------|
 | Group size | ~50 recipients | Envelope JSON size, response dir listing | Directory sharding (deferred) |
-| Concurrent claims | ~10 simultaneous | Git push retry (1 retry) | Increase retry count (trivial) |
 | Inbox scan | ~500 pending requests | Sequential file reads | Directory sharding by date prefix |
 | Pact catalog | ~100 pact definitions | Recursive directory scan | Cache in memory per invocation |
+| Git push races | ~10 simultaneous | Git push retry (1 retry) | Increase retry count (trivial) |
 
-None of these limits are relevant at the current design point (~100 users). Documented for future reference only.
+None of these limits are relevant at the current design point. Documented for future reference only.
 
 ---
 
@@ -183,9 +188,8 @@ Minimal. PACT runs as a local subprocess with the same permissions as the MCP ho
 |--------|-----------|
 | Malicious pact definitions | Zod schema validation on all parsed input |
 | Envelope tampering | Git commit history provides audit trail; no code execution from envelopes |
-| Claim spoofing | `claimed_by` uses `PACT_USER` env var (same trust model as git commits) |
-| Response visibility bypass | Filtering at read time in domain logic; git file permissions are OS-level |
 | Dependency supply chain | `npm audit` in CI (see ci-cd-pipeline.md); 4 runtime deps, all well-known |
+| Frontmatter injection | YAML parser (`yaml` package) with safe defaults; no `!!js/function` or custom tags |
 
 ### Trust Boundaries
 
@@ -196,6 +200,8 @@ Semi-trusted: local git <-> remote (git SSH/HTTPS auth)
 ```
 
 The security perimeter is the developer's machine. PACT inherits the machine's security posture.
+
+**Note on visibility**: Frontmatter `visibility: private` is agent guidance, not access control. Git has no file-level ACL. A well-behaved agent respects the guidance; the protocol does not enforce it.
 
 ---
 
@@ -219,30 +225,35 @@ npx pact                # One-shot
 |----------|----------|---------|
 | `PACT_REPO` | Yes | Path to git repository with pact store |
 | `PACT_USER` | Yes | Current user's user_id |
+| `PACT_STORE` | No | Pact store root within repo (default: `./pact-store/`) |
 | `PACT_LOG_LEVEL` | No | debug, info, warn, error (default: info) |
 
 ### Upgrade Strategy
 
-`npm update pact`. New version replaces old. No migration scripts needed -- file format changes (e.g., per-respondent responses) are handled with backward-compatible reading logic in the domain handlers.
+`npm update pact`. New version replaces old. No migration scripts needed -- file format changes are handled with backward-compatible reading logic:
+
+- `recipient` (old) coerced to `recipients[]` (new) on read
+- `responses/{id}.json` (old single file) and `responses/{id}/` (new directory) both supported
+- `pacts/{name}/PACT.md` (old directory layout) falls back if flat-file glob finds nothing
 
 ---
 
-## Platform Decisions for pact-fmt
+## Platform Decisions for pact-y30
 
 ### Decision 1: No Infrastructure Changes
 
-**Decision**: pact-fmt requires zero infrastructure changes.
-**Rationale**: All group features are domain logic (TypeScript code changes). The existing infrastructure (Node.js, esbuild, vitest, git, stdio) handles everything.
+**Decision**: pact-y30 requires zero infrastructure changes.
+**Rationale**: All features are schema/loader changes and file layout changes. The existing infrastructure handles everything.
 **Consequence**: Zero setup cost. Zero operational cost change. Zero new failure modes from infrastructure.
 
 ### Decision 2: File Layout as Schema Migration
 
 **Decision**: Per-respondent response directories (`responses/{id}/{user}.json`) replace single response files.
-**Rationale**: Enables response counting, visibility filtering, and conflict-free concurrent writes.
-**Consequence**: Respond handler includes backward-compatible read logic (check file vs directory). No migration tool needed.
+**Rationale**: Enables conflict-free concurrent writes from multiple respondents.
+**Consequence**: Respond handler includes backward-compatible read logic. No migration tool needed.
 
-### Decision 3: Git as Coordination Primitive
+### Decision 3: No New Modules
 
-**Decision**: Claim exclusivity uses git atomic write + push retry, not a locking service.
-**Rationale**: Git is already the coordination layer. Adding a lock service would introduce a new dependency and failure mode for ~100 users.
-**Consequence**: Second claimer resolves via pull-rebase-retry. Documented as ERR1 error path.
+**Decision**: No `pact-claim.ts`, no `defaults-merge.ts`, no new source files.
+**Rationale**: Apathy audit cut claim action (agent coordination) and defaults-merge (agents read frontmatter directly). All remaining work fits within existing files.
+**Consequence**: Dependency graph is unchanged. No new testing seams needed.

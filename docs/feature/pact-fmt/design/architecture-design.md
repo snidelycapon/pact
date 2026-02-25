@@ -1,9 +1,28 @@
-# Architecture Design: pact-fmt (Group Envelope Primitives)
+# Architecture Design: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Epic**: pact-y30
 **Architect**: Morgan (nw-solution-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-ipl design (pre-apathy audit, 2026-02-23)
+
+---
+
+## Apathy Alignment
+
+The pact-ipl design was created before the apathy audit. This revision removes all enforcement logic and keeps only transport concerns. The guiding question: **"Is this a transport concern or an agent concern?"**
+
+| Cut (agent concern) | Kept (transport concern) |
+|----------------------|--------------------------|
+| Claim action (`pact-claim.ts`) | `recipients[]` on RequestEnvelope |
+| Defaults-merge function | `group_ref` metadata field |
+| Response completion logic | Per-respondent response files |
+| Visibility filtering | Flat-file pact loader (`**/*.md`) |
+| `defaults_applied` on envelope | Extended PactMetadata (scope, defaults, extends) |
+| | Compressed catalog format |
+| | Inheritance resolution at load time |
+
+**Frontmatter `defaults` stays** — it's agent guidance stored in the pact definition. Agents read it and decide behavior. The protocol passes it through in catalog entries and full pact retrieval.
 
 ---
 
@@ -11,32 +30,38 @@
 
 | Driver | Priority | Rationale |
 |--------|----------|-----------|
-| **Maintainability** | HIGH | ~2,200 LOC codebase must stay simple for small team |
-| **Testability** | HIGH | 96 tests protect lifecycle logic; group extensions must be equally testable |
-| **Time-to-market** | HIGH | 5 user stories, 8-13 day estimate; architecture must not add unnecessary complexity |
+| **Maintainability** | HIGH | ~2,200 LOC codebase must stay simple for a small team |
+| **Testability** | HIGH | 96 tests protect lifecycle logic; extensions must be equally testable |
+| **Time-to-market** | HIGH | Architecture must not add unnecessary complexity |
 | **Backward compatibility** | HIGH | Existing 1-to-1 pacts must work without modification |
-| **Token efficiency** | MEDIUM | Group fields add ~31 tokens per pact; must stay within 2% of 200k context |
+| **Token efficiency** | MEDIUM | Catalog format must scale to 100 pacts within 2% of 200k context |
 
 ## Constraints
 
 | Constraint | Impact |
 |------------|--------|
-| Git as transport | Claiming concurrency resolved by git atomic file write + timestamp ordering |
+| Git as transport | All state is files on disk, atomic via git commit |
 | Flat-file storage | Request envelopes remain JSON in `requests/{status}/` directories |
-| 2-tool MCP surface | `claim` is a new action within `pact_do`, not a new tool |
-| Single team (~4 devs) | Architecture must remain modular monolith; no microservices |
-| Existing ports-and-adapters | Extensions must flow through existing GitPort, FilePort, ConfigPort |
+| 2-tool MCP surface | No new tools — extensions are schema/loader changes |
+| Single team (~4 devs) | Modular monolith; no microservices |
+| Existing ports-and-adapters | Extensions flow through existing GitPort, FilePort, ConfigPort |
+| Apathy principle | Protocol stores, presents, delivers. No enforcement. |
+
+---
 
 ## Architecture Decision
 
-**Modular monolith with ports-and-adapters (existing architecture)**. No architectural change needed — the current design handles group extensions cleanly through:
+**Modular monolith with ports-and-adapters (existing architecture)**. No architectural pattern change. The work is:
 
-1. **Schema extension** — Add group fields to existing Zod schemas
-2. **New action handler** — `pact-claim.ts` registered in action dispatcher
-3. **Modified handlers** — Inbox filtering, response completion, visibility filtering
-4. **Defaults merge** — Pure function composing protocol + pact-level defaults
+1. **Loader migration** — Flat-file glob (`{store_root}/**/*.md`) replacing directory-per-pact
+2. **Schema extension** — Add `recipients[]`, `group_ref` to RequestEnvelope
+3. **Metadata extension** — Add scope, registered_for, defaults, extends, attachments to PactMetadata
+4. **Inheritance resolution** — Shallow merge at load time, single-level only
+5. **Catalog format** — Compressed pipe-delimited entries for token efficiency
+6. **Response storage** — Per-respondent directory layout (`responses/{id}/{user}.json`)
+7. **Default pacts** — 8 global pacts replacing old examples
 
-This is the simplest solution that satisfies all requirements. The ports-and-adapters pattern means group logic lives in domain handlers, not in adapters.
+No new domain logic components. No new ports. No new adapters.
 
 ---
 
@@ -45,31 +70,31 @@ This is the simplest solution that satisfies all requirements. The ports-and-ada
 ```mermaid
 graph TB
     subgraph Users
-        SH["Sending Human<br/><i>Requests something from a group</i>"]
-        RH["Receiving Human<br/><i>Claims and responds to group requests</i>"]
-        PA["Pact Author<br/><i>Defines group behavior in PACT.md</i>"]
+        SH["Sending Human<br/><i>Requests something from a person or group</i>"]
+        RH["Receiving Human<br/><i>Sees requests, decides how to respond</i>"]
+        PA["Pact Author<br/><i>Defines pact behavior in flat .md files</i>"]
     end
 
     subgraph Agents
-        SA["Sending Agent<br/><i>MCP client composing group requests</i>"]
-        RA["Receiving Agent<br/><i>MCP client monitoring inbox</i>"]
+        SA["Sending Agent<br/><i>MCP client: discovers pacts, composes requests</i>"]
+        RA["Receiving Agent<br/><i>MCP client: monitors inbox, reads guidance,<br/>coordinates claiming/responses</i>"]
     end
 
-    PACT["PACT MCP Server<br/><i>Async coordination via git</i><br/>TypeScript, stdio"]
+    PACT["PACT MCP Server<br/><i>Dumb pipe with a catalog</i><br/>TypeScript, stdio"]
 
-    GIT["Git Repository<br/><i>Shared state store</i><br/>requests/, responses/, pacts/"]
-    CONFIG["config.json<br/><i>Team members and groups</i>"]
+    GIT["Git Repository<br/><i>Shared state store</i><br/>requests/, responses/, pact-store/"]
 
     SH -->|"natural language"| SA
     RH -->|"natural language"| RA
-    PA -->|"edits PACT.md"| GIT
+    PA -->|"edits .md files"| GIT
 
     SA -->|"pact_discover<br/>pact_do: send"| PACT
-    RA -->|"pact_do: inbox<br/>pact_do: claim<br/>pact_do: respond"| PACT
+    RA -->|"pact_do: inbox<br/>pact_do: respond"| PACT
 
-    PACT -->|"read/write envelopes<br/>git add/commit/push"| GIT
-    PACT -->|"resolve recipients<br/>validate user_ids"| CONFIG
+    PACT -->|"read/write files<br/>git add/commit/push"| GIT
 ```
+
+**Key change from pact-ipl**: No `pact_do: claim` on the receiving agent arrow. Agents coordinate claiming among themselves by reading pact guidance — PACT doesn't provide a claim action.
 
 ---
 
@@ -77,24 +102,22 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph MCP["MCP Server (stdio)"]
+    subgraph MCP["MCP Server - stdio"]
         direction TB
-        DISC["pact_discover<br/><i>Discovery + catalog</i>"]
+        DISC["pact_discover<br/><i>Catalog + team discovery</i>"]
         DO["pact_do<br/><i>Action dispatcher</i>"]
     end
 
     subgraph Domain["Domain Logic"]
         direction TB
         SEND["pact-request<br/><i>Send to recipients[]</i>"]
-        RESPOND["pact-respond<br/><i>Response mode completion</i>"]
-        CLAIM["pact-claim<br/><i>Exclusive claim action</i>"]
-        INBOX["pact-inbox<br/><i>Group inbox filtering</i>"]
-        STATUS["pact-status<br/><i>Visibility filtering</i>"]
-        THREAD["pact-thread<br/><i>Visibility filtering</i>"]
-        CANCEL["pact-cancel<br/><i>Cancel (unchanged)</i>"]
-        AMEND["pact-amend<br/><i>Amend (unchanged)</i>"]
-        MERGE["defaults-merge<br/><i>Protocol + pact defaults</i>"]
-        LOADER["pact-loader<br/><i>Parse defaults from YAML</i>"]
+        RESPOND["pact-respond<br/><i>Write per-respondent response</i>"]
+        INBOX["pact-inbox<br/><i>Filter by recipients[]</i>"]
+        STATUS["pact-status<br/><i>Read request + responses</i>"]
+        THREAD["pact-thread<br/><i>Read thread history</i>"]
+        CANCEL["pact-cancel<br/><i>Cancel - unchanged</i>"]
+        AMEND["pact-amend<br/><i>Amend - unchanged</i>"]
+        LOADER["pact-loader<br/><i>Flat-file glob + inheritance</i>"]
     end
 
     subgraph Adapters["Adapters"]
@@ -113,7 +136,6 @@ graph TB
 
     DO -->|"dispatches"| SEND
     DO -->|"dispatches"| RESPOND
-    DO -->|"dispatches"| CLAIM
     DO -->|"dispatches"| INBOX
     DO -->|"dispatches"| STATUS
     DO -->|"dispatches"| THREAD
@@ -121,16 +143,12 @@ graph TB
     DO -->|"dispatches"| AMEND
 
     DISC -->|"loads pacts"| LOADER
-    SEND -->|"merges defaults"| MERGE
-    LOADER -->|"parses defaults"| MERGE
 
     SEND --> GA
     SEND --> FA
     SEND --> CA
     RESPOND --> GA
     RESPOND --> FA
-    CLAIM --> GA
-    CLAIM --> FA
     INBOX --> FA
     STATUS --> FA
     THREAD --> FA
@@ -140,77 +158,29 @@ graph TB
     CA --> CFG
 ```
 
----
-
-## C4 Component (Level 3): Group Request Lifecycle
-
-This diagram shows the internal flow for group-specific operations.
-
-```mermaid
-graph LR
-    subgraph Send["pact-request.ts"]
-        S1["Validate recipients[]<br/>against config"]
-        S2["Merge defaults<br/>(protocol + pact)"]
-        S3["Write envelope with<br/>recipients, defaults_applied,<br/>group_ref"]
-    end
-
-    subgraph Claim["pact-claim.ts (NEW)"]
-        CL1["Read envelope"]
-        CL2["Check claimable<br/>from defaults_applied"]
-        CL3["Check not<br/>already claimed"]
-        CL4["Write claimed,<br/>claimed_by, claimed_at"]
-    end
-
-    subgraph Respond["pact-respond.ts"]
-        R1["Check user is<br/>in recipients[]"]
-        R2["Write response to<br/>responses/{req_id}/{user_id}.json"]
-        R3["Count responses<br/>vs recipients"]
-        R4["Apply response_mode<br/>completion logic"]
-    end
-
-    subgraph Inbox["pact-inbox.ts"]
-        I1["Filter: user_id<br/>in recipients[]"]
-        I2["Enrich with<br/>group_ref, claim_status"]
-    end
-
-    subgraph Visibility["pact-status.ts / pact-thread.ts"]
-        V1["Check defaults_applied<br/>.visibility"]
-        V2["shared: return<br/>all responses"]
-        V3["private: filter to<br/>requester + individual respondent"]
-    end
-
-    S1 --> S2 --> S3
-    CL1 --> CL2 --> CL3 --> CL4
-    R1 --> R2 --> R3 --> R4
-    I1 --> I2
-    V1 --> V2
-    V1 --> V3
-```
+**Key changes from pact-ipl**:
+- No `pact-claim` component (agent concern)
+- No `defaults-merge` component (agent concern)
+- `pact-respond` just writes the response file — no completion logic
+- `pact-status` and `pact-thread` just read files — no visibility filtering
+- `pact-loader` handles flat-file glob + inheritance resolution
 
 ---
 
 ## Component Architecture
 
-### New Components
-
-| Component | File | Responsibility |
-|-----------|------|---------------|
-| **pact-claim** | `src/tools/pact-claim.ts` | Exclusive claim action for claimable group requests |
-| **defaults-merge** | `src/defaults-merge.ts` | Pure function: merge protocol defaults + pact defaults |
-
 ### Modified Components
 
 | Component | File | Changes |
 |-----------|------|---------|
-| **schemas** | `src/schemas.ts` | Add `recipients`, `group_ref`, `defaults_applied`, claim fields to RequestEnvelope. Add `defaults` to PactMetadata. |
-| **action-dispatcher** | `src/action-dispatcher.ts` | Register "claim" action |
-| **pact-request** | `src/tools/pact-request.ts` | Accept `recipients[]`, resolve group, merge defaults, write `defaults_applied` |
-| **pact-respond** | `src/tools/pact-respond.ts` | Check user in `recipients[]`, per-respondent response files, response_mode completion logic |
-| **pact-inbox** | `src/tools/pact-inbox.ts` | Filter by `recipients[].some()`, enrich with group_ref and claim status |
-| **pact-status** | `src/tools/pact-status.ts` | Visibility filtering on response retrieval |
-| **pact-thread** | `src/tools/pact-thread.ts` | Visibility filtering on response retrieval |
-| **pact-loader** | `src/pact-loader.ts` | Parse `defaults` section from YAML frontmatter |
-| **pact-discover** | `src/tools/pact-discover.ts` | Include merged defaults in discovery results |
+| **schemas** | `src/schemas.ts` | `recipient` → `recipients[]`, add `group_ref` optional field |
+| **pact-request** | `src/tools/pact-request.ts` | Accept `recipients: string[]`, validate all against config, write envelope with `recipients[]` and `group_ref` |
+| **pact-respond** | `src/tools/pact-respond.ts` | Check user in `recipients[]`, write to `responses/{id}/{user}.json` (per-respondent directory) |
+| **pact-inbox** | `src/tools/pact-inbox.ts` | Filter by `recipients[].some()`, include `group_ref` and `recipients_count` in entry |
+| **pact-status** | `src/tools/pact-status.ts` | Read responses from directory layout (`responses/{id}/`) |
+| **pact-thread** | `src/tools/pact-thread.ts` | Read responses from directory layout |
+| **pact-loader** | `src/pact-loader.ts` | Flat-file glob `{store_root}/**/*.md`, parse extended metadata (scope, defaults, extends, attachments), resolve inheritance |
+| **pact-discover** | `src/tools/pact-discover.ts` | Compressed catalog format, scope filtering, inheritance-resolved entries |
 
 ### Unchanged Components
 
@@ -218,72 +188,91 @@ graph LR
 |-----------|------|-----------|
 | **pact-cancel** | `src/tools/pact-cancel.ts` | Cancellation is sender-only; group fields don't affect it |
 | **pact-amend** | `src/tools/pact-amend.ts` | Amendments append to envelope; group fields don't affect it |
-| **git-adapter** | `src/adapters/git-adapter.ts` | No change — existing retry/rebase handles claim concurrency |
-| **file-adapter** | `src/adapters/file-adapter.ts` | No change — directory creation handles responses/{req_id}/ |
-| **config-adapter** | `src/adapters/config-adapter.ts` | No change — `lookupUser` already validates individual users |
+| **action-dispatcher** | `src/action-dispatcher.ts` | No new actions — 7 actions unchanged |
+| **git-adapter** | `src/adapters/git-adapter.ts` | No change to git operations |
+| **file-adapter** | `src/adapters/file-adapter.ts` | Directory creation already handles `responses/{id}/` |
+| **config-adapter** | `src/adapters/config-adapter.ts` | `lookupUser` already validates individual users |
 | **ports** | `src/ports.ts` | No new port interfaces needed |
+
+### Components NOT Created (apathy audit)
+
+| Was Planned | Why Cut |
+|-------------|---------|
+| `pact-claim.ts` | Claiming is agent coordination, not transport |
+| `defaults-merge.ts` | Agents read frontmatter guidance directly |
 
 ---
 
 ## Key Design Decisions
 
-### 1. Per-Respondent Response Files
+### 1. Per-Respondent Response Files (retained from pact-ipl)
 
-**Current**: Single `responses/{request_id}.json` (one response per request)
-**New**: `responses/{request_id}/{user_id}.json` (one response per respondent)
+**Current**: Single `responses/{request_id}.json`
+**New**: `responses/{request_id}/{user_id}.json`
 
-This enables:
-- **Response counting** for `response_mode: all` (count files in directory)
-- **Visibility filtering** for `visibility: private` (filter by user_id)
-- **No git conflicts** — different respondents write to different file paths
+This is a storage layout concern (transport). It enables:
+- Multiple responses to the same request without git conflicts
+- Response enumeration via directory listing
+- Backward compatibility (handler checks file vs directory)
 
-### 2. Defaults Merge as Pure Function
+### 2. Frontmatter Defaults as Agent Guidance (revised)
 
-Protocol defaults are hardcoded constants:
-```typescript
-const PROTOCOL_DEFAULTS = {
-  response_mode: "any",
-  visibility: "shared",
-  claimable: false,
-} as const;
+Pact frontmatter includes an optional `defaults` section:
+```yaml
+defaults:
+  response_mode: all
+  visibility: private
+  claimable: true
 ```
 
-The merge function: `mergeDefaults(protocolDefaults, pactDefaults) → resolvedDefaults`
-- Pact-level values override protocol values
-- Missing pact fields inherit protocol defaults
-- Result written as `defaults_applied` on request envelope (immutable after send)
+**The protocol does NOT merge, apply, or enforce these values.** The catalog includes them so agents can read and act on them. The request envelope does NOT contain `defaults_applied` — agents read guidance from the pact definition when they need it.
 
-### 3. Claim as Envelope Mutation
+### 3. No Claim Action (new — apathy audit)
 
-Claiming writes directly to the request envelope JSON:
-```json
-{
-  "claimed": true,
-  "claimed_by": { "user_id": "kenji", "display_name": "Kenji" },
-  "claimed_at": "2026-02-23T09:31:15Z"
-}
+Claiming is agent-to-agent coordination. An agent that wants to signal "I'm working on this" can:
+- Use pact_do(action: "amend") to annotate the request
+- Use a separate pact exchange to claim
+- Coordinate via other means (Slack, comments, etc.)
+
+PACT doesn't provide a dedicated claim mechanism because claiming is behavioral, not transport.
+
+### 4. No Completion Logic (new — apathy audit)
+
+`pact-respond` writes the response file and moves the request to completed. It does NOT:
+- Count responses vs recipients
+- Check response_mode to decide completion
+- Auto-complete or prevent completion
+
+The respond handler moves to completed on first response (preserving current behavior). Agents that need "all must respond" coordinate that among themselves.
+
+### 5. No Visibility Filtering (new — apathy audit)
+
+`pact-status` and `pact-thread` return all responses they find. They do NOT:
+- Filter by visibility setting
+- Hide responses from certain users
+
+Git has no file-level ACL. "Visibility: private" in the pact definition is guidance for agents — a well-behaved agent won't show private responses to non-participants.
+
+### 6. Flat-File Loader with Inheritance
+
+**Current**: `pacts/{name}/PACT.md` (directory per pact)
+**New**: `{store_root}/**/*.md` (flat files, recursive glob)
+
+Inheritance via `extends` field:
+- Single-level only (child → parent, no grandchild chains)
+- Shallow merge per section (see pact-format-spec.md)
+- Resolved at load time — consumers see fully merged result
+- Catalog presents flat list (no hierarchy)
+
+### 7. Compressed Catalog Format
+
+Token-efficient pipe-delimited format for `pact_discover`:
+```
+name|description|scope|context_required→response_required
+ask|get input that unblocks current work|global|question→answer
 ```
 
-Git's atomic file write + commit provides exclusivity. The second claimer:
-1. Pulls latest (sees claim already written)
-2. Returns `already_claimed` error with claimer info
-
-### 4. Response Mode Completion Logic
-
-Completion check runs after every response:
-- `any`: `responseCount >= 1` → move to completed
-- `all`: `responseCount === recipients.length` → move to completed
-- `none_required`: never auto-completes from responses
-
-For `any` mode: the first response triggers `git mv` to completed. Subsequent responses still stored in `responses/{request_id}/` but the request is already completed.
-
-### 5. Visibility Filtering at Read Time
-
-Visibility is enforced at read time (pact-status, pact-thread), not write time:
-- **shared**: Return all response files from `responses/{request_id}/`
-- **private**: Filter to responses where `responder.user_id === currentUser` OR `sender.user_id === currentUser` (requester sees all)
-
-This keeps the write path simple and the filtering logic centralized.
+~15-25 tokens per entry. 100 entries ≈ 2,000 tokens (94% reduction vs full pact files).
 
 ---
 
@@ -295,20 +284,49 @@ This keeps the write path simple and the filtering logic centralized.
 Human: "Review my auth changes, backend team"
   → Sending Agent
     → pact_discover(query: "code-review")
-      → Returns pact metadata with defaults: { claimable: true }
+      → Returns catalog entry with defaults guidance
+    → Agent reads defaults: { claimable: true } — decides to mention this to human
     → Agent resolves @backend-team from config → [maria, tomas, kenji, priya]
     → pact_do(action: "send", recipients: [...], group_ref: "@backend-team", ...)
-      → mergeDefaults(PROTOCOL, pactDefaults) → defaults_applied
-      → Write envelope to requests/pending/{id}.json
+      → Validate all recipients exist in config
+      → Write envelope to requests/pending/{id}.json with recipients[]
       → git add, commit, push
 ```
 
-### Claim and Respond
+### Respond to Group Request
+
+```
+Receiving Agent
+  → pact_do(action: "respond", request_id: "req-...", response_bundle: {...})
+    → Verify user is in recipients[]
+    → Write response to responses/{id}/{user}.json
+    → Move request from pending/ to completed/
+    → git add, commit, push
+```
+
+### Inbox with Group Requests
 
 ```
 Receiving Agent
   → pact_do(action: "inbox")
     → Scan pending/
-    → Filter: kenji in recipients[]
-    → Enrich with group_ref, claim_status
-    → Return inbox entry with "Unclaimed, claimable"
+    → Filter: user_id in recipients[]
+    → Return entries with group_ref, recipients_count
+    → Agent reads pact guidance (defaults) and presents accordingly
+```
+
+---
+
+## Requirements Traceability
+
+| DISCUSS User Story | Architecture Component |
+|--------------------|----------------------|
+| US: Pact author adds defaults | pact-loader (parse defaults from frontmatter) |
+| US: Send group request | pact-request (recipients[], group_ref), schemas |
+| US: Inbox shows group requests | pact-inbox (filter by recipients[]), group_ref in entry |
+| US: Respond to group request | pact-respond (per-respondent files) |
+| US: Check status of group request | pact-status (read from responses directory) |
+| Flat-file format migration | pact-loader (glob), pact-discover (catalog format) |
+| Pact inheritance | pact-loader (extends resolution) |
+| Default pacts | 8 new .md files in pact-store/ |
+| Compressed catalog | pact-discover (pipe-delimited output) |

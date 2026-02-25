@@ -1,20 +1,21 @@
-# Branching Strategy: pact-fmt
+# Branching Strategy: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt (Group Envelope Primitives)
+**Feature**: pact-y30 — Flat-file format, catalog metadata, default pacts, group addressing
 **Architect**: Apex (nw-platform-architect)
-**Date**: 2026-02-23
+**Date**: 2026-02-24
+**Supersedes**: pact-q6y branching-strategy (pre-apathy, 2026-02-23)
 
 ---
 
-## Strategy: GitHub Flow
+## Strategy: Trunk-Based Development
 
-Single long-lived branch (`main`). Feature branches for all changes. PRs required for merge. Simple, appropriate for a small team on a ~2,800 LOC codebase.
+Single long-lived branch (`main`). Short-lived feature branches (< 1 day ideal). PRs required for merge. Simple, appropriate for a small team on a ~2,600 LOC codebase.
 
 ```
-main ──────●─────●──────●──────●──────●──────●──── (always releasable)
-            \   /  \   /        \    /  \   /
-             ●─●    ●─●          ●──●    ●─●
-           PR #1   PR #2       PR #3   PR #4
+main ──────●─────●──────●──────●──────●──── (always releasable)
+            \   /  \   /        \    /
+             ●─●    ●─●          ●──●
+           PR #1   PR #2       PR #3
 ```
 
 ---
@@ -22,27 +23,26 @@ main ──────●─────●──────●─────
 ## Branch Naming Convention
 
 ```
-pact-fmt/{scope}/{short-description}
+pact-y30/{scope}/{short-description}
 ```
 
 | Component | Convention | Examples |
 |-----------|-----------|----------|
-| Prefix | `pact-fmt/` | Groups all feature work |
-| Scope | Component or concern | `schema`, `claim`, `respond`, `inbox`, `defaults`, `ci`, `test` |
-| Description | Kebab-case, 2-4 words | `add-group-fields`, `claim-action`, `response-completion` |
+| Prefix | `pact-y30/` | Groups all feature work |
+| Scope | Component or concern | `schema`, `loader`, `respond`, `inbox`, `discover`, `ci`, `test` |
+| Description | Kebab-case, 2-4 words | `add-group-fields`, `flat-file-glob`, `per-respondent-files` |
 
 **Examples**:
 ```
-pact-fmt/schema/add-group-fields
-pact-fmt/claim/claim-action
-pact-fmt/respond/per-respondent-files
-pact-fmt/respond/completion-logic
-pact-fmt/inbox/group-filtering
-pact-fmt/defaults/merge-function
-pact-fmt/visibility/status-thread-filter
-pact-fmt/discover/merged-defaults
-pact-fmt/ci/add-security-mutation
-pact-fmt/test/group-acceptance-tests
+pact-y30/schema/add-group-fields
+pact-y30/loader/flat-file-glob
+pact-y30/loader/inheritance-resolution
+pact-y30/respond/per-respondent-files
+pact-y30/inbox/group-filtering
+pact-y30/discover/compressed-catalog
+pact-y30/ci/add-security-mutation
+pact-y30/test/group-acceptance-tests
+pact-y30/pacts/default-pact-files
 ```
 
 ---
@@ -51,7 +51,7 @@ pact-fmt/test/group-acceptance-tests
 
 ### Strategy: By User Story, Not By Component
 
-pact-fmt has 5 user stories (from the DISCUSS wave). Each story is a vertical slice through the system. Organize PRs around stories, not individual files.
+pact-y30 has vertical slices through the system. Organize PRs around coherent changes, not individual files.
 
 **Rationale**: A PR that changes `schemas.ts` alone is untestable. A PR that implements "send a group request end-to-end" changes schemas + request handler + tests, but is reviewable as a coherent unit.
 
@@ -61,22 +61,26 @@ PRs should be merged in this order. Each builds on the previous.
 
 | PR | Branch | Scope | Files Changed | Story |
 |----|--------|-------|---------------|-------|
-| **1** | `pact-fmt/schema/add-group-fields` | Foundation | `schemas.ts`, all existing tests (migration from `recipient` to `recipients`) | -- |
-| **2** | `pact-fmt/defaults/merge-function` | Foundation | `defaults-merge.ts` (new), `pact-loader.ts`, unit tests | -- |
-| **3** | `pact-fmt/send/group-request` | Vertical | `pact-request.ts`, `action-dispatcher.ts`, `pact-discover.ts`, acceptance tests | US1: Send group request |
-| **4** | `pact-fmt/respond/per-respondent` | Vertical | `pact-respond.ts`, `pact-status.ts`, `pact-thread.ts`, acceptance tests | US2: Respond + visibility |
-| **5** | `pact-fmt/claim/claim-action` | Vertical | `pact-claim.ts` (new), `action-dispatcher.ts`, `pact-inbox.ts`, acceptance tests | US3: Claim |
-| **6** | `pact-fmt/inbox/group-enrichment` | Vertical | `pact-inbox.ts`, acceptance tests | US4: Inbox enrichment |
-| **7** | `pact-fmt/ci/add-security-mutation` | Infra | `.github/workflows/ci.yml`, `stryker.config.json` | -- |
+| **1** | `pact-y30/schema/add-group-fields` | Foundation | `schemas.ts`, all test fixtures (migrate `recipient` to `recipients[]`) | -- |
+| **2** | `pact-y30/loader/flat-file-glob` | Foundation | `pact-loader.ts`, unit tests | Flat-file pact store |
+| **3** | `pact-y30/loader/inheritance-resolution` | Foundation | `pact-loader.ts`, unit tests | Pact inheritance |
+| **4** | `pact-y30/send/group-request` | Vertical | `pact-request.ts`, `pact-discover.ts`, acceptance tests | Group send |
+| **5** | `pact-y30/respond/per-respondent` | Vertical | `pact-respond.ts`, `pact-status.ts`, `pact-thread.ts`, acceptance tests | Group respond |
+| **6** | `pact-y30/inbox/group-enrichment` | Vertical | `pact-inbox.ts`, acceptance tests | Inbox enrichment |
+| **7** | `pact-y30/discover/compressed-catalog` | Vertical | `pact-discover.ts`, unit tests | Token-efficient catalog |
+| **8** | `pact-y30/pacts/default-pact-files` | Content | 8 new `.md` files in `pact-store/` | Default pacts |
+| **9** | `pact-y30/ci/add-security-mutation` | Infra | `.github/workflows/ci.yml` | CI extensions |
 
 **Why this order**:
-1. Schema migration first -- unblocks everything, forces test migration early.
-2. Defaults merge next -- pure function, easy to review, needed by send and discover.
-3. Send before respond -- need group requests before anyone can respond to them.
-4. Respond + visibility together -- per-respondent files and visibility filtering are tightly coupled.
-5. Claim after respond -- claim is independent of response logic but needs group requests to exist.
-6. Inbox enrichment last -- read-only, depends on all write-path changes being stable.
-7. CI changes last -- don't need the extended pipeline until the feature code exists.
+1. Schema migration first -- unblocks everything, forces test fixture migration early.
+2. Flat-file loader next -- needed before inheritance, catalog, and default pacts.
+3. Inheritance after loader -- builds on the glob scan.
+4. Group send before respond -- need group requests before anyone can respond.
+5. Per-respondent respond + status/thread together -- tightly coupled storage layout change.
+6. Inbox enrichment after send -- depends on group requests existing.
+7. Compressed catalog independent of response handling.
+8. Default pact files after loader is ready to read them.
+9. CI changes last -- extended pipeline isn't needed until feature code exists.
 
 ### PR Size Guidelines
 
@@ -87,7 +91,7 @@ PRs should be merged in this order. Each builds on the previous.
 | **Large** | 300-500 | Split if possible. Acceptable for schema migration (PR #1) |
 | **Too large** | > 500 | Must split. No exceptions |
 
-PR #1 (schema migration) may be the largest because it touches every test that uses `recipient`. This is acceptable as a mechanical change.
+PR #1 (schema migration) may be the largest because it touches every test fixture that uses `recipient`. This is acceptable as a mechanical change.
 
 ---
 
@@ -108,7 +112,7 @@ rules:
     contexts:
       - "check (20)"                         # Node 20 matrix entry
       - "check (22)"                         # Node 22 matrix entry
-      - "security"                           # Dependency audit + secret scan
+      - "security"                           # Dependency audit + license + secret scan
   enforce_admins: false                      # Small team, trust admin overrides
   allow_force_pushes: false
   allow_deletions: false
@@ -121,8 +125,8 @@ rules:
 - **Dismiss stale reviews**: Schema changes can invalidate earlier reviews.
 - **Strict status checks**: Ensures PR is tested against latest main, not stale base.
 - **Both matrix entries required**: Node 20 and 22 must both pass.
-- **Security required on PRs**: Catch dependency issues before merge.
-- **Linear history**: Clean `git log`. Squash merge preferred for feature PRs (one commit per PR on main).
+- **Security required**: Catch dependency and license issues before merge.
+- **Linear history**: Clean `git log`. Squash merge preferred.
 - **No force push**: Protect the audit trail.
 
 ---
@@ -134,10 +138,10 @@ rules:
 ```
 Feature branch: 5 commits (WIP, fix, more WIP, tests, cleanup)
      ↓ squash merge
-main: 1 commit ("Add group fields to request envelope schema")
+main: 1 commit ("feat: add group fields to request envelope schema")
 ```
 
-**Rationale**: Development history on feature branches is noisy. Main should have clean, one-commit-per-feature history. The PR description preserves the detailed context.
+**Rationale**: Development history on feature branches is noisy. Main should have clean, one-commit-per-feature history.
 
 ### Commit Message Format (on main, after squash)
 
@@ -152,13 +156,40 @@ Types: `feat`, `fix`, `refactor`, `test`, `ci`, `docs`, `chore`.
 **Examples** (one per PR in the sequence):
 ```
 feat: add group fields to request envelope schema
-feat: add defaults merge function for protocol and pact overrides
-feat: implement group send with recipients and defaults
-feat: add per-respondent response files and visibility filtering
-feat: implement exclusive claim action for group requests
+feat: implement flat-file pact loader with recursive glob
+feat: add single-level pact inheritance resolution
+feat: implement group send with recipients and group_ref
+feat: add per-respondent response files
 feat: add group enrichment to inbox entries
+feat: implement compressed pipe-delimited catalog format
+feat: add 8 default pact definitions
 ci: add security scanning and mutation testing stages
 ```
+
+---
+
+## Release Tagging
+
+Releases use semver tags on main:
+
+```bash
+# After a set of features is ready
+git tag v0.2.0
+git push origin main --tags
+```
+
+Tag naming: `v{major}.{minor}.{patch}` (e.g., `v0.2.0`).
+
+The publish workflow (see ci-cd-pipeline.md) triggers on `v*` tags. No release branches -- tags point to commits on main.
+
+### Versioning Strategy (Pre-1.0)
+
+- `0.1.x` -- current (pre pact-y30)
+- `0.2.0` -- after pact-y30 is complete (breaking: `recipient` -> `recipients[]`)
+- `0.x.y` -- continued pre-1.0 development
+- `1.0.0` -- when format and API are stable
+
+Breaking changes bump the minor version while pre-1.0. pact-y30 is a breaking change (`recipient` -> `recipients[]`), so it will be `0.2.0`.
 
 ---
 
@@ -169,7 +200,7 @@ ci: add security scanning and mutation testing stages
 ```bash
 git checkout main
 git pull origin main
-git checkout -b pact-fmt/claim/claim-action
+git checkout -b pact-y30/loader/flat-file-glob
 ```
 
 ### During Development
@@ -181,15 +212,15 @@ bun run test:unit
 bun run test:acceptance
 
 # Commit often (these get squashed)
-git add src/tools/pact-claim.ts tests/unit/pact-claim.test.ts
-git commit -m "WIP: claim action skeleton"
+git add src/pact-loader.ts tests/unit/pact-loader.test.ts
+git commit -m "WIP: flat-file glob scan"
 ```
 
 ### Creating PR
 
 ```bash
-git push -u origin pact-fmt/claim/claim-action
-gh pr create --title "feat: implement exclusive claim action" --body "..."
+git push -u origin pact-y30/loader/flat-file-glob
+gh pr create --title "feat: implement flat-file pact loader with recursive glob" --body "..."
 ```
 
 ### After PR Merge
@@ -197,7 +228,7 @@ gh pr create --title "feat: implement exclusive claim action" --body "..."
 ```bash
 git checkout main
 git pull origin main
-git branch -d pact-fmt/claim/claim-action
+git branch -d pact-y30/loader/flat-file-glob
 ```
 
 ---
@@ -206,7 +237,7 @@ git branch -d pact-fmt/claim/claim-action
 
 The PR sequence is designed to minimize conflicts, but schema changes (PR #1) will conflict with anything started before it merges.
 
-**Rule**: Merge PRs in order. Do not start PR #3 (group send) until PR #1 (schema migration) is merged.
+**Rule**: Merge PRs in order. Do not start PR #4 (group send) until PR #1 (schema migration) is merged.
 
 If parallel work is unavoidable:
 1. Base the second branch on the first branch (not main).
@@ -215,8 +246,8 @@ If parallel work is unavoidable:
 
 ---
 
-## After pact-fmt Is Complete
+## After pact-y30 Is Complete
 
-Delete all `pact-fmt/*` branches. The feature is fully on main. Future work uses new branch prefixes.
+Delete all `pact-y30/*` branches. The feature is fully on main. Future work uses new branch prefixes.
 
-No release branch. No staging branch. npm publish (when ready) is triggered from main via version tag.
+No release branch. No staging branch. npm publish is triggered from main via version tag (`v0.2.0`).

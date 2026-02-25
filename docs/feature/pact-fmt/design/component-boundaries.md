@@ -1,8 +1,9 @@
-# Component Boundaries: pact-fmt (Group Envelope Primitives)
+# Component Boundaries: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt
-**Date**: 2026-02-23
+**Feature**: pact-y30
+**Date**: 2026-02-24
 **Architect**: Morgan (nw-solution-architect)
+**Supersedes**: pact-ipl component-boundaries (pre-apathy audit)
 
 ---
 
@@ -10,26 +11,21 @@
 
 ```mermaid
 graph TD
-    subgraph New["New Components"]
-        CLAIM["pact-claim.ts<br/><b>Exclusive claim action</b>"]
-        MERGE["defaults-merge.ts<br/><b>Pure defaults merge</b>"]
-    end
-
     subgraph Modified["Modified Components"]
-        SCHEMAS["schemas.ts<br/><b>Group schema extensions</b>"]
-        DISPATCH["action-dispatcher.ts<br/><b>Register claim action</b>"]
-        REQUEST["pact-request.ts<br/><b>Recipients + defaults</b>"]
-        RESPOND["pact-respond.ts<br/><b>Mode completion logic</b>"]
-        INBOX["pact-inbox.ts<br/><b>Group inbox filter</b>"]
-        STATUS["pact-status.ts<br/><b>Visibility filter</b>"]
-        THREAD["pact-thread.ts<br/><b>Visibility filter</b>"]
-        LOADER["pact-loader.ts<br/><b>Parse defaults section</b>"]
-        DISCOVER["pact-discover.ts<br/><b>Return merged defaults</b>"]
+        SCHEMAS["schemas.ts<br/><b>recipients[], group_ref</b>"]
+        REQUEST["pact-request.ts<br/><b>Multi-recipient send</b>"]
+        RESPOND["pact-respond.ts<br/><b>Per-respondent storage</b>"]
+        INBOX["pact-inbox.ts<br/><b>Multi-recipient filter</b>"]
+        STATUS["pact-status.ts<br/><b>Directory response read</b>"]
+        THREAD["pact-thread.ts<br/><b>Directory response read</b>"]
+        LOADER["pact-loader.ts<br/><b>Flat-file glob + inheritance</b>"]
+        DISCOVER["pact-discover.ts<br/><b>Compressed catalog + scope</b>"]
     end
 
     subgraph Unchanged["Unchanged"]
         CANCEL["pact-cancel.ts"]
         AMEND["pact-amend.ts"]
+        DISPATCH["action-dispatcher.ts"]
         PORTS["ports.ts"]
         GIT["git-adapter.ts"]
         FILE["file-adapter.ts"]
@@ -39,67 +35,19 @@ graph TD
 
 ---
 
-## New Component: defaults-merge.ts
-
-**Responsibility**: Compose resolved defaults from protocol constants and pact-level overrides.
-
-**Boundary**: Pure function. No I/O, no ports, no side effects.
-
-**Contract**:
-```
-Input:  protocolDefaults: GroupDefaults, pactDefaults: Partial<GroupDefaults> | undefined
-Output: GroupDefaults (complete, no null values)
-```
-
-**Rules**:
-- Pact-level values override protocol values
-- Missing pact fields inherit protocol defaults
-- Output is always a complete `GroupDefaults` object
-- Called by pact-request (at send time) and pact-discover (for catalog)
-
----
-
-## New Component: pact-claim.ts
-
-**Responsibility**: Mark a claimable request as claimed by the current user.
-
-**Boundary**: Action handler. Receives ports via DispatchContext. Single responsibility.
-
-**Contract**:
-```
-Input:  { request_id: string }, ctx: DispatchContext
-Output: { status: "claimed", request_id, claimed_by } | Error
-```
-
-**Rules**:
-- Read request envelope from `requests/pending/`
-- Validate `defaults_applied.claimable === true` → else return `not_claimable`
-- Validate `claimed !== true` → else return `already_claimed` with claimer info
-- Write `claimed: true`, `claimed_by: UserRef`, `claimed_at: ISO8601` to envelope
-- Validate current user is in `recipients[]` → else return `not_a_recipient`
-- Git add + commit + push (atomic)
-- Request stays in `pending/` (claim does not change status)
-
-**Concurrency**: If two agents claim simultaneously:
-1. Both read the envelope (no claim yet)
-2. First to push succeeds
-3. Second's push fails → git pull --rebase → reads updated envelope with claim → returns `already_claimed`
-
----
-
 ## Modified Component: schemas.ts
 
 **Changes**:
 
-1. **RequestEnvelope**: Replace `recipient: UserRef` with `recipients: UserRef[]`. Add `group_ref?: string`, `defaults_applied: GroupDefaults`, claim fields (`claimed`, `claimed_by`, `claimed_at`).
+1. **RequestEnvelope**: Replace `recipient: UserRef` with `recipients: UserRef[]`. Add optional `group_ref: string`.
+2. **PactMetadata**: Add `scope`, `registered_for`, `defaults`, `extends`, `attachments`, `multi_round`.
 
-2. **PactMetadata**: Add `defaults?: Partial<GroupDefaults>`.
+**Not added** (apathy audit):
+- No `defaults_applied` on RequestEnvelope
+- No `claimed`, `claimed_by`, `claimed_at` fields
+- No `GroupDefaults` schema type
 
-3. **New type**: `GroupDefaults = { response_mode, visibility, claimable }`.
-
-4. **ResponseEnvelope**: No schema change. Per-respondent storage is a file layout change, not a schema change.
-
-**Migration**: `recipient` → `recipients` is a breaking change. Tests must migrate. Single-recipient requests use `recipients: [user]`.
+**Migration**: `recipient` → `recipients` is a breaking change. Single-recipient requests use `recipients: [user]`.
 
 ---
 
@@ -109,8 +57,11 @@ Output: { status: "claimed", request_id, claimed_by } | Error
 - Accept `recipients: string[]` (array of user_ids) instead of `recipient: string`
 - Accept optional `group_ref: string`
 - Validate all user_ids in recipients against config
-- Call `mergeDefaults()` to produce `defaults_applied`
-- Write envelope with `recipients`, `group_ref`, `defaults_applied`
+- Write envelope with `recipients[]` and `group_ref`
+
+**Not added** (apathy audit):
+- No defaults merge call
+- No `defaults_applied` written to envelope
 
 **Boundary preserved**: Still uses GitPort, FilePort, ConfigPort via context. No new ports.
 
@@ -120,13 +71,15 @@ Output: { status: "claimed", request_id, claimed_by } | Error
 
 **Changes**:
 - Validate current user is in `recipients[]` (not just `recipient.user_id === ctx.userId`)
-- Write response to `responses/{request_id}/{user_id}.json` (per-respondent)
-- After writing response, apply completion logic based on `defaults_applied.response_mode`:
-  - `any`: Move request to completed
-  - `all`: Count response files in `responses/{request_id}/`. If count === `recipients.length`, move to completed
-  - `none_required`: Do not move to completed
+- Write response to `responses/{request_id}/{user_id}.json` (per-respondent directory)
+- Move request from pending/ to completed/ (same as today — first response completes)
 
-**Boundary preserved**: Completion logic is a domain decision in this handler. No new ports needed.
+**Not added** (apathy audit):
+- No response counting
+- No response_mode completion logic (`any`/`all`/`none_required`)
+- No conditional completion based on `defaults_applied`
+
+**Boundary preserved**: Single responsibility — write response, move to completed.
 
 ---
 
@@ -134,10 +87,11 @@ Output: { status: "claimed", request_id, claimed_by } | Error
 
 **Changes**:
 - Filter: `recipients.some(r => r.user_id === ctx.userId)` instead of `recipient.user_id === ctx.userId`
-- Enrich each inbox entry with:
-  - `group_ref` (from envelope)
-  - `claimed: boolean`, `claimed_by: UserRef`, `claimed_at: string` (from envelope)
-  - `defaults_applied.response_mode` and `defaults_applied.claimable` (for agent decision-making)
+- Include `group_ref` and `recipients_count` in inbox entries
+
+**Not added** (apathy audit):
+- No claim status enrichment (no `claimed`, `claimed_by`, `claimed_at`)
+- No `response_mode` or `claimable` in inbox entries
 
 **Boundary preserved**: Read-only query. No new ports.
 
@@ -145,44 +99,41 @@ Output: { status: "claimed", request_id, claimed_by } | Error
 
 ## Modified Components: pact-status.ts, pact-thread.ts
 
-**Changes**: Add visibility filtering on response retrieval.
+**Changes**: Read responses from directory layout.
 
 When loading responses for a request:
-1. Read `defaults_applied.visibility` from request envelope
-2. If `shared`: return all response files from `responses/{request_id}/`
-3. If `private`: filter responses to:
-   - Current user is the respondent (`responder.user_id === ctx.userId`)
-   - OR current user is the requester (`sender.user_id === ctx.userId`)
+1. Check if `responses/{request_id}` is a directory → read all `.json` files within
+2. Check if `responses/{request_id}.json` is a file → old format (single response)
 
-**Boundary preserved**: Read-only filtering. No new ports.
+**Not added** (apathy audit):
+- No visibility filtering (no checking `defaults_applied.visibility`)
+- No response filtering by user
+
+**Boundary preserved**: Read-only. No new ports.
 
 ---
 
 ## Modified Component: pact-loader.ts
 
-**Changes**: Parse optional `defaults` section from YAML frontmatter.
+**Changes**:
+- Path resolution: `{store_root}/**/*.md` glob replacing `pacts/{name}/PACT.md`
+- Drop `readSchemaIfValid()` fallback (schema.json no longer needed)
+- Drop Markdown table fallback — all pacts must use YAML frontmatter
+- Parse extended metadata: `scope`, `registered_for`, `extends`, `defaults`, `attachments`, `multi_round`, `hooks`
+- Resolve inheritance: if `extends` is present, load parent, shallow-merge per resolution rules, return resolved result
+- Return resolved (flat) PactMetadata — consumer never sees inheritance chain
 
-```yaml
-defaults:
-  response_mode: all
-  visibility: private
-  claimable: false
-```
-
-If `defaults` section is missing, return `undefined` (pact uses protocol defaults).
-
-**Boundary preserved**: Still uses FilePort for file reading. Metadata interface extends with optional `defaults` field.
+**Boundary preserved**: Still uses FilePort for file reading. Metadata interface extends with new optional fields.
 
 ---
 
 ## Modified Component: pact-discover.ts
 
-**Changes**: Include merged defaults in discovery results.
-
-For each discovered pact:
-1. Load pact metadata (includes `defaults` if present)
-2. Call `mergeDefaults(PROTOCOL_DEFAULTS, pact.defaults)`
-3. Include resolved defaults in the pact entry returned to the agent
+**Changes**:
+- Compressed catalog format: pipe-delimited entries (~15-25 tokens each)
+- Include `scope` and `defaults` summary in catalog entries
+- Show inheritance-resolved entries (flat list, no hierarchy)
+- Scope-based filtering on catalog retrieval
 
 **Boundary preserved**: Read-only discovery. No new ports.
 
@@ -200,11 +151,10 @@ Adapters → Domain ← MCP Server
   Ports    ←    Action Handlers
 ```
 
-- `defaults-merge.ts` has zero dependencies (pure function)
-- `pact-claim.ts` depends on ports (via context) and schemas
-- Modified handlers depend on ports (via context), schemas, and defaults-merge
+- Modified handlers depend on ports (via context) and schemas
 - No handler depends on another handler
 - No adapter changes required
+- No new port interfaces needed
 
 ---
 
@@ -222,11 +172,40 @@ responses/
   req-20260223-100000-cory-a1b2/
     kenji.json
     maria.json
-    tomas.json
-    priya.json
 ```
 
-**Migration**: Existing single-response files remain valid. The respond handler checks if `responses/{request_id}` is a file (old format) or directory (new format) and handles both. New responses always use the directory format.
+**Migration**: The respond handler checks if `responses/{request_id}` is a file (old format) or directory (new format) and handles both. New responses always use the directory format.
+
+---
+
+## Pact Store Layout Change
+
+### Current (directory per pact)
+```
+pacts/
+  ask/
+    PACT.md
+    schema.json
+  code-review/
+    PACT.md
+    schema.json
+```
+
+### New (flat files with optional subdirectories)
+```
+pact-store/
+  ask.md
+  propose.md
+  share.md
+  request.md
+  handoff.md
+  check-in.md
+  decide.md
+  review.md
+  backend/
+    request:backend.md
+    review:backend.md
+```
 
 ---
 
@@ -234,53 +213,11 @@ responses/
 
 | Integration | Between | Contract |
 |------------|---------|----------|
-| IC1: Defaults merge | pact_discover ↔ pact_do:send | Protocol defaults + pact defaults produce valid merged config |
-| IC2: Group resolution | config.json ↔ pact_do:send | All user_ids in recipients[] exist in config |
-| IC3: Inbox filtering | pact_do:send ↔ pact_do:inbox | Group requests appear for all recipients |
-| IC4: Claim exclusivity | pact_do:claim ↔ pact_do:claim | Second claim fails with already_claimed |
-| IC5: Claim visibility | pact_do:claim ↔ pact_do:inbox | Claimed status visible to all recipients |
-| IC6: Response routing | pact_do:respond ↔ visibility | Private responses hidden from other respondents |
-| IC7: Completion by mode | pact_do:respond ↔ response_mode | Request completes according to mode |
+| IC1: Group send | pact_do:send ↔ config.json | All user_ids in recipients[] exist in config |
+| IC2: Inbox filtering | pact_do:send ↔ pact_do:inbox | Group requests appear for all recipients |
+| IC3: Response storage | pact_do:respond ↔ pact_do:status | Per-respondent files readable by status/thread |
+| IC4: Inheritance | pact-loader extends ↔ pact-loader parent | Resolved metadata is complete and consistent |
+| IC5: Catalog | pact-loader ↔ pact_discover | Compressed entries match full pact metadata |
+| IC6: Backward compat | old format ↔ new format | Single-response files still readable |
 
----
-
-## Error Handling Contracts
-
-Error paths from the UX journey (ERR1-ERR4), mapped to handler responsibilities.
-
-### ERR1: Claim Race Condition
-
-**Handler**: `pact-claim.ts`
-**Trigger**: Two agents attempt to claim the same request simultaneously.
-**Detection**: `git push` fails → `git pull --rebase` → re-read envelope → `claimed === true`.
-**Error response**: `{ error: "already_claimed", request_id, claimed_by: UserRef, claimed_at: ISO8601 }`
-**Agent behavior**: Log claim info, notify human "This was just claimed by @name", present other unclaimed items.
-
-### ERR2: No One Claims (Stale Claim)
-
-**Handler**: None (apathetic design — PACT does not track claim staleness)
-**Trigger**: Claimable request sits unclaimed indefinitely.
-**Detection**: Sender calls `pact_do(action: "check_status")` → sees status "pending", `claimed: false`.
-**Response**: Return normal status. No error. Human decides to re-send, ping the group, or handle it themselves.
-
-### ERR3: All-Respond Partial Responses
-
-**Handler**: `pact-respond.ts`
-**Trigger**: `response_mode: all` but some recipients haven't responded.
-**Detection**: After each response, count response files vs `recipients.length`. If count < length, request stays pending.
-**Response**: Return `{ status: "response_recorded", responses_received: N, responses_needed: M }`. No error — the system is apathetic about nudging. Sender can check_status to see progress.
-
-### ERR4: Private Response Leak Attempt
-
-**Handler**: `pact-status.ts`, `pact-thread.ts`
-**Trigger**: Agent requests responses for a `visibility: private` request.
-**Detection**: Filter responses at read time: only include responses where `responder.user_id === ctx.userId` OR `sender.user_id === ctx.userId`.
-**Response**: Return filtered response list. No error — the agent simply doesn't see responses they're not authorized to view. The absence of other responses IS the privacy mechanism.
-
-### General Error Propagation
-
-All action handlers follow the same pattern:
-1. Validate inputs (return descriptive error with error type)
-2. Execute operation (return result)
-3. On git push failure: retry once via pull-rebase-push
-4. On unrecoverable failure: return error with context for agent to display to human
+**Removed** (apathy audit): IC for claim exclusivity, claim visibility, response routing by visibility, completion by mode.

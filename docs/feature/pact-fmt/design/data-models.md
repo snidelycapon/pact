@@ -1,8 +1,9 @@
-# Data Models: pact-fmt (Group Envelope Primitives)
+# Data Models: pact-y30 (Post-Apathy Revision)
 
-**Feature**: pact-fmt
-**Date**: 2026-02-23
+**Feature**: pact-y30
+**Date**: 2026-02-24
 **Architect**: Morgan (nw-solution-architect)
+**Supersedes**: pact-ipl data-models (pre-apathy audit)
 
 ---
 
@@ -10,10 +11,10 @@
 
 ```mermaid
 erDiagram
-    PactDefinition ||--o| GroupDefaults : "declares"
-    RequestEnvelope ||--|| GroupDefaults : "defaults_applied"
+    PactDefinition ||--o| PactDefaults : "declares (guidance)"
+    PactDefinition ||--o| PactDefinition : "extends (single-level)"
+    PactDefinition ||--o{ AttachmentSlot : "declares"
     RequestEnvelope ||--|{ UserRef : "recipients"
-    RequestEnvelope ||--o| ClaimStatus : "claim state"
     RequestEnvelope ||--|{ ResponseEnvelope : "responses"
     ResponseEnvelope ||--|| UserRef : "responder"
     ConfigJson ||--|{ TeamMember : "members"
@@ -21,21 +22,31 @@ erDiagram
 
     PactDefinition {
         string name PK
+        string extends "optional parent pact"
         string description
         string version
-        string scope
+        string scope "global|org|repo|team"
         string[] registered_for
         string[] when_to_use
         boolean multi_round
         BundleSpec context_bundle
         BundleSpec response_bundle
-        GroupDefaults defaults "NEW optional"
+        PactDefaults defaults "optional agent guidance"
+        AttachmentSlot[] attachments
+        object hooks "optional lifecycle hooks"
     }
 
-    GroupDefaults {
+    PactDefaults {
         string response_mode "any|all|none_required"
         string visibility "shared|private"
         boolean claimable
+    }
+
+    AttachmentSlot {
+        string slot
+        boolean required
+        string convention
+        string description
     }
 
     RequestEnvelope {
@@ -49,10 +60,7 @@ erDiagram
         string created_at
         string deadline
         object context_bundle
-        GroupDefaults defaults_applied "NEW required"
-        boolean claimed "NEW optional"
-        UserRef claimed_by "NEW optional"
-        string claimed_at "NEW optional"
+        object expected_response
     }
 
     ResponseEnvelope {
@@ -60,12 +68,6 @@ erDiagram
         UserRef responder
         string responded_at
         object response_bundle
-    }
-
-    ClaimStatus {
-        boolean claimed
-        UserRef claimed_by
-        string claimed_at
     }
 
     UserRef {
@@ -88,49 +90,6 @@ erDiagram
 
 ## Schema Changes
 
-### New Type: GroupDefaults
-
-```typescript
-const GroupDefaultsSchema = z.object({
-  response_mode: z.enum(["any", "all", "none_required"]),
-  visibility: z.enum(["shared", "private"]),
-  claimable: z.boolean(),
-});
-
-type GroupDefaults = z.infer<typeof GroupDefaultsSchema>;
-```
-
-**Protocol defaults** (hardcoded):
-```typescript
-const PROTOCOL_DEFAULTS: GroupDefaults = {
-  response_mode: "any",
-  visibility: "shared",
-  claimable: false,
-};
-```
-
-### Modified: PactMetadata
-
-```typescript
-interface PactMetadata {
-  name: string;
-  version?: string;
-  description: string;
-  when_to_use: string[];
-  context_bundle: BundleSpec;
-  response_bundle: BundleSpec;
-  has_hooks: boolean;
-  defaults?: Partial<GroupDefaults>;  // NEW: optional, partial
-}
-```
-
-Pact authors only specify fields that differ from protocol defaults:
-```yaml
-defaults:
-  claimable: true
-  # response_mode and visibility inherit "any" and "shared" from protocol
-```
-
 ### Modified: RequestEnvelope
 
 ```typescript
@@ -140,7 +99,7 @@ const RequestEnvelopeSchema = z.object({
   request_type: z.string(),
   sender: UserRefSchema,
   recipients: z.array(UserRefSchema),        // CHANGED: was recipient: UserRef
-  group_ref: z.string().optional(),          // NEW
+  group_ref: z.string().optional(),          // NEW: optional group label
   status: z.string(),
   created_at: z.string(),
   deadline: z.string().nullable().optional(),
@@ -149,17 +108,59 @@ const RequestEnvelopeSchema = z.object({
   attachments: z.array(AttachmentSchema).optional(),
   amendments: z.array(AmendmentEntrySchema).optional(),
   cancel_reason: z.string().optional(),
-  defaults_applied: GroupDefaultsSchema,      // NEW: required, complete
-  claimed: z.boolean().optional(),            // NEW
-  claimed_by: UserRefSchema.optional(),       // NEW
-  claimed_at: z.string().optional(),          // NEW
 });
+```
+
+**Not added** (apathy audit):
+- No `defaults_applied: GroupDefaults` — agents read pact guidance directly
+- No `claimed`, `claimed_by`, `claimed_at` — claiming is agent coordination
+
+### Modified: PactMetadata
+
+```typescript
+interface PactMetadata {
+  name: string;
+  description: string;
+  version?: string;
+  scope?: string;                      // NEW: global|org|repo|team
+  registered_for?: string[];           // NEW: scope qualifiers
+  when_to_use: string[];
+  multi_round?: boolean;               // NEW: thread continuation
+  context_bundle: BundleSpec;
+  response_bundle: BundleSpec;
+  defaults?: Partial<PactDefaults>;    // NEW: agent guidance (optional, partial)
+  extends?: string;                    // NEW: parent pact name
+  attachments?: AttachmentSlot[];      // NEW: declared attachment slots
+  has_hooks: boolean;
+}
+```
+
+### New Type: PactDefaults (agent guidance only)
+
+```typescript
+interface PactDefaults {
+  response_mode: "any" | "all" | "none_required";
+  visibility: "shared" | "private";
+  claimable: boolean;
+}
+```
+
+This type is used in PactMetadata and in the compressed catalog. It is **not** stored on the RequestEnvelope. Agents read it from the pact definition when they need to decide behavior.
+
+### New Type: AttachmentSlot
+
+```typescript
+interface AttachmentSlot {
+  slot: string;
+  required: boolean;
+  convention: string;
+  description: string;
+}
 ```
 
 ### Unchanged: ResponseEnvelope
 
 ```typescript
-// No schema change
 const ResponseEnvelopeSchema = z.object({
   request_id: z.string(),
   responder: UserRefSchema,
@@ -168,7 +169,7 @@ const ResponseEnvelopeSchema = z.object({
 });
 ```
 
-The per-respondent storage is a **file layout change**, not a schema change. Each response file has the same `ResponseEnvelope` structure.
+The per-respondent storage is a **file layout change**, not a schema change.
 
 ---
 
@@ -204,17 +205,11 @@ The per-respondent storage is a **file layout change**, not a schema change. Eac
   "group_ref": "@backend-team",
   "status": "pending",
   "created_at": "2026-02-23T10:00:00Z",
-  "context_bundle": { "repository": "pact", "branch": "feature/auth" },
-  "defaults_applied": {
-    "response_mode": "any",
-    "visibility": "shared",
-    "claimable": true
-  },
-  "claimed": true,
-  "claimed_by": { "user_id": "kenji", "display_name": "Kenji" },
-  "claimed_at": "2026-02-23T10:05:30Z"
+  "context_bundle": { "repository": "pact", "branch": "feature/auth" }
 }
 ```
+
+**Note**: No `defaults_applied`, no `claimed` fields. The envelope is simpler — just addressing and payload.
 
 ### Response Storage Layout
 
@@ -225,8 +220,8 @@ The per-respondent storage is a **file layout change**, not a schema change. Eac
 ```
 responses/
   req-20260223-100000-cory-a1b2/
-    kenji.json     ← Kenji's response
-    maria.json     ← Maria's response (if response_mode: all)
+    kenji.json
+    maria.json
 ```
 
 Each file is a standard `ResponseEnvelope`:
@@ -242,106 +237,25 @@ Each file is a standard `ResponseEnvelope`:
 ### Backward Compatibility
 
 The respond handler supports both layouts:
-1. Check if `responses/{request_id}` is a directory → new format (per-respondent)
-2. Check if `responses/{request_id}.json` is a file → old format (single response)
+1. Check if `responses/{request_id}` is a directory → new format
+2. Check if `responses/{request_id}.json` is a file → old format
 3. New responses always use the directory format
 
 ---
 
-## Pact Definition Format Extension
+## Compressed Catalog Entry
 
-### Before (existing PACT.md frontmatter)
-
-```yaml
----
-name: code-review
-description: Structured PR review with blocking/advisory feedback
-version: "1.0"
-scope: org
-when_to_use:
-  - Finished a branch and want review before merge
-context_bundle:
-  required: [repository, branch]
-  fields:
-    repository: { type: string, description: "Repository name" }
-    branch: { type: string, description: "Branch to review" }
-response_bundle:
-  required: [status, summary]
-  fields:
-    status: { type: string, enum: [approved, changes_requested], description: "Review verdict" }
-    summary: { type: string, description: "Review summary" }
----
+```
+name|description|scope|context_required→response_required
+code-review|structured PR review with blocking/advisory feedback|org|repository,branch→status,summary
 ```
 
-### After (with group defaults)
-
-```yaml
----
-name: code-review
-description: Structured PR review with blocking/advisory feedback
-version: "1.1"
-scope: org
-when_to_use:
-  - Finished a branch and want review before merge
-defaults:
-  claimable: true
-context_bundle:
-  required: [repository, branch]
-  fields:
-    repository: { type: string, description: "Repository name" }
-    branch: { type: string, description: "Branch to review" }
-response_bundle:
-  required: [status, summary]
-  fields:
-    status: { type: string, enum: [approved, changes_requested], description: "Review verdict" }
-    summary: { type: string, description: "Review summary" }
----
-```
-
-Note: Only `claimable: true` is specified because `response_mode: any` and `visibility: shared` match protocol defaults — convention over configuration.
-
----
-
-## Compressed Catalog Entry Extension
-
-### Before
-```
-name|description|scope|context_required->response_required
-code-review|structured PR review with blocking/advisory feedback|org|repository,branch->status,summary
-```
-
-### After
-```
-name|description|scope|context_required->response_required|defaults
-code-review|structured PR review with blocking/advisory feedback|org|repository,branch->status,summary|any/shared/claimable
-```
-
-The `defaults` suffix uses a compact notation:
-- `any/shared` → protocol defaults (omit if all defaults match protocol)
-- `any/shared/claimable` → response_mode: any, visibility: shared, claimable: true
-- `all/private` → response_mode: all, visibility: private, claimable: false
+Scope and defaults are included as metadata — agents parse them to understand pact behavior without loading the full file.
 
 ---
 
 ## Inbox Entry Extension
 
-### Before
-```typescript
-interface InboxEntry {
-  request_id: string;
-  short_id: string;
-  thread_id?: string;
-  request_type: string;
-  sender: string;
-  created_at: string;
-  summary: string;
-  pact_path: string;
-  attachment_count: number;
-  amendment_count: number;
-}
-```
-
-### After
 ```typescript
 interface InboxEntry {
   request_id: string;
@@ -357,10 +271,44 @@ interface InboxEntry {
   // Group fields (NEW)
   group_ref?: string;
   recipients_count: number;
-  response_mode: string;
-  claimable: boolean;
-  claimed?: boolean;
-  claimed_by?: string;
-  claimed_at?: string;
 }
 ```
+
+**Not added** (apathy audit): No `response_mode`, `claimable`, `claimed`, `claimed_by`, `claimed_at` in inbox entries. Agents that need this information read the pact definition.
+
+---
+
+## Migration Strategies
+
+### Schema: recipient → recipients[]
+
+All handlers that read request envelopes must support both formats during transition:
+
+1. **Read coercion**: When parsing a request envelope, check for `recipient` (old) or `recipients` (new). If `recipient` exists and `recipients` does not, coerce: `recipients = [recipient]`.
+2. **Write**: All new requests use `recipients[]`. No old-format writes.
+3. **Tests**: Existing test fixtures that use `recipient` must be updated to `recipients`. Add backward compat test: "Old-format request (recipient field) is readable by new code."
+
+This is a breaking schema change but only affects on-disk format. The Zod schema validates `recipients[]`; the coercion layer handles old files. No migration script needed — the system self-heals on read.
+
+### Pact Store: directory layout → flat files
+
+The pact-loader supports dual-mode during transition:
+
+1. **Primary**: Try `{store_root}/**/*.md` glob (new flat-file format)
+2. **Fallback**: If store_root yields no `.md` files, try `pacts/{name}/PACT.md` (old format)
+3. **Deprecation warning**: Log `"Using legacy pacts/ directory layout; migrate to flat files in {store_root}/"`
+
+The fallback ensures existing deployments continue working. Migration is a one-time file reorganization — no script needed for ~8 files.
+
+### Response Storage: single file → per-respondent directory
+
+Covered in Backward Compatibility section above. The respond handler detects format by checking whether `responses/{request_id}` is a file or directory.
+
+### Inheritance Merge Rules
+
+Fully specified in `docs/discovery/pact-format-spec.md` under "Resolution Rules". Key points:
+- `name`, `description`, `version`, `scope`, `registered_for`, `multi_round`: child overrides parent
+- `when_to_use`, `attachments`, body: child replaces parent entirely
+- `context_bundle`, `response_bundle`: child's `fields` merged over parent's; child's `required` replaces parent's
+- `defaults`, `hooks`: child's values override parent's; unspecified values inherit
+- Validation: reject circular refs, reject multi-level chains, reject missing parent
