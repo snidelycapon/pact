@@ -70,16 +70,15 @@ export async function handlePactRequest(
   params: PactRequestParams,
   ctx: PactRequestContext,
 ): Promise<SendResult | ComposeResult> {
-  // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
 
-  // 1b. Compose mode: request_type present but context_bundle missing
+  // No context_bundle means the caller wants the pact schema, not a send
   if (!params.context_bundle) {
     return loadComposeResponse(ctx.file, params.request_type);
   }
 
-  // 2. Resolve recipient list: new recipients[] or legacy recipient
-  const hasExplicitRecipients = !!(params.recipients && params.recipients.length > 0);
+  // Resolve recipient list: new recipients[] or legacy singular recipient
+  const hasExplicitRecipients = (params.recipients?.length ?? 0) > 0;
   let recipientIds: string[];
   if (hasExplicitRecipients) {
     recipientIds = params.recipients!.map(normalizeId);
@@ -89,24 +88,22 @@ export async function handlePactRequest(
     throw new Error("Missing required field: recipient or recipients");
   }
 
-  // 3. Validate non-empty
   if (recipientIds.length === 0) {
     throw new Error("Recipients list must not be empty");
   }
 
-  // 4. Validate sender not in recipients
   if (recipientIds.includes(ctx.userId)) {
     throw new Error("Sender cannot be a recipient");
   }
 
-  // 5. Check pact exists: flat-file store (new) or legacy directory
+  // Pact must exist in either flat-file store or legacy directory
   const flatFileExists = await ctx.file.fileExists(`pact-store/${params.request_type}.md`);
   const legacyExists = await ctx.file.fileExists(`pacts/${params.request_type}/PACT.md`);
   if (!flatFileExists && !legacyExists) {
     throw new Error(`No pact found for request type '${params.request_type}'`);
   }
 
-  // 5b. Schema validation: warn on missing required context fields
+  // Warn (don't reject) when required context fields are missing
   let validationWarnings: string[] | undefined;
   const requiredFields = await getRequiredContextFieldsFromYaml(ctx.file, params.request_type);
   if (requiredFields) {
@@ -117,14 +114,11 @@ export async function handlePactRequest(
     }
   }
 
-  // 6. Build recipient refs (no config lookup — just use normalized IDs)
   const recipientRefs = recipientIds.map((id) => ({ user_id: id }));
 
-  // 7. Get sender identity from local config
   const userConfig = await ctx.config.readUserConfig();
   const sender = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
-  // 8. Generate ID and build envelope
   const requestId = generateRequestId(ctx.userId);
   const attachmentMeta = params.attachments?.map(({ filename, description }) => ({ filename, description }));
   const threadId = params.thread_id ?? requestId;
@@ -143,12 +137,10 @@ export async function handlePactRequest(
     ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}),
   };
 
-  // Include group_ref if provided
   if (params.group_ref) {
     envelope.group_ref = params.group_ref;
   }
 
-  // 9. Write attachment files
   const filesToAdd = [`requests/pending/${requestId}.json`];
   if (params.attachments?.length) {
     for (const attachment of params.attachments) {
@@ -158,7 +150,6 @@ export async function handlePactRequest(
     }
   }
 
-  // 10. Write envelope, commit, push
   const recipientLabel = recipientIds.length === 1
     ? recipientIds[0]
     : `[${recipientIds.join(",")}]`;

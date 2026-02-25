@@ -15,8 +15,10 @@
  *   - Thread ID passthrough (US-002a)
  *   - File attachments with atomic commit (US-002a)
  *   - Backward compatibility without thread/attachments (US-002a)
+ *   - Compose mode: pact schema returned when context_bundle omitted
+ *   - Compose mode: structural assertions and error on unknown pact
  *
- * Error/edge scenarios: 6 of 14 total (43%)
+ * Error/edge scenarios: 6 of 17 total (35%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
