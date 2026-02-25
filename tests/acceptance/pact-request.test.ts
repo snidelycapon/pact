@@ -439,4 +439,44 @@ describe("pact_do(send): submit a PACT request", () => {
       expect(pending).toHaveLength(1);
     });
   });
+
+  // =========================================================================
+  // Compose Mode (two-phase send)
+  // =========================================================================
+
+  it("returns compose-mode response with pact schema when context_bundle omitted", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    await when("Alice sends with request_type but no context_bundle", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        // context_bundle intentionally omitted
+      })) as {
+        mode: string;
+        request_type: string;
+        description: string;
+        when_to_use: string[];
+        context_bundle: { required: string[]; fields: Record<string, { type: string; description: string }> };
+        response_bundle: { required: string[]; fields: Record<string, { type: string; description: string }> };
+        defaults?: Record<string, unknown>;
+        multi_round?: boolean;
+      };
+
+      expect(result.mode).toBe("compose");
+      expect(result.request_type).toBe("sanity-check");
+      expect(result.description).toBe("Validate findings on a bug investigation");
+      expect(result.when_to_use).toContain("You need a colleague to validate your findings on a bug investigation");
+      expect(result.context_bundle.required).toContain("customer");
+      expect(result.context_bundle.required).toContain("question");
+      expect(result.context_bundle.fields.customer).toEqual({ type: "string", description: "Customer name" });
+      expect(result.response_bundle.required).toContain("answer");
+      expect(result.response_bundle.fields.answer).toEqual({ type: "string", description: "YES / NO / PARTIALLY with explanation" });
+    });
+
+    await thenAssert("no request file is created (compose mode is read-only)", async () => {
+      const pending = listDir(ctx.aliceRepo, "requests/pending");
+      expect(pending).toHaveLength(0);
+    });
+  });
 });

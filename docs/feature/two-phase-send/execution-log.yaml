@@ -1,0 +1,23 @@
+events:
+- d: PASS
+  p: PREPARE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-25T19:47:13Z'
+- d: PASS
+  p: RED_ACCEPTANCE
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-25T19:47:52Z'
+- d: 'NOT_APPLICABLE: acceptance test IS the unit test for this thin handler'
+  p: RED_UNIT
+  s: SKIPPED
+  sid: 01-01
+  t: '2026-02-25T19:47:58Z'
+- d: PASS
+  p: GREEN
+  s: EXECUTED
+  sid: 01-01
+  t: '2026-02-25T19:49:59Z'
+project_id: two-phase-send
+schema_version: '3.0'

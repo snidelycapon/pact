@@ -1,0 +1,116 @@
+roadmap:
+  project_id: two-phase-send
+  created_at: '2026-02-25T19:41:45Z'
+  total_steps: 2
+  phases: 1
+phases:
+- id: '01'
+  name: 'Compose-mode branch in send action'
+  description: >
+    Add a compose-mode code path to the existing send action in pact-request.ts.
+    When request_type is provided but context_bundle is omitted, load the pact
+    schema (from flat-file pact-store or legacy pacts/ directory) and return it
+    as composition guidance instead of throwing an error. The response includes
+    mode: "compose" to distinguish it from a normal send result.
+  steps:
+  - id: 01-01
+    name: 'Implement compose-mode branch in handlePactRequest'
+    description: >
+      Replace the early context_bundle validation throw with a conditional branch.
+      When request_type is present but context_bundle is missing: load pact metadata
+      via loadFlatFilePactByName (flat-file) or loadPactMetadata (legacy), map it
+      through the toEntry shape, and return a compose-mode response with mode,
+      description, when_to_use, context_bundle, response_bundle, defaults, and
+      multi_round fields. When request_type is also missing, continue to throw.
+      When the pact is not found, throw a clear error.
+    criteria: |
+      - send with request_type but no context_bundle returns compose-mode response with full pact schema
+      - send with request_type + context_bundle sends normally (no regression)
+      - send with unknown request_type and no bundle returns clear error (pact not found)
+      - compose-mode response includes: mode "compose", description, when_to_use, context_bundle fields, response_bundle fields, defaults, multi_round
+      - compose mode checks both flat-file pact-store/{name}.md and legacy pacts/{name}/PACT.md formats
+      - handlePactRequest return type becomes a union: compose result | send result
+    time_estimate: 30m
+    dependencies: []
+  - id: 01-02
+    name: 'Add acceptance tests for compose mode'
+    description: >
+      Add new test cases for compose-mode behavior and update the existing
+      "rejects request missing required field: context_bundle" test. That test
+      currently sends request_type + omits context_bundle and expects a throw,
+      but now that combination enters compose mode. Update it to expect a
+      compose-mode response. Add a new test for "request_type AND context_bundle
+      both missing" which should still throw. Add a test for unknown request_type
+      with no bundle returning a pact-not-found error. Verify compose-mode
+      response shape includes all expected fields.
+    criteria: |
+      - existing test at line 257 updated: request_type present + context_bundle omitted now expects compose-mode response (not throw)
+      - new test: request_type missing + context_bundle missing still throws "Missing required field: request_type"
+      - new test: unknown request_type + no context_bundle throws pact-not-found error
+      - new test: compose-mode response shape validated (mode, description, when_to_use, context_bundle, response_bundle, defaults, multi_round)
+      - existing happy-path send tests still pass (no regression)
+    time_estimate: 30m
+    dependencies:
+    - 01-01
+implementation_scope:
+  source_directories:
+  - src/tools/
+  test_directories:
+  - tests/acceptance/
+  key_files:
+  - src/tools/pact-request.ts
+  - src/pact-loader.ts
+  - src/tools/pact-discover.ts
+  - tests/acceptance/pact-request.test.ts
+  excluded_patterns:
+  - node_modules/**
+  - dist/**
+validation:
+  status: approved
+  reviewer: cory
+  approved_at: 2026-02-25
+  findings:
+    - label: praise
+      comment: >
+        Excellent decomposition. Steps are atomic and well-scoped. Step 01-01
+        clearly specifies the conditional branch logic and identifies the two
+        loader functions (loadFlatFilePactByName / loadPactMetadata) that exist
+        in pact-loader.ts. Compose-mode response shape maps perfectly to the
+        toEntry() transformation in pact-discover.ts.
+    - label: praise
+      comment: >
+        Acceptance criteria are behaviorally specific and measurable. Each
+        criterion traces to testable assertions (return type shape, both storage
+        paths checked, error case validated). The test update strategy is clear:
+        line 257 transitions from throw → compose response, new tests fill gaps.
+    - label: suggestion
+      comment: >
+        In step 01-01 description, clarify that when both request_type and
+        context_bundle are missing, the validation throws BEFORE the compose
+        branch (line 51-52 in pact-request.ts already enforce this order).
+        Adding "validation order: request_type checked first" would prevent
+        confusion during implementation.
+    - label: suggestion
+      comment: >
+        Return type in criteria says "compose result | send result" but the
+        current implementation returns {request_id, thread_id, status, message,
+        validation_warnings}. Clarify whether compose-mode returns a superset
+        (adding mode field) or a completely different shape. The roadmap hints
+        at superset (mode, description, when_to_use, context_bundle, ...) but
+        doesn't explicitly state this aligns with the handler's interface.
+    - label: question
+      comment: >
+        Criterion 01-02 line 48 says "new test: request_type missing +
+        context_bundle missing still throws 'Missing required field:
+        request_type'". This is already tested at line 242-254 of
+        pact-request.test.ts. Is the intent to ADD a new assertion, or UPDATE
+        the existing test? Clarify scope in step description.
+    - label: nitpick
+      comment: >
+        Criterion 01-01 "compose mode checks both flat-file pact-store/{name}.md
+        and legacy pacts/{name}/PACT.md formats" is slightly misleading. The
+        actual logic will call loadFlatFilePactByName (which tries one path,
+        returns undefined on miss) then fall back to loadPactMetadata (legacy).
+        Neither tries both in a single call. Wording is defensible but could be
+        clearer: "supports both storage formats via fallback chain" would be
+        more precise.

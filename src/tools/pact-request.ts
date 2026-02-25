@@ -15,7 +15,8 @@
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
-import { getRequiredContextFieldsFromYaml } from "../pact-loader.ts";
+import { getRequiredContextFieldsFromYaml, loadFlatFilePactByName, loadPactMetadata } from "../pact-loader.ts";
+import type { PactMetadata, BundleSpec, AttachmentSlot } from "../pact-loader.ts";
 import { normalizeId } from "../normalize.ts";
 
 export interface AttachmentInput {
@@ -43,13 +44,39 @@ export interface PactRequestContext {
   file: FilePort;
 }
 
+export interface SendResult {
+  request_id: string;
+  thread_id: string;
+  status: string;
+  message: string;
+  validation_warnings: string[];
+}
+
+export interface ComposeResult {
+  mode: "compose";
+  request_type: string;
+  description: string;
+  when_to_use: string[];
+  context_bundle: BundleSpec;
+  response_bundle: BundleSpec;
+  has_hooks: boolean;
+  scope?: string;
+  defaults?: Record<string, unknown>;
+  multi_round?: boolean;
+  attachments?: AttachmentSlot[];
+}
+
 export async function handlePactRequest(
   params: PactRequestParams,
   ctx: PactRequestContext,
-): Promise<{ request_id: string; thread_id: string; status: string; message: string; validation_warnings: string[] }> {
+): Promise<SendResult | ComposeResult> {
   // 1. Validate required fields
   if (!params.request_type) throw new Error("Missing required field: request_type");
-  if (!params.context_bundle) throw new Error("Missing required field: context_bundle");
+
+  // 1b. Compose mode: request_type present but context_bundle missing
+  if (!params.context_bundle) {
+    return loadComposeResponse(ctx.file, params.request_type);
+  }
 
   // 2. Resolve recipient list: new recipients[] or legacy recipient
   const hasExplicitRecipients = !!(params.recipients && params.recipients.length > 0);
@@ -148,5 +175,46 @@ export async function handlePactRequest(
     status: "pending",
     message: "Request submitted",
     validation_warnings: validationWarnings ?? [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Compose-mode helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Load pact metadata and return a compose-mode response.
+ *
+ * Checks flat-file pact-store/{name}.md first, then falls back to
+ * legacy pacts/{name}/PACT.md. Throws when neither format is found.
+ */
+async function loadComposeResponse(
+  file: FilePort,
+  requestType: string,
+): Promise<ComposeResult> {
+  // Try flat-file store first
+  let pact: PactMetadata | undefined = await loadFlatFilePactByName(file, requestType);
+
+  // Fall back to legacy directory format
+  if (!pact) {
+    pact = await loadPactMetadata(file, requestType);
+  }
+
+  if (!pact) {
+    throw new Error(`No pact found for request type '${requestType}'`);
+  }
+
+  return {
+    mode: "compose",
+    request_type: pact.name,
+    description: pact.description,
+    when_to_use: pact.when_to_use,
+    context_bundle: pact.context_bundle,
+    response_bundle: pact.response_bundle,
+    has_hooks: pact.has_hooks,
+    ...(pact.scope ? { scope: pact.scope } : {}),
+    ...(pact.defaults ? { defaults: pact.defaults } : {}),
+    ...(pact.multi_round !== undefined ? { multi_round: pact.multi_round } : {}),
+    ...(pact.attachments ? { attachments: pact.attachments } : {}),
   };
 }
