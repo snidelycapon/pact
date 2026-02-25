@@ -58,7 +58,7 @@ describe("Walking Skeleton: complete round-trip", () => {
 
     await given("repo has standard directory structure and team config", async () => {
       expect(fileExists(ctx.aliceRepo, "config.json")).toBe(true);
-      expect(fileExists(ctx.aliceRepo, "pacts/sanity-check/PACT.md")).toBe(true);
+      expect(fileExists(ctx.aliceRepo, "pact-store/sanity-check.md")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "requests/pending/.gitkeep")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "requests/completed/.gitkeep")).toBe(true);
       expect(fileExists(ctx.aliceRepo, "responses/.gitkeep")).toBe(true);
@@ -109,7 +109,7 @@ describe("Walking Skeleton: complete round-trip", () => {
       expect(inbox.requests[0].request_id).toBe(requestId);
       expect(inbox.requests[0].request_type).toBe("sanity-check");
       expect(inbox.requests[0].sender).toBe("Alice");
-      expect(inbox.requests[0].pact_path).toContain("pacts/sanity-check/PACT.md");
+      expect(inbox.requests[0].pact_path).toContain("pact-store/sanity-check.md");
     });
 
     // --- When: Bob responds with findings ---

@@ -171,7 +171,7 @@ describe("inbox enrichment: pact description and response fields in inbox entrie
       expect(inbox.requests[0].request_id).toBe("req-20260222-100000-alice-e001");
       expect(inbox.requests[0].request_type).toBe("sanity-check");
       expect(inbox.requests[0].sender).toBe("Alice");
-      expect(inbox.requests[0].pact_path).toContain("pacts/sanity-check/PACT.md");
+      expect(inbox.requests[0].pact_path).toContain("pact-store/sanity-check.md");
     });
   });
 
@@ -182,15 +182,9 @@ describe("inbox enrichment: pact description and response fields in inbox entrie
   it("extracts response_fields from schema.json when available", async () => {
     ctx = createTestRepos();
 
-    await given("the sanity-check pact has both PACT.md and schema.json", () => {
-      writeFileSync(
-        join(ctx.aliceRepo, "pacts", "sanity-check", "schema.json"),
-        JSON.stringify(SANITY_CHECK_SCHEMA, null, 2),
-      );
-      execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add schema" && git push`,
-        { stdio: "pipe" },
-      );
+    await given("the sanity-check pact has response fields defined in YAML frontmatter", () => {
+      // pact-store/sanity-check.md (from createTestRepos) already has response_bundle
+      // with fields: answer, evidence, concerns, recommendation
     });
 
     await given("Cory sent a sanity-check request to Bob", () => {

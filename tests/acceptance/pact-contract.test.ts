@@ -28,7 +28,7 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.js";
@@ -48,7 +48,7 @@ describe("pact: pact validation and auto-loading", () => {
     ctx = createTestRepos();
 
     await given("the sanity-check pact file exists in the repo", () => {
-      expect(fileExists(ctx.aliceRepo, "pacts/sanity-check/PACT.md")).toBe(true);
+      expect(fileExists(ctx.aliceRepo, "pact-store/sanity-check.md")).toBe(true);
     });
 
     await when("Alice submits a sanity-check request", async () => {
@@ -81,7 +81,7 @@ describe("pact: pact validation and auto-loading", () => {
 
       expect(inbox.requests).toHaveLength(1);
       // pact_path should point to the local file path
-      expect(inbox.requests[0].pact_path).toContain("pacts/sanity-check/PACT.md");
+      expect(inbox.requests[0].pact_path).toContain("pact-store/sanity-check.md");
     });
   });
 
@@ -89,11 +89,28 @@ describe("pact: pact validation and auto-loading", () => {
     ctx = createTestRepos();
 
     await given("Alice creates a new pact type 'code-review'", async () => {
-      const pactDir = join(ctx.aliceRepo, "pacts", "code-review");
-      mkdirSync(pactDir, { recursive: true });
       writeFileSync(
-        join(pactDir, "PACT.md"),
-        "# Code Review\n\nReview code changes for correctness.\n",
+        join(ctx.aliceRepo, "pact-store", "code-review.md"),
+        `---
+name: code-review
+description: Review code changes for correctness
+scope: global
+when_to_use:
+  - When you need a teammate to review code changes before merging
+context_bundle:
+  required: [diff_url]
+  fields:
+    diff_url: { type: string, description: "Pull request URL" }
+response_bundle:
+  required: [status]
+  fields:
+    status: { type: string, description: "approve / request-changes / comment" }
+---
+
+# Code Review
+
+Review code changes for correctness.
+`,
       );
       execSync(
         `cd "${ctx.aliceRepo}" && git add -A && git commit -m "add code-review pact" && git push`,
@@ -106,7 +123,7 @@ describe("pact: pact validation and auto-loading", () => {
     });
 
     await thenAssert("Bob's clone has the new pact file", () => {
-      expect(fileExists(ctx.bobRepo, "pacts/code-review/PACT.md")).toBe(true);
+      expect(fileExists(ctx.bobRepo, "pact-store/code-review.md")).toBe(true);
     });
 
     // And Alice can now send code-review requests
@@ -125,16 +142,28 @@ describe("pact: pact validation and auto-loading", () => {
   it("updated pact file is synced to all clones via git pull", async () => {
     ctx = createTestRepos();
 
-    await given("Alice updates the sanity-check PACT.md to add a severity field", async () => {
-      const pactPath = join(ctx.aliceRepo, "pacts", "sanity-check", "PACT.md");
-      const updatedContent = `# Sanity Check (v2)
+    await given("Alice updates the sanity-check pact to add a severity field", async () => {
+      const pactPath = join(ctx.aliceRepo, "pact-store", "sanity-check.md");
+      const updatedContent = `---
+name: sanity-check
+description: Sanity Check (v2)
+version: "2.0.0"
+scope: global
+when_to_use:
+  - Validate findings
+context_bundle:
+  required: [customer, severity, question]
+  fields:
+    customer: { type: string, description: "Customer name" }
+    severity: { type: string, description: "Issue severity" }
+    question: { type: string, description: "Specific question" }
+response_bundle:
+  required: [answer]
+  fields:
+    answer: { type: string, description: "Answer" }
+---
 
-## Context Bundle Fields
-| Field | Required |
-|-------|----------|
-| customer | yes |
-| severity | yes |
-| question | yes |
+# Sanity Check (v2)
 `;
       writeFileSync(pactPath, updatedContent);
       execSync(
@@ -148,9 +177,9 @@ describe("pact: pact validation and auto-loading", () => {
     });
 
     await thenAssert("Bob's pact file contains the updated content", () => {
-      const content = execSync(
-        `cat "${join(ctx.bobRepo, "pacts", "sanity-check", "PACT.md")}"`,
-        { encoding: "utf-8" },
+      const content = require("node:fs").readFileSync(
+        join(ctx.bobRepo, "pact-store", "sanity-check.md"),
+        "utf-8",
       );
       expect(content).toContain("severity");
       expect(content).toContain("v2");
@@ -165,7 +194,7 @@ describe("pact: pact validation and auto-loading", () => {
     ctx = createTestRepos();
 
     await when("Alice tries to submit a 'code-review' request (pact does not exist)", async () => {
-      expect(fileExists(ctx.aliceRepo, "pacts/code-review/PACT.md")).toBe(false);
+      expect(fileExists(ctx.aliceRepo, "pact-store/code-review.md")).toBe(false);
 
       const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
@@ -184,27 +213,27 @@ describe("pact: pact validation and auto-loading", () => {
     });
   });
 
-  it("pact_request rejects when PACT.md file is missing (directory exists but no file)", async () => {
+  it("pact file without YAML frontmatter still allows sending (dumb pipe)", async () => {
     ctx = createTestRepos();
 
-    await given("a pact directory exists but has no PACT.md", async () => {
-      mkdirSync(join(ctx.aliceRepo, "pacts", "empty-pact"), { recursive: true });
+    await given("a .md file exists in pact-store but has no YAML frontmatter", async () => {
+      writeFileSync(join(ctx.aliceRepo, "pact-store", "empty-pact.md"), "# No Frontmatter\n\nJust markdown.\n");
       execSync(
-        `cd "${ctx.aliceRepo}" && touch pacts/empty-pact/.gitkeep && git add -A && git commit -m "empty pact dir" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "empty pact file" && git push`,
         { stdio: "pipe" },
       );
     });
 
-    await when("Alice tries to submit an 'empty-pact' request", async () => {
+    await when("Alice submits an 'empty-pact' request", async () => {
       const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      await expect(
-        aliceServer.callTool("pact_do", { action: "send",
-          request_type: "empty-pact",
-          recipient: "bob",
-          context_bundle: { question: "Empty pact test" },
-        }),
-      ).rejects.toThrow(/no pact found.*empty-pact/i);
+      const result = (await aliceServer.callTool("pact_do", {
+        action: "send",
+        request_type: "empty-pact",
+        recipient: "bob",
+        context_bundle: { question: "Empty pact test" },
+      })) as { request_id: string };
+      expect(result.request_id).toBeTruthy();
     });
   });
 

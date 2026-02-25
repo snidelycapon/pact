@@ -9,8 +9,8 @@
  *   - Keyword search filters pacts by name, description, and when_to_use content
  *   - Search returns empty array when no pacts match (not an error)
  *   - Search matches against when_to_use section content
- *   - Prefers schema.json for field extraction when available
- *   - Falls back to PACT.md parsing when no schema.json exists
+ *   - Extracts field definitions from YAML frontmatter including optional fields
+ *   - Extracts fields from YAML frontmatter when pact has no schema.json
  *   - Pulls latest from remote before scanning
  *   - Falls back to local data with warning when git pull fails
  *   - Returns team members alongside pacts
@@ -24,142 +24,138 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
 
 // ---------------------------------------------------------------------------
-// Pact content fixtures (old-format Markdown, no YAML frontmatter)
+// Pact content fixtures (YAML frontmatter format for pact-store/)
 // ---------------------------------------------------------------------------
 
-const ASK_PACT = `# Ask
+const ASK_PACT = `---
+name: ask
+description: A general question needing another person's view
+scope: global
+when_to_use:
+  - When you have a question that needs human judgment or context that an LLM cannot provide
+context_bundle:
+  required: [question]
+  fields:
+    question: { type: string, description: "The question to ask" }
+    background: { type: string, description: "Background context for the question" }
+response_bundle:
+  required: [answer]
+  fields:
+    answer: { type: string, description: "The answer to the question" }
+    reasoning: { type: string, description: "Reasoning behind the answer" }
+    caveats: { type: string, description: "Any caveats or limitations" }
+---
+
+# Ask
 
 A general question needing another person's view.
-
-## When To Use
-When you have a question that needs human judgment or context that an LLM cannot provide.
-
-## Context Bundle Fields
-| Field | Required | Description |
-|-------|----------|-------------|
-| question | yes | The question to ask |
-| background | no | Background context for the question |
-
-## Response Structure
-| Field | Description |
-|-------|-------------|
-| answer | The answer to the question |
-| reasoning | Reasoning behind the answer |
-| caveats | Any caveats or limitations |
 `;
 
-const CODE_REVIEW_PACT = `# Code Review
+const CODE_REVIEW_PACT = `---
+name: code-review
+description: Request a code review on a branch or changeset
+scope: global
+when_to_use:
+  - When you need a teammate to review code changes before merging
+context_bundle:
+  required: [repository, branch, language, description]
+  fields:
+    repository: { type: string, description: "Repository name" }
+    branch: { type: string, description: "Branch to review" }
+    language: { type: string, description: "Primary language" }
+    description: { type: string, description: "What the changes do" }
+    areas_of_concern: { type: string, description: "Specific areas to focus on" }
+    related_tickets: { type: string, description: "Related ticket references" }
+response_bundle:
+  required: [status, summary]
+  fields:
+    status: { type: string, description: "approve / request-changes / comment" }
+    summary: { type: string, description: "Overall assessment" }
+    blocking_feedback: { type: string, description: "Issues that must be fixed" }
+    advisory_feedback: { type: string, description: "Suggestions for improvement" }
+    questions: { type: string, description: "Questions for the author" }
+---
+
+# Code Review
 
 Request a code review on a branch or changeset.
-
-## When To Use
-When you need a teammate to review code changes before merging.
-
-## Context Bundle Fields
-| Field | Required | Description |
-|-------|----------|-------------|
-| repository | yes | Repository name |
-| branch | yes | Branch to review |
-| language | yes | Primary language |
-| description | yes | What the changes do |
-| areas_of_concern | no | Specific areas to focus on |
-| related_tickets | no | Related ticket references |
-
-## Response Structure
-| Field | Description |
-|-------|-------------|
-| status | approve / request-changes / comment |
-| summary | Overall assessment |
-| blocking_feedback | Issues that must be fixed |
-| advisory_feedback | Suggestions for improvement |
-| questions | Questions for the author |
 `;
 
-const DESIGN_PACT = `# Design Pact
+const DESIGN_PACT = `---
+name: design-pact
+description: Collaboratively design a new pact
+scope: global
+when_to_use:
+  - When you want to create a new PACT pact type with a colleague
+context_bundle:
+  required: [pact_name, use_case]
+  fields:
+    pact_name: { type: string, description: "Name for the new pact" }
+    use_case: { type: string, description: "When this pact would be used" }
+    draft_fields: { type: string, description: "Initial field ideas" }
+response_bundle:
+  required: [feedback]
+  fields:
+    feedback: { type: string, description: "Assessment of the proposed pact" }
+    suggested_fields: { type: string, description: "Recommended field structure" }
+    concerns: { type: string, description: "Any concerns about the design" }
+---
+
+# Design Pact
 
 Collaboratively design a new pact.
-
-## When To Use
-When you want to create a new PACT pact type with a colleague.
-
-## Context Bundle Fields
-| Field | Required | Description |
-|-------|----------|-------------|
-| pact_name | yes | Name for the new pact |
-| use_case | yes | When this pact would be used |
-| draft_fields | no | Initial field ideas |
-
-## Response Structure
-| Field | Description |
-|-------|-------------|
-| feedback | Assessment of the proposed pact |
-| suggested_fields | Recommended field structure |
-| concerns | Any concerns about the design |
 `;
 
-const SANITY_CHECK_SCHEMA = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  pact_name: "sanity-check",
-  pact_version: "1.0.0",
-  context_bundle: {
-    type: "object",
-    required: ["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question"],
-    properties: {
-      customer: { type: "string", description: "Customer name" },
-      product: { type: "string", description: "Product name and version" },
-      issue_summary: { type: "string", description: "Brief description of the issue" },
-      involved_files: { type: "string", description: "Files examined" },
-      investigation_so_far: { type: "string", description: "What you have found" },
-      question: { type: "string", description: "Specific question for the reviewer" },
-      zendesk_ticket: { type: "string", description: "Related Zendesk ticket ID" },
-    },
-    additionalProperties: true,
-  },
-  response_bundle: {
-    type: "object",
-    required: ["answer", "evidence", "recommendation"],
-    properties: {
-      answer: { type: "string", description: "YES / NO / PARTIALLY with brief explanation" },
-      evidence: { type: "string", description: "What you compared or examined" },
-      concerns: { type: "string", description: "Any risks or caveats" },
-      recommendation: { type: "string", description: "Suggested next step" },
-    },
-    additionalProperties: true,
-  },
-};
+const SANITY_CHECK_PACT = `---
+name: sanity-check
+description: Get a colleague to validate your findings on a bug investigation
+scope: global
+when_to_use:
+  - You need a colleague to validate your findings on a bug investigation
+context_bundle:
+  required: [customer, product, issue_summary, involved_files, investigation_so_far, question]
+  fields:
+    customer: { type: string, description: "Customer name" }
+    product: { type: string, description: "Product name and version" }
+    issue_summary: { type: string, description: "Brief description of the issue" }
+    involved_files: { type: string, description: "Files examined" }
+    investigation_so_far: { type: string, description: "What you have found" }
+    question: { type: string, description: "Specific question for the reviewer" }
+    zendesk_ticket: { type: string, description: "Related Zendesk ticket ID" }
+response_bundle:
+  required: [answer, evidence, recommendation]
+  fields:
+    answer: { type: string, description: "YES / NO / PARTIALLY with brief explanation" }
+    evidence: { type: string, description: "What you compared or examined" }
+    concerns: { type: string, description: "Any risks or caveats" }
+    recommendation: { type: string, description: "Suggested next step" }
+---
 
-/** Set up a multi-pact repo with PACT.md files and optional schema.json. */
+# Sanity Check
+
+Get a colleague to validate your findings on a bug investigation.
+`;
+
+/** Set up a multi-pact repo with flat .md files in pact-store/. */
 function seedPacts(
   repoPath: string,
-  opts?: { includeSchema?: boolean },
 ): void {
-  // ask pact
-  mkdirSync(join(repoPath, "pacts", "ask"), { recursive: true });
-  writeFileSync(join(repoPath, "pacts", "ask", "PACT.md"), ASK_PACT);
+  // Clear pact-store/ to remove default sanity-check from createTestRepos
+  const pactStorePath = join(repoPath, "pact-store");
+  rmSync(pactStorePath, { recursive: true, force: true });
+  mkdirSync(pactStorePath, { recursive: true });
 
-  // code-review pact
-  mkdirSync(join(repoPath, "pacts", "code-review"), { recursive: true });
-  writeFileSync(join(repoPath, "pacts", "code-review", "PACT.md"), CODE_REVIEW_PACT);
-
-  // design-pact
-  mkdirSync(join(repoPath, "pacts", "design-pact"), { recursive: true });
-  writeFileSync(join(repoPath, "pacts", "design-pact", "PACT.md"), DESIGN_PACT);
-
-  // sanity-check already exists from createTestRepos, but we overwrite for consistency
-
-  // Optionally add schema.json for sanity-check
-  if (opts?.includeSchema) {
-    writeFileSync(
-      join(repoPath, "pacts", "sanity-check", "schema.json"),
-      JSON.stringify(SANITY_CHECK_SCHEMA, null, 2),
-    );
-  }
+  // Write pact flat files
+  writeFileSync(join(repoPath, "pact-store", "ask.md"), ASK_PACT);
+  writeFileSync(join(repoPath, "pact-store", "code-review.md"), CODE_REVIEW_PACT);
+  writeFileSync(join(repoPath, "pact-store", "design-pact.md"), DESIGN_PACT);
+  writeFileSync(join(repoPath, "pact-store", "sanity-check.md"), SANITY_CHECK_PACT);
 
   execSync(
     `cd "${repoPath}" && git add -A && git commit -m "seed pacts" && git push`,
@@ -328,45 +324,13 @@ describe("pact_discover: discover available request types and team", () => {
   });
 
   // =========================================================================
-  // Happy Path -- schema.json Preference
+  // Happy Path -- YAML Frontmatter Field Extraction
   // =========================================================================
 
-  it("prefers schema.json for field extraction when schema.json exists", async () => {
+  it("extracts field definitions from YAML frontmatter including optional fields", async () => {
     ctx = createTestRepos();
 
-    await given("the sanity-check pact has both PACT.md and schema.json", () => {
-      seedPacts(ctx.aliceRepo, { includeSchema: true });
-    });
-
-    let result: any;
-
-    await when("Cory's agent calls pact_discover with no query", async () => {
-      const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      result = await server.callTool("pact_discover", {});
-    });
-
-    await thenAssert("the sanity-check entry has context_bundle.fields from schema.json", () => {
-      const sc = result.pacts.find((s: any) => s.name === "sanity-check");
-      expect(sc).toBeDefined();
-      const fieldNames = Object.keys(sc.context_bundle.fields);
-      // schema.json includes zendesk_ticket as a property (even though optional)
-      expect(fieldNames).toEqual(
-        expect.arrayContaining(["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question", "zendesk_ticket"]),
-      );
-    });
-
-    await thenAssert("the sanity-check entry has required fields from schema.json", () => {
-      const sc = result.pacts.find((s: any) => s.name === "sanity-check");
-      expect(sc.context_bundle.required).toEqual(
-        expect.arrayContaining(["customer", "product", "issue_summary"]),
-      );
-    });
-  });
-
-  it("falls back to PACT.md parsing when no schema.json exists", async () => {
-    ctx = createTestRepos();
-
-    await given("the ask pact has PACT.md but no schema.json", () => {
+    await given("the sanity-check pact has YAML frontmatter with required and optional fields", () => {
       seedPacts(ctx.aliceRepo);
     });
 
@@ -377,7 +341,38 @@ describe("pact_discover: discover available request types and team", () => {
       result = await server.callTool("pact_discover", {});
     });
 
-    await thenAssert("the ask entry has context_bundle.fields extracted from PACT.md", () => {
+    await thenAssert("the sanity-check entry has context_bundle.fields from YAML frontmatter", () => {
+      const sc = result.pacts.find((s: any) => s.name === "sanity-check");
+      expect(sc).toBeDefined();
+      const fieldNames = Object.keys(sc.context_bundle.fields);
+      expect(fieldNames).toEqual(
+        expect.arrayContaining(["customer", "product", "issue_summary", "involved_files", "investigation_so_far", "question", "zendesk_ticket"]),
+      );
+    });
+
+    await thenAssert("the sanity-check entry has required fields from YAML frontmatter", () => {
+      const sc = result.pacts.find((s: any) => s.name === "sanity-check");
+      expect(sc.context_bundle.required).toEqual(
+        expect.arrayContaining(["customer", "product", "issue_summary"]),
+      );
+    });
+  });
+
+  it("extracts fields from YAML frontmatter when pact has no schema.json", async () => {
+    ctx = createTestRepos();
+
+    await given("the ask pact has YAML frontmatter", () => {
+      seedPacts(ctx.aliceRepo);
+    });
+
+    let result: any;
+
+    await when("Cory's agent calls pact_discover with no query", async () => {
+      const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+      result = await server.callTool("pact_discover", {});
+    });
+
+    await thenAssert("the ask entry has context_bundle.fields extracted from YAML frontmatter", () => {
       const ask = result.pacts.find((s: any) => s.name === "ask");
       expect(ask).toBeDefined();
       const fieldNames = Object.keys(ask.context_bundle.fields);
@@ -386,7 +381,7 @@ describe("pact_discover: discover available request types and team", () => {
       );
     });
 
-    await thenAssert("the ask entry has has_hooks set to false (no brain processing)", () => {
+    await thenAssert("the ask entry has has_hooks set to false (no hooks in YAML)", () => {
       const ask = result.pacts.find((s: any) => s.name === "ask");
       expect(ask.has_hooks).toBe(false);
     });
@@ -447,12 +442,29 @@ describe("pact_discover: discover available request types and team", () => {
     await given("Alice has a pact catalog and Bob adds a new pact", async () => {
       seedPacts(ctx.aliceRepo);
       // Bob adds a new pact directly to the remote via his clone
-      const pactDir = join(ctx.bobRepo, "pacts", "bug-report");
       execSync(`cd "${ctx.bobRepo}" && git pull --rebase`, { stdio: "pipe" });
-      mkdirSync(pactDir, { recursive: true });
       writeFileSync(
-        join(pactDir, "PACT.md"),
-        `# Bug Report\n\nFile a bug report for triage.\n\n## When To Use\nWhen you find a bug.\n\n## Context Bundle Fields\n| Field | Required | Description |\n|-------|----------|-------------|\n| title | yes | Bug title |\n\n## Response Structure\n| Field | Description |\n|-------|-------------|\n| status | Triage status |\n`,
+        join(ctx.bobRepo, "pact-store", "bug-report.md"),
+        `---
+name: bug-report
+description: File a bug report for triage
+scope: global
+when_to_use:
+  - When you find a bug
+context_bundle:
+  required: [title]
+  fields:
+    title: { type: string, description: "Bug title" }
+response_bundle:
+  required: [status]
+  fields:
+    status: { type: string, description: "Triage status" }
+---
+
+# Bug Report
+
+File a bug report for triage.
+`,
       );
       execSync(
         `cd "${ctx.bobRepo}" && git add -A && git commit -m "add bug-report pact" && git push`,
@@ -507,19 +519,19 @@ describe("pact_discover: discover available request types and team", () => {
   it("excludes hidden directories (dot-prefixed) from pact listing", async () => {
     ctx = createTestRepos();
 
-    await given("the pacts directory has a .hidden directory and a directory ending with dot", () => {
+    await given("the pact-store has a .hidden file and a file ending with dot", () => {
       seedPacts(ctx.aliceRepo);
       // .hidden should be excluded (starts with dot)
-      mkdirSync(join(ctx.aliceRepo, "pacts", ".hidden-pact"), { recursive: true });
+      mkdirSync(join(ctx.aliceRepo, "pact-store", ".hidden-pact"), { recursive: true });
       writeFileSync(
-        join(ctx.aliceRepo, "pacts", ".hidden-pact", "PACT.md"),
-        `# Hidden\n\nShould not appear.\n\n## When To Use\nNever.\n\n## Context Bundle Fields\n| Field | Required |\n|-------|----------|\n| x | yes |\n\n## Response Structure\n| Field | Description |\n|-------|-------------|\n| y | result |\n`,
+        join(ctx.aliceRepo, "pact-store", ".hidden-pact", "secret.md"),
+        `---\nname: hidden\ndescription: Should not appear\nwhen_to_use:\n  - Never\ncontext_bundle:\n  required: [x]\n  fields:\n    x: { type: string, description: "x" }\nresponse_bundle:\n  required: [y]\n  fields:\n    y: { type: string, description: "y" }\n---\n\n# Hidden\n`,
       );
-      // "ends-with-dot." should NOT be excluded (the filter is startsWith, not endsWith)
-      mkdirSync(join(ctx.aliceRepo, "pacts", "ends-with-dot."), { recursive: true });
+      // "ends-with-dot." — write a pact in a directory named "ends-with-dot."
+      mkdirSync(join(ctx.aliceRepo, "pact-store", "ends-with-dot."), { recursive: true });
       writeFileSync(
-        join(ctx.aliceRepo, "pacts", "ends-with-dot.", "PACT.md"),
-        `# Ends With Dot\n\nShould appear.\n\n## When To Use\nAlways.\n\n## Context Bundle Fields\n| Field | Required |\n|-------|----------|\n| z | yes |\n\n## Response Structure\n| Field | Description |\n|-------|-------------|\n| w | result |\n`,
+        join(ctx.aliceRepo, "pact-store", "ends-with-dot.", "visible.md"),
+        `---\nname: ends-with-dot.\ndescription: Should appear\nwhen_to_use:\n  - Always\ncontext_bundle:\n  required: [z]\n  fields:\n    z: { type: string, description: "z" }\nresponse_bundle:\n  required: [w]\n  fields:\n    w: { type: string, description: "w" }\n---\n\n# Ends With Dot\n`,
       );
       execSync(
         `cd "${ctx.aliceRepo}" && git add -A && git commit -m "hidden and dot-end pacts" && git push`,
@@ -541,15 +553,19 @@ describe("pact_discover: discover available request types and team", () => {
     });
   });
 
-  it("silently skips pact directories that have no PACT.md file", async () => {
+  it("silently skips pact-store files that have no YAML frontmatter", async () => {
     ctx = createTestRepos();
 
-    await given("a pact directory exists with no PACT.md", () => {
+    await given("pact-store has a .md file without YAML frontmatter", () => {
       seedPacts(ctx.aliceRepo);
-      mkdirSync(join(ctx.aliceRepo, "pacts", "broken-pact"), { recursive: true });
-      writeFileSync(join(ctx.aliceRepo, "pacts", "broken-pact", ".gitkeep"), "");
+      writeFileSync(
+        join(ctx.aliceRepo, "pact-store", "broken-pact.md"),
+        "# Broken Pact\n\nNo frontmatter at all.\n",
+      );
+      // Also add a non-.md file
+      writeFileSync(join(ctx.aliceRepo, "pact-store", "README.txt"), "Not a pact file");
       execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "broken pact dir" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "broken pact file" && git push`,
         { stdio: "pipe" },
       );
     });

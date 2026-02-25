@@ -212,23 +212,12 @@ function seedYamlPacts(
   repoPath: string,
   opts?: { includeBrain?: boolean },
 ): void {
-  // ask pact (no brain processing)
-  mkdirSync(join(repoPath, "pacts", "ask"), { recursive: true });
-  writeFileSync(join(repoPath, "pacts", "ask", "PACT.md"), ASK_PACT_YAML);
-
-  // sanity-check -- overwrite old markdown format with YAML frontmatter
-  writeFileSync(
-    join(repoPath, "pacts", "sanity-check", "PACT.md"),
-    SANITY_CHECK_PACT_YAML,
-  );
+  // Write to pact-store/ (new flat-file format)
+  writeFileSync(join(repoPath, "pact-store", "ask.md"), ASK_PACT_YAML);
+  writeFileSync(join(repoPath, "pact-store", "sanity-check.md"), SANITY_CHECK_PACT_YAML);
 
   if (opts?.includeBrain) {
-    // code-review pact (with hooks)
-    mkdirSync(join(repoPath, "pacts", "code-review"), { recursive: true });
-    writeFileSync(
-      join(repoPath, "pacts", "code-review", "PACT.md"),
-      CODE_REVIEW_PACT_YAML,
-    );
+    writeFileSync(join(repoPath, "pact-store", "code-review.md"), CODE_REVIEW_PACT_YAML);
   }
 
   execSync(
@@ -414,10 +403,8 @@ describe("pact_discover: discover available request types and team", () => {
       seedYamlPacts(ctx.aliceRepo);
       // Bob adds a new pact directly to the remote via his clone
       execSync(`cd "${ctx.bobRepo}" && git pull --rebase`, { stdio: "pipe" });
-      const pactDir = join(ctx.bobRepo, "pacts", "bug-report");
-      mkdirSync(pactDir, { recursive: true });
       writeFileSync(
-        join(pactDir, "PACT.md"),
+        join(ctx.bobRepo, "pact-store", "bug-report.md"),
         `---
 name: bug-report
 version: "1.0.0"
@@ -578,10 +565,9 @@ File a bug report for triage.
 
     await given("a pact directory exists with no PACT.md", () => {
       seedYamlPacts(ctx.aliceRepo);
-      mkdirSync(join(ctx.aliceRepo, "pacts", "empty-pact"), { recursive: true });
-      writeFileSync(join(ctx.aliceRepo, "pacts", "empty-pact", ".gitkeep"), "");
+      writeFileSync(join(ctx.aliceRepo, "pact-store", "README.txt"), "Not a pact");
       execSync(
-        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "empty pact dir" && git push`,
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "non-md file" && git push`,
         { stdio: "pipe" },
       );
     });
@@ -608,9 +594,8 @@ File a bug report for triage.
 
     await given("a pact has malformed YAML frontmatter alongside valid pacts", () => {
       seedYamlPacts(ctx.aliceRepo);
-      mkdirSync(join(ctx.aliceRepo, "pacts", "broken"), { recursive: true });
       writeFileSync(
-        join(ctx.aliceRepo, "pacts", "broken", "PACT.md"),
+        join(ctx.aliceRepo, "pact-store", "broken.md"),
         MALFORMED_YAML_PACT,
       );
       execSync(
@@ -641,9 +626,8 @@ File a bug report for triage.
 
     await given("the pacts directory has a hidden directory", () => {
       seedYamlPacts(ctx.aliceRepo);
-      mkdirSync(join(ctx.aliceRepo, "pacts", ".hidden-pact"), { recursive: true });
       writeFileSync(
-        join(ctx.aliceRepo, "pacts", ".hidden-pact", "PACT.md"),
+        join(ctx.aliceRepo, "pact-store", ".hidden-pact.md"),
         ASK_PACT_YAML,
       );
       execSync(
@@ -670,9 +654,8 @@ File a bug report for triage.
     ctx = createTestRepos();
 
     await given("the pacts directory contains only .gitkeep", () => {
-      // Remove the default sanity-check pact that createTestRepos adds
       execSync(
-        `cd "${ctx.aliceRepo}" && rm -rf pacts/sanity-check && git add -A && git commit -m "remove pacts" && git push`,
+        `cd "${ctx.aliceRepo}" && rm -f pact-store/sanity-check.md && git add -A && git commit -m "remove pacts" && git push`,
         { stdio: "pipe" },
       );
     });
@@ -698,9 +681,8 @@ File a bug report for triage.
 
     await given("a pact has empty YAML between frontmatter delimiters", () => {
       seedYamlPacts(ctx.aliceRepo);
-      mkdirSync(join(ctx.aliceRepo, "pacts", "empty-yaml"), { recursive: true });
       writeFileSync(
-        join(ctx.aliceRepo, "pacts", "empty-yaml", "PACT.md"),
+        join(ctx.aliceRepo, "pact-store", "empty-yaml.md"),
         "---\n---\n\n# Empty YAML Pact\n",
       );
       execSync(

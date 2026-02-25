@@ -67,6 +67,7 @@ const SANITY_CHECK_SCHEMA = {
 
 /** Add schema.json to the sanity-check pact directory and push. */
 function seedSchemaJson(repoPath: string, schema: Record<string, unknown> = SANITY_CHECK_SCHEMA): void {
+  mkdirSync(join(repoPath, "pacts", "sanity-check"), { recursive: true });
   writeFileSync(
     join(repoPath, "pacts", "sanity-check", "schema.json"),
     JSON.stringify(schema, null, 2),
@@ -182,20 +183,24 @@ describe("schema.json: typed pacts and validation warnings", () => {
   it("skips validation entirely when no schema.json exists for the pact", async () => {
     ctx = createTestRepos();
 
-    await given("the sanity-check pact has PACT.md but no schema.json", () => {
+    await given("the sanity-check pact validates from YAML frontmatter (no schema.json needed)", () => {
       // createTestRepos already sets up sanity-check with just PACT.md
     });
 
     let result: any;
 
-    await when("Alice submits a request with minimal context (no schema to validate against)", async () => {
+    await when("Alice submits a request with all required context fields", async () => {
       const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
       result = await server.callTool("pact_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
         context_bundle: {
+          customer: "Acme Corp",
+          product: "Platform v3.2",
+          issue_summary: "Memory leak",
+          involved_files: "src/auth/refresh.ts",
+          investigation_so_far: "Tokens held by closure",
           question: "Does this look right?",
-          // Missing most fields -- but no schema.json means no validation
         },
       });
     });
@@ -294,6 +299,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
     ctx = createTestRepos();
 
     await given("the sanity-check pact has a malformed schema.json (not valid JSON Schema)", () => {
+      mkdirSync(join(ctx.aliceRepo, "pacts", "sanity-check"), { recursive: true });
       writeFileSync(
         join(ctx.aliceRepo, "pacts", "sanity-check", "schema.json"),
         JSON.stringify({ not_a_real_schema: true }),
@@ -311,7 +317,14 @@ describe("schema.json: typed pacts and validation warnings", () => {
       result = await server.callTool("pact_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
-        context_bundle: { question: "Malformed schema test" },
+        context_bundle: {
+          customer: "Acme Corp",
+          product: "Platform v3.2",
+          issue_summary: "Malformed schema test",
+          involved_files: "src/test.ts",
+          investigation_so_far: "Testing malformed schema handling",
+          question: "Malformed schema test",
+        },
       });
     });
 
@@ -374,6 +387,7 @@ describe("schema.json: typed pacts and validation warnings", () => {
           // No required array
         },
       };
+      mkdirSync(join(ctx.aliceRepo, "pacts", "sanity-check"), { recursive: true });
       writeFileSync(
         join(ctx.aliceRepo, "pacts", "sanity-check", "schema.json"),
         JSON.stringify(schemaNoRequired, null, 2),
@@ -391,7 +405,14 @@ describe("schema.json: typed pacts and validation warnings", () => {
       result = await server.callTool("pact_do", { action: "send",
         request_type: "sanity-check",
         recipient: "bob",
-        context_bundle: { question: "No required array test" },
+        context_bundle: {
+          customer: "Acme Corp",
+          product: "Platform v3.2",
+          issue_summary: "No required array test",
+          involved_files: "src/test.ts",
+          investigation_so_far: "Testing schema without required",
+          question: "No required array test",
+        },
       });
     });
 

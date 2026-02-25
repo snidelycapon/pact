@@ -438,16 +438,41 @@ function parseRegisteredFor(raw: unknown): string[] | undefined {
 }
 
 /**
+ * Load a single pact from the flat-file pact store by name.
+ *
+ * Looks up `pact-store/{name}.md` directly. Returns undefined when
+ * the file doesn't exist or lacks valid YAML frontmatter.
+ */
+export async function loadFlatFilePactByName(
+  file: FilePort,
+  name: string,
+): Promise<PactMetadata | undefined> {
+  return parseFlatFilePact(file, `pact-store/${name}.md`);
+}
+
+/**
  * Convenience function: extract required context field names from
  * YAML frontmatter. Replaces pact-parser's getRequiredContextFields
  * for YAML-based PACT.md files.
  *
- * Returns undefined when PACT.md is missing or lacks valid frontmatter.
+ * Checks flat-file pact-store/ first, then falls back to legacy
+ * pacts/{name}/PACT.md directory format.
+ *
+ * Returns undefined when no pact is found or it lacks valid frontmatter.
  */
 export async function getRequiredContextFieldsFromYaml(
   file: FilePort,
   pactName: string,
 ): Promise<string[] | undefined> {
+  // Try flat-file store first
+  const flatMeta = await parseFlatFilePact(file, `pact-store/${pactName}.md`);
+  if (flatMeta) {
+    return flatMeta.context_bundle.required.length > 0
+      ? flatMeta.context_bundle.required
+      : undefined;
+  }
+
+  // Fall back to legacy directory-per-pact format
   const metadata = await loadPactMetadata(file, pactName);
   if (!metadata) {
     // Last-resort fallback: check schema.json directly (supports

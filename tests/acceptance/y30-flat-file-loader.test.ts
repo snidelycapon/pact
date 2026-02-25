@@ -175,6 +175,11 @@ function seedFlatFilePacts(
   repoPath: string,
   pacts: { path: string; content: string }[],
 ): void {
+  // Clear pact-store/ to remove default pacts from createTestRepos
+  const pactStorePath = join(repoPath, "pact-store");
+  rmSync(pactStorePath, { recursive: true, force: true });
+  mkdirSync(pactStorePath, { recursive: true });
+
   for (const pact of pacts) {
     const fullPath = join(repoPath, "pact-store", pact.path);
     mkdirSync(join(fullPath, ".."), { recursive: true });
@@ -633,9 +638,31 @@ scope: global
   it("falls back to old pacts/ directory when pact-store/ does not exist", async () => {
     ctx = createTestRepos();
 
+    const OLD_FORMAT_PACT = `# Sanity Check
+
+## When To Use
+When you need a colleague to validate your findings.
+
+## Context Bundle Fields
+| Field | Required | Description |
+|-------|----------|-------------|
+| question | yes | Specific question |
+
+## Response Structure
+| Field | Description |
+|-------|-------------|
+| answer | YES / NO / PARTIALLY |
+`;
+
     await given("repo has pacts in old pacts/{name}/PACT.md format only", () => {
-      // createTestRepos already seeds pacts/sanity-check/PACT.md
-      expect(true).toBe(true);
+      // Remove pact-store/ and seed legacy pacts/ directory
+      rmSync(join(ctx.aliceRepo, "pact-store"), { recursive: true, force: true });
+      mkdirSync(join(ctx.aliceRepo, "pacts/sanity-check"), { recursive: true });
+      writeFileSync(join(ctx.aliceRepo, "pacts/sanity-check/PACT.md"), OLD_FORMAT_PACT);
+      execSync(
+        `cd "${ctx.aliceRepo}" && git add -A && git commit -m "switch to old format" && git push`,
+        { stdio: "pipe" },
+      );
     });
 
     let result: any;

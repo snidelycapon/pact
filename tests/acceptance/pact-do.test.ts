@@ -90,7 +90,7 @@ Get a colleague to validate your findings on a bug investigation.
 /** Upgrade the default sanity-check pact to YAML frontmatter format. */
 function upgradePactToYaml(repoPath: string): void {
   writeFileSync(
-    join(repoPath, "pacts", "sanity-check", "PACT.md"),
+    join(repoPath, "pact-store", "sanity-check.md"),
     SANITY_CHECK_PACT_YAML,
   );
   execSync(

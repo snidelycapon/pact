@@ -216,7 +216,7 @@ describe("pact_do(inbox): check inbox for pending requests", () => {
       const inbox = (await bobServer.callTool("pact_do", { action: "inbox" })) as any;
 
       expect(inbox.requests[0].pact_path).toContain(
-        "pacts/sanity-check/PACT.md",
+        "pact-store/sanity-check.md",
       );
     });
   });

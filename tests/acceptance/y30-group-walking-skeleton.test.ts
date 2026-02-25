@@ -96,7 +96,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
 
     await given("team has alice, bob, and carol with a sanity-check pact", async () => {
       expect(fileExists(ctx.aliceRepo, "config.json")).toBe(true);
-      expect(fileExists(ctx.aliceRepo, "pacts/sanity-check/PACT.md")).toBe(true);
+      expect(fileExists(ctx.aliceRepo, "pact-store/sanity-check.md")).toBe(true);
     });
 
     // --- When: Alice sends a group request ---

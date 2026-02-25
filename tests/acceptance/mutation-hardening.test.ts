@@ -188,6 +188,11 @@ function seedFlatFilePacts(
   repoPath: string,
   pacts: { path: string; content: string }[],
 ): void {
+  // Clear pact-store/ to remove default pacts from createTestRepos
+  const pactStorePath = join(repoPath, "pact-store");
+  rmSync(pactStorePath, { recursive: true, force: true });
+  mkdirSync(pactStorePath, { recursive: true });
+
   for (const pact of pacts) {
     const fullPath = join(repoPath, "pact-store", pact.path);
     mkdirSync(join(fullPath, ".."), { recursive: true });

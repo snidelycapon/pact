@@ -47,31 +47,39 @@ const TEST_CONFIG = {
 };
 
 /**
- * Minimal sanity-check pact file for tests.
+ * Minimal sanity-check pact file for tests (flat-file YAML frontmatter format).
+ *
+ * Required context fields match what pact-schema and enrichment tests expect.
  */
-const TEST_PACT = `# Sanity Check
+const TEST_PACT = `---
+name: sanity-check
+description: Validate findings on a bug investigation
+version: "1.0.0"
+scope: global
+when_to_use:
+  - You need a colleague to validate your findings on a bug investigation
+context_bundle:
+  required: [customer, product, issue_summary, involved_files, investigation_so_far, question]
+  fields:
+    customer: { type: string, description: "Customer name" }
+    product: { type: string, description: "Product name and version" }
+    issue_summary: { type: string, description: "Brief description of the issue" }
+    involved_files: { type: string, description: "Files examined" }
+    investigation_so_far: { type: string, description: "What you have found" }
+    question: { type: string, description: "Specific question for the reviewer" }
+    zendesk_ticket: { type: string, description: "Related Zendesk ticket ID" }
+response_bundle:
+  required: [answer]
+  fields:
+    answer: { type: string, description: "YES / NO / PARTIALLY with explanation" }
+    evidence: { type: string, description: "What you compared or examined" }
+    concerns: { type: string, description: "Any risks or caveats" }
+    recommendation: { type: string, description: "Suggested next step" }
+---
 
-## When To Use
-When you need a colleague to validate your findings on a bug investigation.
+# Sanity Check
 
-## Context Bundle Fields
-| Field | Required | Description |
-|-------|----------|-------------|
-| customer | yes | Customer name |
-| product | yes | Product name and version |
-| issue_summary | yes | Brief description of the issue |
-| involved_files | yes | Files examined |
-| investigation_so_far | yes | What you have found |
-| question | yes | Specific question for the reviewer |
-| zendesk_ticket | no | Related Zendesk ticket ID |
-
-## Response Structure
-| Field | Description |
-|-------|-------------|
-| answer | YES / NO / PARTIALLY with brief explanation |
-| evidence | What you compared or examined |
-| concerns | Any risks or caveats |
-| recommendation | Suggested next step |
+Validate findings on a bug investigation.
 `;
 
 /**
@@ -102,7 +110,7 @@ export function createTestRepos(): TestRepoContext {
     "requests/completed",
     "requests/cancelled",
     "responses",
-    "pacts/sanity-check",
+    "pact-store",
   ];
   for (const dir of dirs) {
     mkdirSync(join(aliceRepo, dir), { recursive: true });
@@ -113,7 +121,6 @@ export function createTestRepos(): TestRepoContext {
     "requests/completed/.gitkeep",
     "requests/cancelled/.gitkeep",
     "responses/.gitkeep",
-    "pacts/.gitkeep",
   ]) {
     writeFileSync(join(aliceRepo, gk), "");
   }
@@ -121,7 +128,7 @@ export function createTestRepos(): TestRepoContext {
     join(aliceRepo, "config.json"),
     JSON.stringify(TEST_CONFIG, null, 2),
   );
-  writeFileSync(join(aliceRepo, "pacts/sanity-check/PACT.md"), TEST_PACT);
+  writeFileSync(join(aliceRepo, "pact-store/sanity-check.md"), TEST_PACT);
 
   execSync(
     [

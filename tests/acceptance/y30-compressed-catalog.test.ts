@@ -20,7 +20,7 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
@@ -97,6 +97,11 @@ function seedFlatFilePacts(
   repoPath: string,
   pacts: { path: string; content: string }[],
 ): void {
+  // Clear pact-store/ to remove default pacts from createTestRepos
+  const pactStorePath = join(repoPath, "pact-store");
+  rmSync(pactStorePath, { recursive: true, force: true });
+  mkdirSync(pactStorePath, { recursive: true });
+
   for (const pact of pacts) {
     const fullPath = join(repoPath, "pact-store", pact.path);
     mkdirSync(join(fullPath, ".."), { recursive: true });
@@ -270,6 +275,7 @@ describe("Compressed catalog and scope filtering (pact-y30)", () => {
     ctx = createTestRepos();
 
     await given("pact-store is empty", () => {
+      rmSync(join(ctx.aliceRepo, "pact-store"), { recursive: true, force: true });
       mkdirSync(join(ctx.aliceRepo, "pact-store"), { recursive: true });
       writeFileSync(join(ctx.aliceRepo, "pact-store", ".gitkeep"), "");
       execSync(

@@ -10,7 +10,7 @@
 
 import type { GitPort, FilePort } from "../ports.ts";
 import { RequestEnvelopeSchema } from "../schemas.ts";
-import { loadPactMetadata } from "../pact-loader.ts";
+import { loadFlatFilePactByName, loadPactMetadata } from "../pact-loader.ts";
 import type { PactMetadata } from "../pact-loader.ts";
 import { log } from "../logger.ts";
 
@@ -106,7 +106,7 @@ export async function handlePactInbox(
           (bundle.question as string) ??
           (bundle.issue_summary as string) ??
           "No summary",
-        pact_path: `${ctx.repoPath}/pacts/${envelope.request_type}/PACT.md`,
+        pact_path: `${ctx.repoPath}/pact-store/${envelope.request_type}.md`,
         attachment_count: envelope.attachments?.length ?? 0,
         amendment_count: envelope.amendments?.length ?? 0,
         ...(envelope.attachments && envelope.attachments.length > 0
@@ -121,11 +121,14 @@ export async function handlePactInbox(
   }
 
   // 4. Enrich entries with pact metadata (cached per request_type)
+  //    Try flat-file pact-store/ first, fall back to legacy pacts/ directory
   const pactCache = new Map<string, PactMetadata | null>();
   for (const entry of entries) {
     if (!pactCache.has(entry.request_type)) {
       try {
-        const metadata = await loadPactMetadata(ctx.file, entry.request_type);
+        const metadata =
+          await loadFlatFilePactByName(ctx.file, entry.request_type) ??
+          await loadPactMetadata(ctx.file, entry.request_type);
         pactCache.set(entry.request_type, metadata ?? null);
       } catch {
         pactCache.set(entry.request_type, null);

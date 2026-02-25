@@ -82,23 +82,20 @@ cmd_new() {
     "$repo_path/requests/completed" \
     "$repo_path/requests/cancelled" \
     "$repo_path/responses" \
-    "$repo_path/pacts"
+    "$repo_path/pact-store"
 
   # .gitkeep files
   for dir in requests/pending requests/active requests/completed requests/cancelled responses; do
     touch "$repo_path/$dir/.gitkeep"
   done
 
-  # Seed with example pacts
-  local examples_pacts="$PACT_ROOT/examples/pacts"
-  if [[ -d "$examples_pacts" ]]; then
-    for pact_dir in "$examples_pacts"/*/; do
-      local pact_name="$(basename "$pact_dir")"
-      cp -R "$pact_dir" "$repo_path/pacts/$pact_name"
-    done
+  # Seed with default pacts from pact-store/
+  local pact_store="$PACT_ROOT/pact-store"
+  if [[ -d "$pact_store" ]]; then
+    cp "$pact_store"/*.md "$repo_path/pact-store/"
   else
-    echo "Warning: Could not find example pacts at $examples_pacts. Seeding empty pacts directory."
-    touch "$repo_path/pacts/.gitkeep"
+    echo "Warning: Could not find pact-store at $pact_store. Seeding empty pact-store directory."
+    touch "$repo_path/pact-store/.gitkeep"
   fi
 
   # config.json
@@ -136,10 +133,10 @@ CONF
   if ! git -C "$repo_path" remote get-url origin &>/dev/null; then
     echo "  1. Add a remote:  git -C $repo_path remote add origin <url>"
     echo "  2. Push:          git -C $repo_path push -u origin main"
-    echo "  3. Add pacts to pacts/<type>/PACT.md"
+    echo "  3. Add pacts to pact-store/<type>.md"
     echo "  4. Configure your MCP source with PACT_REPO=$repo_path"
   else
-    echo "  1. Add pacts to pacts/<type>/PACT.md"
+    echo "  1. Add pacts to pact-store/<type>.md"
     echo "  2. Configure your MCP source with PACT_REPO=$repo_path"
   fi
 }
