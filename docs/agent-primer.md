@@ -20,22 +20,24 @@ You have access to PACT, a git-backed protocol for async requests between humans
 
 | Action | Purpose | Key fields |
 |--------|---------|------------|
-| `send` | Send a request | `request_type`, `recipient` or `recipients[]`, `context_bundle`, optional: `deadline`, `thread_id`, `group_ref`, `attachments[]` |
+| `send` | Send a request | `request_type`, `recipient` or `recipients[]`, `context_bundle`, optional: `deadline`, `thread_id`, `group_ref`, `attachments[]`. Omit `context_bundle` to get the pact schema back (compose mode). |
 | `inbox` | Check your inbox | *(none)* |
 | `respond` | Respond to a request | `request_id`, `response_bundle` |
 | `check_status` | Check a sent request | `request_id` |
 | `view_thread` | View conversation history | `thread_id` |
 | `amend` | Update a pending request | `request_id`, `fields`, optional: `note` |
 | `cancel` | Cancel a pending request | `request_id`, optional: `reason` |
-| `subscribe` | Subscribe to a list inbox | `recipient` (the list ID, e.g. `+backend-team`) |
+| `subscribe` | Subscribe to a list inbox | `recipient` (the list ID, e.g. `+backend-team`). Omit to list current subscriptions. |
+| `unsubscribe` | Unsubscribe from a list inbox | `recipient` (the list ID to remove). Omit to list current subscriptions. |
 
 ### Workflow
 
 1. **Discover** — Call `pact_discover` to see what pact types are available.
 2. **Pick a pact** — Read the pact's `when_to_use` and field definitions. Choose the right one.
-3. **Send** — Address any user or group by their ID string. Compose `context_bundle` per the pact, then `pact_do` with `action: "send"`.
-4. **Check inbox** — Periodically call `pact_do` with `action: "inbox"`. You see requests addressed to your user ID or any inbox you're subscribed to.
-5. **Respond** — Read the request, compose `response_bundle` per the pact definition, then `pact_do` with `action: "respond"`.
+3. **Compose (optional)** — If you need the full pact schema, call `pact_do` with `action: "send"` and `request_type` but omit `context_bundle`. PACT returns the pact's fields, defaults, and response structure so you can construct the bundle correctly.
+4. **Send** — Address any user or group by their ID string. Compose `context_bundle` per the pact, then `pact_do` with `action: "send"`.
+5. **Check inbox** — Periodically call `pact_do` with `action: "inbox"`. You see requests addressed to your user ID or any inbox you're subscribed to.
+6. **Respond** — Read the request, compose `response_bundle` per the pact definition, then `pact_do` with `action: "respond"`.
 
 ### Addressing & Subscriptions
 

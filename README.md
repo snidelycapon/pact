@@ -88,6 +88,8 @@ PACT exposes two MCP tools:
 | `check_status` | Check the status of a request |
 | `view_thread` | View the full history of a request thread |
 | `cancel` | Cancel a pending request you sent |
+| `subscribe` | Subscribe to an inbox (e.g. `+backend-team`) |
+| `unsubscribe` | Unsubscribe from an inbox |
 | `amend` | Amend a pending request you sent |
 
 ## Environment Variables
@@ -95,7 +97,9 @@ PACT exposes two MCP tools:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PACT_REPO` | Yes | -- | Absolute path to local clone of the shared PACT git repo |
-| `PACT_USER` | Yes | -- | Your user ID, must match an entry in config.json |
+| `PACT_USER` | Yes | -- | Your user ID (lowercase, hyphens-for-spaces) |
+| `PACT_CONFIG` | No | `~/.pact.json` | Path to local user config file (identity + subscriptions) |
+| `PACT_DISPLAY_NAME` | No | `PACT_USER` | Display name (used when no config file exists) |
 | `PACT_LOG_LEVEL` | No | `info` | Log verbosity: `debug`, `info`, `error` |
 
 ## Development
@@ -113,7 +117,7 @@ The shared git repo follows this layout:
 
 ```
 pact-team/
-  config.json              # Team membership
+  config.json              # Team metadata (team_name, members)
   pact-store/              # Pact definitions (flat .md files with YAML frontmatter)
     ask.md
     review.md
@@ -121,6 +125,7 @@ pact-team/
     ...
   requests/
     pending/               # New requests awaiting response
+    active/                # Claimed / in-progress requests
     completed/             # Responded requests
     cancelled/             # Cancelled requests
   responses/               # Response data keyed by request ID
@@ -133,3 +138,21 @@ pact-team/
 ```
 
 Request lifecycle: `pending/` -> `completed/` (via respond) or `pending/` -> `cancelled/` (via cancel). Requests support multiple recipients, threading (`thread_id`), amendments, and file attachments.
+
+### User Config (`~/.pact.json`)
+
+Each user has a local config file (default `~/.pact.json`, override with `PACT_CONFIG`) that stores identity and subscriptions:
+
+```json
+{
+  "user_id": "alice",
+  "display_name": "Alice",
+  "subscriptions": ["+backend-team", "+on-call"]
+}
+```
+
+Subscriptions control which requests appear in your inbox -- any request addressed to a subscribed ID is visible alongside requests addressed to you directly. IDs starting with `+` are a naming convention for subscribable lists/groups.
+
+### Two-Phase Send (Compose Mode)
+
+The `send` action supports a two-phase workflow. When you provide `request_type` but omit `context_bundle`, PACT returns the pact's schema (fields, defaults, response structure) instead of sending. This lets agents discover pact structure in the first phase and construct a complete request in the second.
