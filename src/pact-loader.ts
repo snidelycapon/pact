@@ -46,6 +46,7 @@ export interface PactMetadata {
   multi_round?: boolean;
   attachments?: AttachmentSlot[];
   registered_for?: string[];
+  subject_hint?: string;
   /** @internal Used during inheritance resolution, stripped from output. */
   extends?: string;
 }
@@ -102,6 +103,9 @@ export async function loadPactMetadata(
     const responseBundle = parseBundleSpec(parsed.response_bundle);
     const hasHooks = parsed.hooks != null;
 
+    const subjectHint =
+      typeof parsed.subject_hint === "string" ? parsed.subject_hint : undefined;
+
     return {
       name,
       version,
@@ -110,6 +114,7 @@ export async function loadPactMetadata(
       context_bundle: contextBundle,
       response_bundle: responseBundle,
       has_hooks: hasHooks,
+      ...(subjectHint ? { subject_hint: subjectHint } : {}),
     };
   }
 
@@ -288,6 +293,9 @@ function mergeChildOverParent(
     ...(child.registered_for ?? parent.registered_for
       ? { registered_for: child.registered_for ?? parent.registered_for }
       : {}),
+    ...(child.subject_hint ?? parent.subject_hint
+      ? { subject_hint: child.subject_hint ?? parent.subject_hint }
+      : {}),
   };
 
   // extends is NOT included — consumed by resolution
@@ -388,6 +396,8 @@ async function parseFlatFilePact(
   const registeredFor = parseRegisteredFor(parsed.registered_for);
   const extendsParent =
     typeof parsed.extends === "string" ? parsed.extends : undefined;
+  const subjectHint =
+    typeof parsed.subject_hint === "string" ? parsed.subject_hint : undefined;
 
   return {
     name,
@@ -402,6 +412,7 @@ async function parseFlatFilePact(
     ...(multiRound !== undefined ? { multi_round: multiRound } : {}),
     ...(attachments ? { attachments } : {}),
     ...(registeredFor ? { registered_for: registeredFor } : {}),
+    ...(subjectHint ? { subject_hint: subjectHint } : {}),
     ...(extendsParent ? { extends: extendsParent } : {}),
   };
 }

@@ -4,6 +4,8 @@ description: Transfer ownership of in-progress work
 version: "1.0.0"
 scope: global
 
+subject_hint: "What's being handed off"
+
 when_to_use:
   - You're handing off work you started but can't or shouldn't finish
   - Ownership needs to transfer cleanly with full context
@@ -34,6 +36,7 @@ response_bundle:
 
 **Request:**
 ```yaml
+subject: "User table MySQL→PostgreSQL migration"
 context_bundle:
   work_item: "Migration of user table from MySQL to PostgreSQL"
   current_state: "Schema is translated and tested. Data migration script is written but untested against production volume. Dual-write is not implemented yet."

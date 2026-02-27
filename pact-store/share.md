@@ -4,6 +4,8 @@ description: Push context to someone, no action required
 version: "1.0.0"
 scope: global
 
+subject_hint: "What's being shared"
+
 when_to_use:
   - You want someone to have information without expecting them to act
   - You're sharing a decision, status update, or context that affects their work
@@ -34,6 +36,7 @@ defaults:
 
 **Request:**
 ```yaml
+subject: "v1 auth endpoint deprecation notice"
 context_bundle:
   what: "We're deprecating the v1 authentication endpoint on March 15. The v2 endpoint is live now with the same contract except tokens include a `scope` claim."
   why_it_matters: "Your billing service calls v1 auth. It will break after March 15."

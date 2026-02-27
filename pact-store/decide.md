@@ -4,6 +4,8 @@ description: Collective decision with structured options
 version: "1.0.0"
 scope: global
 
+subject_hint: "The decision, briefly"
+
 when_to_use:
   - A decision needs input from multiple people before committing
   - You want independent opinions that aren't influenced by each other
@@ -39,6 +41,7 @@ defaults:
 
 **Request:**
 ```yaml
+subject: "Message broker for event-driven migration"
 context_bundle:
   decision: "Which message broker for the event-driven migration?"
   options:

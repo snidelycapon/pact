@@ -30,6 +30,7 @@ export interface InboxEntry {
   request_type: string;
   sender: string;
   created_at: string;
+  subject?: string;
   summary: string;
   pact_path: string;
   attachment_count: number;
@@ -46,6 +47,7 @@ export interface InboxThreadGroup {
   thread_id: string;
   request_type: string;
   sender: string;
+  subject?: string;
   round_count: number;
   latest_request_id: string;
   latest_short_id: string;
@@ -112,6 +114,10 @@ export async function handlePactInbox(
       const bundle = envelope.context_bundle as Record<string, unknown>;
       const parts = envelope.request_id.split("-");
       const shortId = parts.slice(-2).join("-");
+      const summary = envelope.subject
+        ?? (bundle.question as string)
+        ?? (bundle.issue_summary as string)
+        ?? "No summary";
       entries.push({
         request_id: envelope.request_id,
         short_id: shortId,
@@ -119,10 +125,8 @@ export async function handlePactInbox(
         request_type: envelope.request_type,
         sender: envelope.sender.display_name,
         created_at: envelope.created_at,
-        summary:
-          (bundle.question as string) ??
-          (bundle.issue_summary as string) ??
-          "No summary",
+        ...(envelope.subject ? { subject: envelope.subject } : {}),
+        summary,
         pact_path: `${ctx.repoPath}/pact-store/${envelope.request_type}.md`,
         attachment_count: envelope.attachments?.length ?? 0,
         amendment_count: envelope.amendments?.length ?? 0,
@@ -202,6 +206,7 @@ function groupByThread(
         thread_id: key,
         request_type: latest.request_type,
         sender: latest.sender,
+        ...(latest.subject ? { subject: latest.subject } : {}),
         round_count: group.length,
         latest_request_id: latest.request_id,
         latest_short_id: latest.short_id,

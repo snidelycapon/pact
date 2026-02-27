@@ -4,6 +4,8 @@ description: Structured feedback with blocking/advisory split
 version: "1.0.0"
 scope: global
 
+subject_hint: "What's being reviewed"
+
 when_to_use:
   - You have an artifact that needs structured feedback before proceeding
   - You want to distinguish blocking issues from nice-to-haves
@@ -37,6 +39,7 @@ defaults:
 
 **Round 1 — Request:**
 ```yaml
+subject: "PR #247 — Rate limiting middleware"
 context_bundle:
   artifact: "PR #247 — Add rate limiting middleware to API gateway"
   focus_areas:

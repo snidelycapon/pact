@@ -27,6 +27,7 @@ export interface AttachmentInput {
 
 export interface PactRequestParams {
   request_type: string;
+  subject?: string;
   recipient?: string;
   recipients?: string[];
   group_ref?: string;
@@ -64,6 +65,7 @@ export interface ComposeResult {
   defaults?: Record<string, unknown>;
   multi_round?: boolean;
   attachments?: AttachmentSlot[];
+  subject_hint?: string;
 }
 
 export async function handlePactRequest(
@@ -125,6 +127,7 @@ export async function handlePactRequest(
   const envelope: Record<string, unknown> = {
     request_id: requestId,
     thread_id: threadId,
+    ...(params.subject ? { subject: params.subject } : {}),
     request_type: params.request_type,
     sender,
     recipient: recipientRefs[0], // backward compat: first recipient for old readers
@@ -155,8 +158,9 @@ export async function handlePactRequest(
     : `[${recipientIds.join(",")}]`;
   await ctx.file.writeJSON(`requests/pending/${requestId}.json`, envelope);
   await ctx.git.add(filesToAdd);
+  const subjectTag = params.subject ? ` "${params.subject}"` : "";
   await ctx.git.commit(
-    `[pact] new request: ${requestId} (${params.request_type}) -> ${recipientLabel}`,
+    `[pact] new request: ${requestId} (${params.request_type})${subjectTag} -> ${recipientLabel}`,
   );
   await ctx.git.push();
 
@@ -207,5 +211,6 @@ async function loadComposeResponse(
     ...(pact.defaults ? { defaults: pact.defaults } : {}),
     ...(pact.multi_round !== undefined ? { multi_round: pact.multi_round } : {}),
     ...(pact.attachments ? { attachments: pact.attachments } : {}),
+    ...(pact.subject_hint ? { subject_hint: pact.subject_hint } : {}),
   };
 }

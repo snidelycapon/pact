@@ -4,6 +4,8 @@ description: Async status round across a group
 version: "1.0.0"
 scope: global
 
+subject_hint: "Topic of the check-in"
+
 when_to_use:
   - You want a status update from multiple people or agents
   - You're running an async standup or progress check
@@ -37,6 +39,7 @@ defaults:
 
 **Request:**
 ```yaml
+subject: "Sprint 14 mid-week standup"
 context_bundle:
   topic: "Sprint 14 mid-week check-in"
   questions:

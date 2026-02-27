@@ -49,6 +49,7 @@ export type AmendmentEntry = z.infer<typeof AmendmentEntrySchema>;
 export const RequestEnvelopeSchema = z.object({
   request_id: z.string(),
   thread_id: z.string().optional(),
+  subject: z.string().optional(),
   request_type: z.string(),
   sender: UserRefSchema,
   recipient: UserRefSchema.optional(),

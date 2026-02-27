@@ -4,6 +4,8 @@ description: Get input that unblocks current work
 version: "1.0.0"
 scope: global
 
+subject_hint: "Brief summary of the question"
+
 when_to_use:
   - You have a specific question that blocks your current task
   - You need another person or agent's perspective to proceed
@@ -32,6 +34,7 @@ response_bundle:
 
 **Request:**
 ```yaml
+subject: "Redis vs PG advisory locks for rate limiter"
 context_bundle:
   question: "Should we use Redis or PostgreSQL advisory locks for the distributed rate limiter?"
   background: "We need sub-10ms lock acquisition. Current stack is PostgreSQL 16 + Node.js. No Redis instance exists yet."

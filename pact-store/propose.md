@@ -4,6 +4,8 @@ description: Workshop an idea through structured iteration
 version: "1.0.0"
 scope: global
 
+subject_hint: "The proposal, in one line"
+
 when_to_use:
   - You have an idea or approach that needs refinement before committing
   - You want structured feedback that evolves the proposal across rounds
@@ -36,6 +38,7 @@ response_bundle:
 
 **Round 1 — Request:**
 ```yaml
+subject: "Replace REST gateway with GraphQL federation"
 context_bundle:
   proposal: "Replace our REST API gateway with GraphQL federation across 3 services."
   goal: "Reduce frontend data-fetching round trips from 4 to 1 per page load."

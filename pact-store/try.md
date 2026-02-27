@@ -4,6 +4,8 @@ description: Hands-on testing — try something out and report what happened
 version: "1.0.0"
 scope: global
 
+subject_hint: "What to try"
+
 when_to_use:
   - You want someone to actually run, use, or experience something you built
   - You need validation that it works outside your own machine or environment
@@ -48,6 +50,7 @@ Unlike `request` (which is delegation with a deliverable), `try` is about *exper
 
 **Request:**
 ```yaml
+subject: "Kanban board drag-and-drop"
 context_bundle:
   what_to_try: "New drag-and-drop kanban board in my task manager app. Cards should reorder within columns and move between columns smoothly."
   how_to_access: "Branch: feat/kanban-dnd — clone and run `pnpm dev`, opens on localhost:3000. Hit the 'Board' tab."

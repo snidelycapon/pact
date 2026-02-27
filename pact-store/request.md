@@ -4,6 +4,8 @@ description: Ask someone to do something and deliver a result
 version: "1.0.0"
 scope: global
 
+subject_hint: "What needs to be done, in one line"
+
 when_to_use:
   - You need someone to perform a specific task and deliver a result
   - The work has clear completion criteria
@@ -37,6 +39,7 @@ defaults:
 
 **Request:**
 ```yaml
+subject: "Integration tests for payment webhook handler"
 context_bundle:
   what: "Write integration tests for the payment webhook handler covering success, idempotency, and signature verification failure."
   done_when: "Tests pass in CI and cover all 3 scenarios with assertions on side effects."

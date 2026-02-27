@@ -4,6 +4,8 @@ description: Share work-in-progress and get honest reactions, ideas, or remixes
 version: "1.0.0"
 scope: global
 
+subject_hint: "What you're sharing"
+
 when_to_use:
   - You want a peer's honest take on something you're building
   - Feedback is creative or subjective — not a formal review with blocking issues
@@ -49,6 +51,7 @@ The key difference from `review`: there's no approval gate. The recipient isn't 
 
 **Request:**
 ```yaml
+subject: "Landing page design for CLI tool"
 context_bundle:
   the_thing: "Landing page for my CLI tool. Screenshot attached, plus the CSS and main TSX component if you want to poke at it."
   going_for: "Developer-tool energy — dark theme, monospace accents, but not cold or intimidating. Should feel like a sharp tool, not a corporate product page."
