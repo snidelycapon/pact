@@ -21,11 +21,14 @@
  * Error/edge scenarios: 6 of 17 total (35%)
  */
 
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
 import {
   createTestRepos,
   listDir,
   readRepoJSON,
+  readRepoFile,
   fileExists,
   lastCommitMessage,
   gitPull,
@@ -481,6 +484,176 @@ describe("pact_do(send): submit a PACT request", () => {
       ).rejects.toThrow(/no pact found.*nonexistent-pact/i);
     });
   });
+
+  // =========================================================================
+  // Path-based Attachments (binary-safe)
+  // =========================================================================
+
+  it("attaches a file by absolute path, copying it binary-safe into the repo", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    // Create a test file outside the repo to attach
+    const externalFile = join(ctx.basePath, "external-log.txt");
+    writeFileSync(externalFile, "line 1\nline 2\nline 3\n");
+
+    let requestId: string;
+
+    await when("Alice submits a request with a path-based attachment", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Check these logs" },
+        attachments: [
+          { path: externalFile, description: "External log file" },
+        ],
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("the file is copied into the attachments directory", async () => {
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/external-log.txt`)).toBe(true);
+      const content = readRepoFile(ctx.aliceRepo, `attachments/${requestId}/external-log.txt`);
+      expect(content.toString("utf-8")).toBe("line 1\nline 2\nline 3\n");
+    });
+
+    await thenAssert("envelope has metadata with inferred filename", async () => {
+      const envelope = readRepoJSON<{ attachments?: Array<{ filename: string; description: string }> }>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect(envelope.attachments).toHaveLength(1);
+      expect(envelope.attachments![0]).toEqual({
+        filename: "external-log.txt",
+        description: "External log file",
+      });
+    });
+  });
+
+  it("attaches a binary file by path without corruption", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    // Create a binary file (fake PNG header + random bytes)
+    const binaryFile = join(ctx.basePath, "image.png");
+    const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    const randomBytes = Buffer.alloc(64);
+    for (let i = 0; i < 64; i++) randomBytes[i] = Math.floor(Math.random() * 256);
+    const binaryContent = Buffer.concat([pngHeader, randomBytes]);
+    writeFileSync(binaryFile, binaryContent);
+
+    let requestId: string;
+
+    await when("Alice submits a request with a binary attachment", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Check this screenshot" },
+        attachments: [
+          { path: binaryFile, description: "UI screenshot" },
+        ],
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("the binary file is copied without corruption", async () => {
+      const stored = readRepoFile(ctx.aliceRepo, `attachments/${requestId}/image.png`);
+      expect(Buffer.compare(stored, binaryContent)).toBe(0);
+    });
+
+    await thenAssert("the file reaches the remote via git push", async () => {
+      gitPull(ctx.bobRepo);
+      const stored = readRepoFile(ctx.bobRepo, `attachments/${requestId}/image.png`);
+      expect(Buffer.compare(stored, binaryContent)).toBe(0);
+    });
+  });
+
+  it("allows overriding the filename when using path-based attachment", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    const externalFile = join(ctx.basePath, "ugly-name-v2-final-FINAL.log");
+    writeFileSync(externalFile, "log content here");
+
+    let requestId: string;
+
+    await when("Alice submits with a path attachment and custom filename", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Renamed attachment test" },
+        attachments: [
+          { path: externalFile, filename: "server.log", description: "Production log" },
+        ],
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("the file is stored with the overridden filename", async () => {
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/server.log`)).toBe(true);
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/ugly-name-v2-final-FINAL.log`)).toBe(false);
+    });
+  });
+
+  it("supports mixed content-based and path-based attachments in the same request", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    const externalFile = join(ctx.basePath, "config.yml");
+    writeFileSync(externalFile, "env: production\nreplicas: 3");
+
+    let requestId: string;
+
+    await when("Alice submits with both content and path attachments", async () => {
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "sanity-check",
+        recipient: "bob",
+        context_bundle: { question: "Mixed attachments test" },
+        attachments: [
+          { filename: "notes.txt", content: "These are inline notes", description: "Inline notes" },
+          { path: externalFile, description: "Deploy config" },
+        ],
+      })) as { request_id: string };
+      requestId = result.request_id;
+    });
+
+    await thenAssert("both attachments exist on disk", async () => {
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/notes.txt`)).toBe(true);
+      expect(fileExists(ctx.aliceRepo, `attachments/${requestId}/config.yml`)).toBe(true);
+    });
+
+    await thenAssert("envelope has metadata for both", async () => {
+      const envelope = readRepoJSON<{ attachments?: Array<{ filename: string; description: string }> }>(
+        ctx.aliceRepo,
+        `requests/pending/${requestId}.json`,
+      );
+      expect(envelope.attachments).toHaveLength(2);
+      expect(envelope.attachments![0].filename).toBe("notes.txt");
+      expect(envelope.attachments![1].filename).toBe("config.yml");
+    });
+  });
+
+  it("rejects attachment with neither content nor path", async () => {
+    ctx = createTestRepos();
+    const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
+
+    await when("Alice submits with an empty attachment", async () => {
+      await expect(
+        server.callTool("pact_do", { action: "send",
+          request_type: "sanity-check",
+          recipient: "bob",
+          context_bundle: { question: "Bad attachment test" },
+          attachments: [
+            { filename: "empty.txt", description: "No content or path" },
+          ],
+        }),
+      ).rejects.toThrow(/content.*path/i);
+    });
+  });
+
+  // =========================================================================
+  // Compose Mode (two-phase send)
+  // =========================================================================
 
   it("compose-mode response excludes send-only fields (request_id, thread_id, status)", async () => {
     ctx = createTestRepos();

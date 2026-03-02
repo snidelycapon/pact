@@ -5,7 +5,7 @@
  * automatically when writing. Directory listings exclude .gitkeep files.
  */
 
-import { readFile, writeFile, readdir, rename, mkdir, access } from "node:fs/promises";
+import { readFile, writeFile, copyFile, readdir, rename, mkdir, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import type { FilePort } from "../ports.ts";
 
@@ -32,6 +32,12 @@ export class FileAdapter implements FilePort {
     const fullPath = join(this.repoPath, path);
     await mkdir(dirname(fullPath), { recursive: true });
     await writeFile(fullPath, content, "utf-8");
+  }
+
+  async copyFileIn(absoluteSource: string, repoRelativeDest: string): Promise<void> {
+    const fullDest = join(this.repoPath, repoRelativeDest);
+    await mkdir(dirname(fullDest), { recursive: true });
+    await copyFile(absoluteSource, fullDest);
   }
 
   async listDirectory(path: string): Promise<string[]> {

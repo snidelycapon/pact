@@ -25,7 +25,7 @@ export interface GitPort {
 }
 
 // ---------------------------------------------------------------------------
-// ConfigPort -- reads local user configuration (~/.pact.json)
+// ConfigPort -- manages user identity and repo-stored subscriptions
 // ---------------------------------------------------------------------------
 
 export interface ConfigPort {
@@ -42,6 +42,8 @@ export interface FilePort {
   writeJSON(path: string, data: unknown): Promise<void>;
   readText(path: string): Promise<string>;
   writeText(path: string, content: string): Promise<void>;
+  /** Copy an external absolute path into the repo (binary-safe). */
+  copyFileIn(absoluteSource: string, repoRelativeDest: string): Promise<void>;
   listDirectory(path: string): Promise<string[]>;
   fileExists(path: string): Promise<boolean>;
   moveFile(from: string, to: string): Promise<void>;

@@ -13,6 +13,7 @@
  * (lowercase, hyphens-for-spaces).
  */
 
+import { basename } from "node:path";
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
 import { generateRequestId } from "../request-id.ts";
 import { getRequiredContextFieldsFromYaml, loadFlatFilePactByName, loadPactMetadata } from "../pact-loader.ts";
@@ -20,9 +21,13 @@ import type { PactMetadata, BundleSpec, AttachmentSlot } from "../pact-loader.ts
 import { normalizeId } from "../normalize.ts";
 
 export interface AttachmentInput {
-  filename: string;
-  description: string;
-  content: string;
+  /** Filename stored in the repo. Defaults to basename of path when path is used. */
+  filename?: string;
+  description?: string;
+  /** Provide content as a string (text files, agent-generated content). */
+  content?: string;
+  /** Provide an absolute local file path (any file type, binary-safe). */
+  path?: string;
 }
 
 export interface PactRequestParams {
@@ -122,8 +127,24 @@ export async function handlePactRequest(
   const sender = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
   const requestId = generateRequestId(ctx.userId);
-  const attachmentMeta = params.attachments?.map(({ filename, description }) => ({ filename, description }));
   const threadId = params.thread_id ?? requestId;
+
+  // Resolve attachment inputs → metadata (for envelope) + write plan (for disk)
+  const resolvedAttachments = params.attachments?.map((att) => {
+    if (!att.content && !att.path) {
+      throw new Error("Attachment must have either 'content' or 'path'");
+    }
+    const rawName = att.filename ?? (att.path ? basename(att.path) : undefined);
+    if (!rawName) {
+      throw new Error("Attachment must have a 'filename' or a 'path' to derive one from");
+    }
+    // Sanitize: strip any directory components to prevent path traversal
+    const filename = basename(rawName);
+    return { ...att, filename, description: att.description ?? "" };
+  });
+
+  const attachmentMeta = resolvedAttachments?.map(({ filename, description }) => ({ filename, description }));
+
   const envelope: Record<string, unknown> = {
     request_id: requestId,
     thread_id: threadId,
@@ -145,11 +166,17 @@ export async function handlePactRequest(
   }
 
   const filesToAdd = [`requests/pending/${requestId}.json`];
-  if (params.attachments?.length) {
-    for (const attachment of params.attachments) {
-      const attachmentPath = `attachments/${requestId}/${attachment.filename}`;
-      await ctx.file.writeText(attachmentPath, attachment.content);
-      filesToAdd.push(attachmentPath);
+  if (resolvedAttachments?.length) {
+    for (const attachment of resolvedAttachments) {
+      const destPath = `attachments/${requestId}/${attachment.filename}`;
+      if (attachment.path) {
+        // Binary-safe: copy file from absolute path on disk
+        await ctx.file.copyFileIn(attachment.path, destPath);
+      } else {
+        // Text content provided as string
+        await ctx.file.writeText(destPath, attachment.content!);
+      }
+      filesToAdd.push(destPath);
     }
   }
 

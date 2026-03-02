@@ -29,7 +29,8 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
@@ -410,10 +411,11 @@ describe("pact_respond: submit a response to a request", () => {
 
     await when("Bob (subscribed to +backend-team) responds", async () => {
       gitPull(ctx.bobRepo);
+      mkdirSync(join(ctx.bobRepo, "members"), { recursive: true });
+      writeFileSync(join(ctx.bobRepo, "members/bob.json"), JSON.stringify({ subscriptions: ["+backend-team"] }));
       const bobServer = createPactServer({
         repoPath: ctx.bobRepo,
         userId: "bob",
-        subscriptions: ["+backend-team"],
       });
 
       const result = await bobServer.callTool("pact_do", { action: "respond",

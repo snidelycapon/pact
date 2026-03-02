@@ -227,6 +227,11 @@ export function fileExists(repoPath: string, filePath: string): boolean {
   return existsSync(join(repoPath, filePath));
 }
 
+/** Read raw file content from the repo as a Buffer. */
+export function readRepoFile(repoPath: string, filePath: string): Buffer {
+  return readFileSync(join(repoPath, filePath));
+}
+
 /** Get the most recent git commit message from the repo. */
 export function lastCommitMessage(repoPath: string): string {
   return execSync(`cd "${repoPath}" && git log -1 --format=%s`, {

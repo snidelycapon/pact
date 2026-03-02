@@ -4,8 +4,8 @@
  * Removes an ID from the user's subscription list. If the ID is not
  * currently subscribed, this is a no-op (idempotent).
  *
- * Persists the change to ~/.pact.json (or PACT_CONFIG path) so it
- * survives server restarts.
+ * Persists the change to members/{user_id}.json in the pact repo
+ * and commits + pushes so subscriptions are shared and versioned.
  */
 
 import type { ConfigPort } from "../ports.ts";

@@ -5,8 +5,8 @@
  * which requests appear in the inbox — any request addressed to a
  * subscribed ID is visible alongside requests addressed to the user directly.
  *
- * Persists the change to ~/.pact.json (or PACT_CONFIG path) so it
- * survives server restarts.
+ * Persists the change to members/{user_id}.json in the pact repo
+ * and commits + pushes so subscriptions are shared and versioned.
  */
 
 import type { ConfigPort } from "../ports.ts";

@@ -21,14 +21,11 @@ import { log } from "./logger.ts";
 import { handlePactDiscover } from "./tools/pact-discover.ts";
 import type { PactDiscoverParams } from "./tools/pact-discover.ts";
 import { handlePactDo } from "./tools/pact-do.ts";
-import type { UserConfig } from "./schemas.ts";
 
 export interface McpServerConfig {
   repoPath: string;
   userId: string;
   displayName: string;
-  subscriptions: string[];
-  configPath?: string;
 }
 
 /**
@@ -41,12 +38,6 @@ export function createMcpServer(config: McpServerConfig): McpServer {
 
   const server = new McpServer({ name: "PACT", version: "1.0.0" });
 
-  const userConfig: UserConfig = {
-    user_id: config.userId,
-    display_name: config.displayName,
-    subscriptions: config.subscriptions,
-  };
-
   // Lazily-initialized adapters (git validates directory at construction)
   let git: GitAdapter | undefined;
   let configAdapter: ConfigAdapter | undefined;
@@ -55,8 +46,13 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   function ensureAdapters() {
     if (!git) {
       git = new GitAdapter(config.repoPath);
-      configAdapter = new ConfigAdapter(userConfig, config.configPath);
       file = new FileAdapter(config.repoPath);
+      configAdapter = new ConfigAdapter(
+        config.userId,
+        config.displayName,
+        file,
+        git,
+      );
     }
   }
 
@@ -105,19 +101,21 @@ export function createMcpServer(config: McpServerConfig): McpServer {
     {
       action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe"),
       request_type: z.string().optional().describe("The type of request (for send action)"),
+      subject: z.string().optional().describe("One-line human-readable summary of the request (for send action, like an email subject)"),
       recipient: z.string().optional().describe("The user_id of the recipient (for send action, single-recipient backward compat). For subscribe/unsubscribe: the ID to add/remove. Omit to list current subscriptions."),
       recipients: z.array(z.string()).optional().describe("Array of user_id strings (for send action, group addressing)"),
-      group_ref: z.string().optional().describe("Optional group reference label (for send action, e.g. '+backend-team')"),
+      group_ref: z.string().optional().describe("Optional group reference label (for send action, e.g. 'backend-team')"),
       context_bundle: z.record(z.string(), z.any()).optional().describe("Flexible context payload (for send action)"),
       request_id: z.string().optional().describe("The request ID (for respond, cancel, amend, check_status actions)"),
       response_bundle: z.record(z.string(), z.any()).optional().describe("Flexible response payload (for respond action)"),
       thread_id: z.string().optional().describe("Thread ID (for send or view_thread actions)"),
       deadline: z.string().optional().describe("Optional ISO 8601 deadline (for send action)"),
       attachments: z.array(z.object({
-        filename: z.string().describe("Filename for the attachment"),
-        description: z.string().describe("What this file is and what it's for"),
-        content: z.string().describe("File content as text"),
-      })).optional().describe("Optional file attachments (for send action)"),
+        filename: z.string().optional().describe("Filename for the attachment (defaults to basename of path)"),
+        description: z.string().optional().describe("What this file is and what it's for"),
+        content: z.string().optional().describe("File content as text (for agent-generated content)"),
+        path: z.string().optional().describe("Absolute local file path to attach (binary-safe, any file type). Takes precedence over content if both provided."),
+      })).optional().describe("Optional file attachments (for send action). Each attachment needs content or path."),
       fields: z.record(z.string(), z.any()).optional().describe("Fields to add or update (for amend action)"),
       note: z.string().optional().describe("Optional note (for amend action)"),
       reason: z.string().optional().describe("Optional reason (for cancel action)"),

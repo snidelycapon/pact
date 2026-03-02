@@ -27,7 +27,8 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 
@@ -742,10 +743,11 @@ describe("pact_do(inbox): check inbox for pending requests", () => {
     });
 
     await when("Bob checks inbox with subscription to 'backend-team'", async () => {
+      mkdirSync(join(ctx.bobRepo, "members"), { recursive: true });
+      writeFileSync(join(ctx.bobRepo, "members/bob.json"), JSON.stringify({ subscriptions: ["backend-team"] }));
       const bobServer = createPactServer({
         repoPath: ctx.bobRepo,
         userId: "bob",
-        subscriptions: ["backend-team"],
       });
       const inbox = (await bobServer.callTool("pact_do", { action: "inbox" })) as any;
 

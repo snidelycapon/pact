@@ -81,7 +81,7 @@ export const ResponseEnvelopeSchema = z.object({
 export type ResponseEnvelope = z.infer<typeof ResponseEnvelopeSchema>;
 
 // ---------------------------------------------------------------------------
-// User Configuration (local ~/.pact.json)
+// User Configuration (identity from env vars, subscriptions from repo)
 // ---------------------------------------------------------------------------
 
 export const UserConfigSchema = z.object({
