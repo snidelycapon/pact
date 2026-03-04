@@ -4,6 +4,9 @@
   "description": "Protocol for Agent Context Transfer — async MCP server for human+agent coordination",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "pact": "dist/cli.js"
+  },
   "scripts": {
     "build": "bun run build.ts",
     "test": "vitest run",
