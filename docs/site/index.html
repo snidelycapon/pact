@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PACT — Protocol for Agent Context Transfer</title>
+  <meta name="description" content="Structured async work requests between people and their workspaces, backed by git.">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-dim: #1f6feb;
+      --green: #3fb950;
+      --code-bg: #1c2128;
+      --max-w: 720px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-title {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .header-links { display: flex; gap: 1.5rem; font-size: 0.875rem; }
+    .header-links a { color: var(--text-muted); }
+    .header-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* Hero */
+    .hero {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 4rem 2rem 3rem;
+    }
+    .hero h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+    .hero .subtitle {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+    .hero .pitch {
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Sections */
+    section {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 2rem 3rem;
+    }
+    section h2 {
+      font-size: 1.375rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    section p, section li {
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    section strong { color: var(--text); }
+    section ul { list-style: none; padding: 0; }
+    section ul li::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin-right: 0.75rem;
+      vertical-align: middle;
+    }
+
+    /* Feature pills */
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+    .pill strong { color: var(--accent); }
+
+    /* Steps */
+    .steps {
+      display: grid;
+      gap: 1rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .step-num {
+      display: inline-block;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--accent-dim);
+      color: #fff;
+      border-radius: 50%;
+      text-align: center;
+      font-size: 0.75rem;
+      line-height: 1.5rem;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .step strong { color: var(--text); }
+    .step span { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Catalog */
+    .catalog-grid {
+      display: grid;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .catalog-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .catalog-item:hover { border-color: var(--accent); }
+    .catalog-item.active { border-color: var(--accent); }
+    .catalog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+    }
+    .catalog-name {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .catalog-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .catalog-arrow {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      transition: transform 0.15s;
+    }
+    .catalog-item.active .catalog-arrow { transform: rotate(90deg); }
+    .catalog-detail {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 1rem;
+    }
+    .catalog-item.active .catalog-detail { display: block; }
+
+    /* YAML blocks inside catalog */
+    .catalog-detail pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      margin: 0.5rem 0;
+      color: var(--text-muted);
+    }
+    .catalog-detail h4 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 1rem;
+      margin-bottom: 0.25rem;
+    }
+    .catalog-detail h4:first-child { margin-top: 0; }
+    .catalog-detail p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .catalog-detail .field-list {
+      display: grid;
+      gap: 0.25rem;
+      margin: 0.5rem 0;
+    }
+    .field {
+      font-size: 0.8rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .field-name {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      color: var(--green);
+      min-width: 10rem;
+    }
+    .field-desc { color: var(--text-muted); }
+    .field-req { color: var(--accent); font-size: 0.7rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      background: var(--accent-dim);
+      color: #fff;
+      margin-left: 0.5rem;
+    }
+
+    /* Interfaces */
+    .interfaces {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+    .iface {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .iface strong { color: var(--text); }
+    .iface span { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Code block */
+    .tree {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+      overflow-x: auto;
+      margin: 1rem 0 1.5rem;
+    }
+    .tree .dir { color: var(--accent); }
+    .tree .comment { color: var(--text-muted); }
+
+    /* CTA */
+    .cta {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .cta p { color: var(--text-muted); margin-bottom: 0.75rem; }
+    .cta code {
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.85rem;
+    }
+
+    /* Footer */
+    .footer {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 600px) {
+      .hero { padding: 2rem 1.25rem 2rem; }
+      .hero h1 { font-size: 1.75rem; }
+      section { padding: 0 1.25rem 2rem; }
+      .field-name { min-width: auto; }
+      .field { flex-direction: column; gap: 0.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-title">PACT</span>
+  <div class="header-links">
+    <a href="#catalog">Catalog</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="https://github.com/snidelycapon/pact">GitHub</a>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>Protocol for Agent Context Transfer</h1>
+  <p class="subtitle">Structured async work requests, backed by git.</p>
+
+  <p class="pitch">You're in the middle of some work. You need a code review, a second opinion, or a sanity check. You tell your agent to send a review pact to a colleague. It already has the context from what you've been working on &mdash; it drafts the request, presents it to you for a look, and syncs it over.</p>
+
+  <p class="pitch">On the other side, your colleague sees a clear subject and request type. Their agent sees a structured context bundle with everything it needs to help them respond. The handoff between your workspace and theirs just happened without anyone copy-pasting, context-switching, or writing a summary from scratch.</p>
+</div>
+
+<section>
+  <h2>Why PACT</h2>
+  <p>People work with agents now. Each person has their own editor, their own agents, their own way of getting things done &mdash; a workspace that's part human judgment and part machine capability. The problem is getting work <em>between</em> those workspaces without losing context or creating busywork.</p>
+
+  <p>PACT gives your team a shared catalog of request types &mdash; code reviews, handoffs, proposals, status check-ins &mdash; each defining what context to provide and what response to expect. The human decides what needs to happen. The agent drafts the request from the work context it already has. On the other side, the recipient's agent has structured context to help them do the work, and the response comes back in the shape everyone agreed on.</p>
+
+  <div class="features">
+    <div class="pill"><strong>Workspace-agnostic</strong> &mdash; connects workspaces, not tools</div>
+    <div class="pill"><strong>Agent-native</strong> &mdash; structured bundles for both humans and agents</div>
+    <div class="pill"><strong>Git transport</strong> &mdash; no infra, no accounts, no vendor</div>
+  </div>
+</section>
+
+<section id="catalog">
+  <h2>Pact catalog</h2>
+  <p>Each pact definition is a markdown file with YAML frontmatter describing context fields, response fields, guidance, and when to use it. A small team might use the built-in types as-is. A larger org might have hundreds encoding how they actually work. Click any type to see its structure.</p>
+
+  <div class="catalog-grid" id="catalog-grid">
+    <!-- Populated by JS -->
+  </div>
+
+  <p style="margin-top: 1rem;">Add your own by dropping <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">.md</code> files into <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact-store/</code>. Variant inheritance lets you specialize &mdash; <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">review--security.md</code> inherits from <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">review.md</code>.</p>
+</section>
+
+<section id="how-it-works">
+  <h2>How it works</h2>
+  <div class="tree">
+<span class="dir">pact-repo/</span>
+  <span class="dir">pact-store/</span>              <span class="comment">Pact definitions &mdash; your team's catalog</span>
+    ask.md
+    review.md
+    review--security.md
+    ...
+  <span class="dir">requests/</span>
+    <span class="dir">pending/</span>               <span class="comment">Requests awaiting response</span>
+    <span class="dir">completed/</span>             <span class="comment">Responded requests</span>
+  <span class="dir">responses/</span>               <span class="comment">Response data keyed by request ID</span>
+  </div>
+
+  <div class="steps">
+    <div class="step"><span class="step-num">1</span><strong>Browse the catalog</strong> <span>&mdash; your agent shows you what request types your team has defined</span></div>
+    <div class="step"><span class="step-num">2</span><strong>Send a request</strong> <span>&mdash; tell your agent what you need and who to send it to; it drafts the request from your work context</span></div>
+    <div class="step"><span class="step-num">3</span><strong>Check your inbox</strong> <span>&mdash; see what's waiting for you, with your agent ready to help</span></div>
+    <div class="step"><span class="step-num">4</span><strong>Respond</strong> <span>&mdash; your agent has the structured context to help you do the work; approve the response and it syncs back</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Interfaces</h2>
+  <div class="interfaces">
+    <div class="iface"><strong>MCP server</strong> <span>&mdash; Two tools (<code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact_discover</code> and <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact_do</code>) for any MCP-compatible host &mdash; Claude Code, Cursor, Windsurf, and more.</span></div>
+    <div class="iface"><strong>VS Code extension</strong> <span>&mdash; Sidebar with inbox, catalog, request detail, and send/respond forms.</span></div>
+    <div class="iface"><strong>CLI</strong> <span>&mdash; <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact inbox</code> and <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact poll --watch</code> for terminal users.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Get started</h2>
+  <div class="cta">
+    <p>Ask your AI agent to use the <strong>Pact Setup</strong> skill and follow along.<br>It will detect your environment, walk you through configuration, and verify the connection.</p>
+    <p style="font-size: 0.85rem;"><a href="https://github.com/snidelycapon/pact">View on GitHub</a></p>
+  </div>
+</section>
+
+<div class="footer">
+  PACT is a dumb pipe with a catalog. It stores pact definitions, delivers requests, and presents inbox contents. That's it.<br>
+  MIT License &middot; <a href="https://github.com/snidelycapon/pact">GitHub</a>
+</div>
+
+<script>
+const pacts = [
+  {
+    name: "ask",
+    desc: "Get input that unblocks current work",
+    when: ["You have a specific question that blocks your current task", "You need another person or agent's perspective to proceed"],
+    context: [
+      { name: "question", desc: "The question — be specific and actionable", req: true },
+      { name: "background", desc: "Context the recipient needs to answer well" },
+      { name: "options_considered", desc: "What you already considered and why it's insufficient" }
+    ],
+    response: [
+      { name: "answer", desc: "Direct answer to the question", req: true },
+      { name: "reasoning", desc: "Why this answer, briefly" },
+      { name: "caveats", desc: "Conditions or exceptions to the answer" }
+    ]
+  },
+  {
+    name: "check-in",
+    desc: "Async status round across a group",
+    when: ["You want a status update from multiple people or agents", "You're running an async standup or progress check"],
+    context: [
+      { name: "topic", desc: "What the check-in is about", req: true },
+      { name: "questions", desc: "Specific questions each respondent should answer" },
+      { name: "deadline", desc: "When responses are needed by" }
+    ],
+    response: [
+      { name: "status", desc: "on-track / at-risk / blocked / done", req: true },
+      { name: "update", desc: "What happened since last check-in" },
+      { name: "blockers", desc: "Current blockers, if any" },
+      { name: "next", desc: "What you'll do before the next check-in" }
+    ]
+  },
+  {
+    name: "decide",
+    desc: "Collective decision with structured options",
+    when: ["A decision needs input from multiple people before committing", "You want independent opinions that aren't influenced by each other"],
+    context: [
+      { name: "decision", desc: "The decision to be made — frame as a question", req: true },
+      { name: "options", desc: "The options under consideration, with brief pros/cons", req: true },
+      { name: "criteria", desc: "What matters most when choosing" },
+      { name: "deadline", desc: "When the decision needs to be made" },
+      { name: "context", desc: "Background that informs the decision" }
+    ],
+    response: [
+      { name: "choice", desc: "Which option the respondent recommends", req: true },
+      { name: "rationale", desc: "Why this option, against the criteria", req: true },
+      { name: "conditions", desc: "Conditions that must hold for this choice to work" },
+      { name: "dissent", desc: "What makes you hesitate about your own recommendation" }
+    ]
+  },
+  {
+    name: "handoff",
+    desc: "Transfer ownership of in-progress work",
+    when: ["You're handing off work you started but can't or shouldn't finish", "Ownership needs to transfer cleanly with full context"],
+    context: [
+      { name: "work_item", desc: "What's being handed off — be specific", req: true },
+      { name: "current_state", desc: "Where the work stands right now", req: true },
+      { name: "next_steps", desc: "What needs to happen next, in order", req: true },
+      { name: "gotchas", desc: "Pitfalls, blockers, or non-obvious context" },
+      { name: "references", desc: "Links, files, or docs the recipient needs" }
+    ],
+    response: [
+      { name: "accepted", desc: "Whether the recipient accepts the handoff", req: true },
+      { name: "questions", desc: "Clarifying questions before starting" },
+      { name: "revised_plan", desc: "Any changes to next_steps the recipient plans" }
+    ]
+  },
+  {
+    name: "propose",
+    desc: "Workshop an idea through structured iteration",
+    multi: true,
+    when: ["You have an idea that needs refinement before committing", "The idea is too complex for a single ask/answer exchange"],
+    context: [
+      { name: "proposal", desc: "The idea or approach — state it concretely", req: true },
+      { name: "goal", desc: "What success looks like if adopted" },
+      { name: "constraints", desc: "Hard constraints the proposal must satisfy" },
+      { name: "open_questions", desc: "Areas where you want pushback or alternatives" },
+      { name: "round", desc: "Current iteration number, starting at 1" }
+    ],
+    response: [
+      { name: "assessment", desc: "viable / needs-work / rethink", req: true },
+      { name: "strengths", desc: "What works well in the proposal" },
+      { name: "concerns", desc: "Issues to address, with severity" },
+      { name: "suggested_changes", desc: "Concrete modifications to improve" },
+      { name: "ready", desc: "true if the proposal is ready to act on" }
+    ]
+  },
+  {
+    name: "request",
+    desc: "Ask someone to do something and deliver a result",
+    when: ["You need someone to perform a specific task", "The work has clear completion criteria"],
+    context: [
+      { name: "what", desc: "What needs to be done — specific and actionable", req: true },
+      { name: "done_when", desc: "How to know the work is complete", req: true },
+      { name: "deadline", desc: "When it needs to be done by" },
+      { name: "background", desc: "Context that helps the recipient do the work" }
+    ],
+    response: [
+      { name: "status", desc: "done / blocked / declined", req: true },
+      { name: "result", desc: "The deliverable or outcome", req: true },
+      { name: "blockers", desc: "What's blocking, if status is blocked" },
+      { name: "notes", desc: "Anything the requester should know" }
+    ]
+  },
+  {
+    name: "review",
+    desc: "Structured feedback with blocking/advisory split",
+    multi: true,
+    when: ["You have an artifact that needs structured feedback", "You want to distinguish blocking issues from nice-to-haves"],
+    context: [
+      { name: "artifact", desc: "What to review — describe or link to it", req: true },
+      { name: "focus_areas", desc: "Specific areas to focus feedback on", req: true },
+      { name: "context", desc: "Why this artifact exists and what it's trying to achieve" },
+      { name: "round", desc: "Review round number, starting at 1" }
+    ],
+    response: [
+      { name: "verdict", desc: "approve / request-changes / comment", req: true },
+      { name: "must_change", desc: "Blocking issues that must be addressed", req: true },
+      { name: "suggestions", desc: "Non-blocking improvements, take-or-leave", req: true },
+      { name: "praise", desc: "What's done well — reinforce good patterns" }
+    ]
+  },
+  {
+    name: "riff",
+    desc: "Share work-in-progress and get honest reactions",
+    multi: true,
+    when: ["You want a peer's honest take on something you're building", "You're open to the other person riffing on it — making variants, wild ideas"],
+    context: [
+      { name: "the_thing", desc: "What you're sharing — describe, link, or screenshot it", req: true },
+      { name: "going_for", desc: "The intent, vibe, or goal", req: true },
+      { name: "questions", desc: "Specific things you want reactions on" },
+      { name: "have_at_it", desc: "What you're inviting them to do — make variants, tweak, try a different approach" }
+    ],
+    response: [
+      { name: "impressions", desc: "Honest reaction — what hits, what feels off", req: true },
+      { name: "ideas", desc: "Riffs and tangents — alternatives, unexpected directions" },
+      { name: "variants", desc: "If they made something — a remix, tweak, or sketch" },
+      { name: "steal_this", desc: "Something from their own work that might be relevant" }
+    ]
+  },
+  {
+    name: "share",
+    desc: "Push context to someone, no action required",
+    when: ["You want someone to have information without expecting them to act", "You're sharing a decision, update, or context that affects their work"],
+    context: [
+      { name: "what", desc: "The information being shared", req: true },
+      { name: "why_it_matters", desc: "Why the recipient should care" },
+      { name: "action_if_any", desc: "Optional action the recipient might take" }
+    ],
+    response: [
+      { name: "acknowledged", desc: "Whether the recipient acknowledged receipt" },
+      { name: "follow_up", desc: "Any follow-up the recipient wants to raise" }
+    ],
+    note: "Response is optional"
+  },
+  {
+    name: "try",
+    desc: "Hands-on testing — try something out and report what happened",
+    multi: true,
+    when: ["You want someone to actually run, use, or experience something you built", "You need validation outside your own environment"],
+    context: [
+      { name: "what_to_try", desc: "What to test — a feature, build, tool, or workflow", req: true },
+      { name: "how_to_access", desc: "How to get it running — URL, branch, install steps" },
+      { name: "focus_on", desc: "Specific things to exercise or pay attention to" },
+      { name: "known_issues", desc: "What's already broken — saves filing known bugs" },
+      { name: "setup", desc: "Environment expectations — OS, deps, config needed" }
+    ],
+    response: [
+      { name: "findings", desc: "What happened — what worked and what didn't", req: true },
+      { name: "bugs", desc: "Specific issues with reproduction steps" },
+      { name: "friction", desc: "Not broken, but confusing, slow, or awkward" },
+      { name: "impressions", desc: "Overall feel — what was it like to actually use this?" }
+    ]
+  }
+];
+
+function renderField(f) {
+  return `<div class="field">
+    <span class="field-name">${f.name}${f.req ? ' <span class="field-req">required</span>' : ''}</span>
+    <span class="field-desc">${f.desc}</span>
+  </div>`;
+}
+
+function renderPact(p) {
+  const multiTag = p.multi ? '<span class="badge">multi-round</span>' : '';
+  const noteTag = p.note ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;font-style:italic">${p.note}</p>` : '';
+
+  return `<div class="catalog-item" onclick="this.classList.toggle('active')">
+    <div class="catalog-header">
+      <div><span class="catalog-name">${p.name}</span>${multiTag}<br><span class="catalog-desc">${p.desc}</span></div>
+      <span class="catalog-arrow">&#9654;</span>
+    </div>
+    <div class="catalog-detail">
+      <h4>When to use</h4>
+      ${p.when.map(w => `<p>&bull; ${w}</p>`).join('')}
+      <h4>Context bundle (what you send)</h4>
+      <div class="field-list">${p.context.map(renderField).join('')}</div>
+      <h4>Response bundle (what you get back)</h4>
+      <div class="field-list">${p.response.map(renderField).join('')}</div>
+      ${noteTag}
+    </div>
+  </div>`;
+}
+
+document.getElementById('catalog-grid').innerHTML = pacts.map(renderPact).join('');
+</script>
+
+</body>
+</html>
