@@ -102,21 +102,29 @@
       vertical-align: middle;
     }
 
-    /* Feature pills */
+    /* Feature list */
     .features {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
       gap: 0.75rem;
-      margin-bottom: 2rem;
+      margin: 1.5rem 0 2rem;
     }
-    .pill {
+    .feature {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      gap: 1rem;
+      align-items: baseline;
     }
-    .pill strong { color: var(--accent); }
+    .feature-name {
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+      min-width: 10rem;
+      font-size: 0.9rem;
+    }
+    .feature-desc { color: var(--text-muted); font-size: 0.9rem; }
 
     /* Steps */
     .steps {
@@ -235,16 +243,6 @@
     }
     .field-desc { color: var(--text-muted); }
     .field-req { color: var(--accent); font-size: 0.7rem; }
-    .badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      padding: 0.1rem 0.4rem;
-      border-radius: 3px;
-      background: var(--accent-dim);
-      color: #fff;
-      margin-left: 0.5rem;
-    }
-
     /* Interfaces */
     .interfaces {
       display: grid;
@@ -256,9 +254,17 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 1rem 1.25rem;
+      display: flex;
+      gap: 1rem;
+      align-items: baseline;
     }
-    .iface strong { color: var(--text); }
-    .iface span { color: var(--text-muted); font-size: 0.9rem; }
+    .iface-name {
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      min-width: 7rem;
+    }
+    .iface-desc { color: var(--text-muted); font-size: 0.9rem; }
 
     /* Code block */
     .tree {
@@ -310,6 +316,8 @@
       section { padding: 0 1.25rem 2rem; }
       .field-name { min-width: auto; }
       .field { flex-direction: column; gap: 0.1rem; }
+      .feature, .iface { flex-direction: column; gap: 0.25rem; }
+      .feature-name, .iface-name { min-width: auto; }
     }
   </style>
 </head>
@@ -340,9 +348,9 @@
   <p>PACT gives your team a shared catalog of request types &mdash; code reviews, handoffs, proposals, status check-ins &mdash; each defining what context to provide and what response to expect. The human decides what needs to happen. The agent drafts the request from the work context it already has. On the other side, the recipient's agent has structured context to help them do the work, and the response comes back in the shape everyone agreed on.</p>
 
   <div class="features">
-    <div class="pill"><strong>Workspace-agnostic</strong> &mdash; connects workspaces, not tools</div>
-    <div class="pill"><strong>Agent-native</strong> &mdash; structured bundles for both humans and agents</div>
-    <div class="pill"><strong>Git transport</strong> &mdash; no infra, no accounts, no vendor</div>
+    <div class="feature"><span class="feature-name">Workspace-agnostic</span><span class="feature-desc">Connects workspaces, not tools. Everyone uses whatever editor, agents, and workflow they already have.</span></div>
+    <div class="feature"><span class="feature-name">Agent-native</span><span class="feature-desc">Requests carry structured context bundles for agents alongside human-readable subjects and descriptions.</span></div>
+    <div class="feature"><span class="feature-name">Git transport</span><span class="feature-desc">No infrastructure to run, no accounts to create, no vendor to depend on. Pull to sync, push to deliver.</span></div>
   </div>
 </section>
 
@@ -383,9 +391,9 @@
 <section>
   <h2>Interfaces</h2>
   <div class="interfaces">
-    <div class="iface"><strong>MCP server</strong> <span>&mdash; Two tools (<code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact_discover</code> and <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact_do</code>) for any MCP-compatible host &mdash; Claude Code, Cursor, Windsurf, and more.</span></div>
-    <div class="iface"><strong>VS Code extension</strong> <span>&mdash; Sidebar with inbox, catalog, request detail, and send/respond forms.</span></div>
-    <div class="iface"><strong>CLI</strong> <span>&mdash; <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact inbox</code> and <code style="background:var(--code-bg);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85rem">pact poll --watch</code> for terminal users.</span></div>
+    <div class="iface"><span class="iface-name">MCP server</span><span class="iface-desc">Two tools (pact_discover and pact_do) for any MCP-compatible host &mdash; Claude Code, Cursor, Windsurf, and more.</span></div>
+    <div class="iface"><span class="iface-name">VS Code extension</span><span class="iface-desc">Sidebar with inbox, catalog, request detail, and send/respond forms.</span></div>
+    <div class="iface"><span class="iface-name">CLI</span><span class="iface-desc">pact inbox and pact poll --watch for terminal users who want inbox notifications without an editor.</span></div>
   </div>
 </section>
 
@@ -473,7 +481,7 @@ const pacts = [
   {
     name: "propose",
     desc: "Workshop an idea through structured iteration",
-    multi: true,
+
     when: ["You have an idea that needs refinement before committing", "The idea is too complex for a single ask/answer exchange"],
     context: [
       { name: "proposal", desc: "The idea or approach — state it concretely", req: true },
@@ -510,7 +518,7 @@ const pacts = [
   {
     name: "review",
     desc: "Structured feedback with blocking/advisory split",
-    multi: true,
+
     when: ["You have an artifact that needs structured feedback", "You want to distinguish blocking issues from nice-to-haves"],
     context: [
       { name: "artifact", desc: "What to review — describe or link to it", req: true },
@@ -528,7 +536,7 @@ const pacts = [
   {
     name: "riff",
     desc: "Share work-in-progress and get honest reactions",
-    multi: true,
+
     when: ["You want a peer's honest take on something you're building", "You're open to the other person riffing on it — making variants, wild ideas"],
     context: [
       { name: "the_thing", desc: "What you're sharing — describe, link, or screenshot it", req: true },
@@ -561,7 +569,7 @@ const pacts = [
   {
     name: "try",
     desc: "Hands-on testing — try something out and report what happened",
-    multi: true,
+
     when: ["You want someone to actually run, use, or experience something you built", "You need validation outside your own environment"],
     context: [
       { name: "what_to_try", desc: "What to test — a feature, build, tool, or workflow", req: true },
@@ -587,12 +595,11 @@ function renderField(f) {
 }
 
 function renderPact(p) {
-  const multiTag = p.multi ? '<span class="badge">multi-round</span>' : '';
   const noteTag = p.note ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;font-style:italic">${p.note}</p>` : '';
 
   return `<div class="catalog-item" onclick="this.classList.toggle('active')">
     <div class="catalog-header">
-      <div><span class="catalog-name">${p.name}</span>${multiTag}<br><span class="catalog-desc">${p.desc}</span></div>
+      <div><span class="catalog-name">${p.name}</span><br><span class="catalog-desc">${p.desc}</span></div>
       <span class="catalog-arrow">&#9654;</span>
     </div>
     <div class="catalog-detail">
