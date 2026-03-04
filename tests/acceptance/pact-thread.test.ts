@@ -130,7 +130,7 @@ describe("pact_thread: view thread history", () => {
       expect(entries[0].response).toBeDefined();
       const summary = result.summary as Record<string, unknown>;
       expect(summary.round_count).toBe(1);
-      expect(summary.latest_status).toBe("completed");
+      expect(summary.latest_status).toBe("pending");
     });
   });
 

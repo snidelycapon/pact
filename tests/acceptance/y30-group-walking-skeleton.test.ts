@@ -164,7 +164,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
           recommendation: "Apply finally-block cleanup",
         },
       })) as { status: string };
-      expect(response.status).toBe("completed");
+      expect(response.status).toBe("pending");
     });
 
     // --- Then: per-respondent response file exists ---
@@ -191,7 +191,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
           recommendation: "Add TTL to cache entries before applying cleanup",
         },
       })) as { status: string };
-      expect(response.status).toBe("completed");
+      expect(response.status).toBe("pending");
     });
 
     // --- Then: both responses visible ---
@@ -209,7 +209,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
         action: "check_status",
         request_id: requestId,
       })) as any;
-      expect(status.status).toBe("completed");
+      expect(status.status).toBe("pending");
       // Should have responses from both bob and carol
       const responses = Array.isArray(status.responses) ? status.responses : [status.response];
       const responderIds = responses.map((r: any) => r.responder.user_id);
@@ -293,7 +293,7 @@ describe("Walking Skeleton: group request round-trip (pact-y30)", () => {
         request_id: requestId,
         response_bundle: { answer: "Looks good" },
       })) as { status: string };
-      expect(response.status).toBe("completed");
+      expect(response.status).toBe("pending");
     });
 
     await thenAssert("response stored in per-respondent directory format", async () => {

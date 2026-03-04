@@ -3,7 +3,7 @@
  *
  * Creates an McpServer instance with the 2 collapsed PACT tools registered:
  *   - pact_discover: pact catalog discovery
- *   - pact_do: unified action dispatch (send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe)
+ *   - pact_do: unified action dispatch (send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe)
  *
  * Used by:
  * - src/index.ts (production: connects to StdioServerTransport)
@@ -50,11 +50,12 @@ You have access to PACT, a git-backed protocol for async requests between humans
 |--------|---------|------------|
 | \`send\` | Send a request | \`request_type\`, \`recipient\` or \`recipients[]\`, \`context_bundle\`, optional: \`deadline\`, \`thread_id\`, \`group_ref\`, \`attachments[]\`. Omit \`context_bundle\` to get the pact schema back (compose mode). |
 | \`inbox\` | Check your inbox | *(none)* |
-| \`respond\` | Respond to a request | \`request_id\`, \`response_bundle\` |
+| \`respond\` | Respond to a request (writes response only — does NOT change status) | \`request_id\`, \`response_bundle\` |
+| \`edit\` | Edit a request envelope (change status, move between directories, update fields) | \`request_id\`, optional: \`fields\`, \`move_to\`, \`note\` |
 | \`check_status\` | Check a sent request | \`request_id\` |
 | \`view_thread\` | View conversation history | \`thread_id\` |
-| \`amend\` | Update a pending request | \`request_id\`, \`fields\`, optional: \`note\` |
-| \`cancel\` | Cancel a pending request | \`request_id\`, optional: \`reason\` |
+| \`amend\` | Append an amendment to a request | \`request_id\`, \`fields\`, optional: \`note\` |
+| \`cancel\` | Cancel a request (moves to cancelled/) | \`request_id\`, optional: \`reason\` |
 | \`subscribe\` | Subscribe to a group inbox | \`recipient\` (the group ID, e.g. \`backend-team\`). Omit to list current subscriptions. |
 | \`unsubscribe\` | Unsubscribe from a group inbox | \`recipient\` (the group ID to remove). Omit to list current subscriptions. |
 
@@ -65,7 +66,8 @@ You have access to PACT, a git-backed protocol for async requests between humans
 3. **Compose (optional)** — If you need the full pact schema, call \`pact_do\` with \`action: "send"\` and \`request_type\` but omit \`context_bundle\`. PACT returns the pact's fields, defaults, and response structure so you can construct the bundle correctly.
 4. **Send** — Address any user or group by their ID string. Compose \`context_bundle\` per the pact, then \`pact_do\` with \`action: "send"\`.
 5. **Check inbox** — Periodically call \`pact_do\` with \`action: "inbox"\`. You see requests addressed to your user ID or any inbox you're subscribed to.
-6. **Respond** — Read the request, compose \`response_bundle\` per the pact definition, then \`pact_do\` with \`action: "respond"\`.
+6. **Respond** — Read the request, compose \`response_bundle\` per the pact definition, then \`pact_do\` with \`action: "respond"\`. This writes a response file but does NOT change the request's status.
+7. **Manage status** — After responding (or at any time), use \`edit\` with \`move_to\` to change a request's status directory (e.g. \`move_to: "completed"\`). Status management is your responsibility.
 
 ### Addressing & Subscriptions
 
@@ -155,9 +157,9 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   // -- pact_do --
   server.tool(
     "pact_do",
-    "Perform an action (send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe)",
+    "Perform an action (send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe)",
     {
-      action: z.string().describe("The action to perform: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe"),
+      action: z.string().describe("The action to perform: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe"),
       request_type: z.string().optional().describe("The type of request (for send action)"),
       subject: z.string().optional().describe("One-line human-readable summary of the request (for send action, like an email subject)"),
       recipient: z.string().optional().describe("The user_id of the recipient (for send action, single-recipient backward compat). For subscribe/unsubscribe: the ID to add/remove. Omit to list current subscriptions."),
@@ -174,8 +176,9 @@ export function createMcpServer(config: McpServerConfig): McpServer {
         content: z.string().optional().describe("File content as text (for agent-generated content)"),
         path: z.string().optional().describe("Absolute local file path to attach (binary-safe, any file type). Takes precedence over content if both provided."),
       })).optional().describe("Optional file attachments (for send action). Each attachment needs content or path."),
-      fields: z.record(z.string(), z.any()).optional().describe("Fields to add or update (for amend action)"),
-      note: z.string().optional().describe("Optional note (for amend action)"),
+      fields: z.record(z.string(), z.any()).optional().describe("Fields to add or update (for amend or edit action)"),
+      move_to: z.enum(["pending", "active", "completed", "cancelled"]).optional().describe("Move request to a status directory (for edit action)"),
+      note: z.string().optional().describe("Optional note (for amend or edit action)"),
       reason: z.string().optional().describe("Optional reason (for cancel action)"),
     },
     async (params) => {

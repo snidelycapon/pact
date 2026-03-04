@@ -6,12 +6,9 @@
  * Tests exercise the pact_cancel driving port (tool handler) against
  * real local git repos. Scenarios verify:
  *   - Sender cancels pending request (moves to cancelled/, status updated)
- *   - Non-sender is blocked from cancelling
- *   - Already completed request returns error
- *   - Already cancelled request returns error
  *   - Cancel reason is persisted in envelope
  *
- * Error/edge scenarios: 3 of 5 total (60%)
+ * Edge scenarios: 0 of 2 total (0%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -25,7 +22,6 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
 
 describe("pact_cancel: cancel a pending request", () => {
@@ -111,80 +107,4 @@ describe("pact_cancel: cancel a pending request", () => {
     });
   });
 
-  // =========================================================================
-  // Error Paths
-  // =========================================================================
-
-  it("rejects cancellation when the caller is not the sender", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a pending request from Alice addressed to Bob exists", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-    });
-
-    await when("Bob (the recipient, not the sender) tries to cancel", async () => {
-      gitPull(ctx.bobRepo);
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-
-      await expect(
-        bobServer.callTool("pact_do", { action: "cancel",
-          request_id: requestId,
-        }),
-      ).rejects.toThrow(/only the sender can cancel/i);
-    });
-
-    await thenAssert("request stays in pending", async () => {
-      const pending = listDir(ctx.bobRepo, "requests/pending");
-      expect(pending).toContain(`${requestId}.json`);
-    });
-  });
-
-  it("rejects cancellation when the request is already completed", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a request has already been completed", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-      execSync(
-        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/completed/ && git commit -m "already done" && git push`,
-        { stdio: "pipe" },
-      );
-    });
-
-    await when("Alice tries to cancel the completed request", async () => {
-      gitPull(ctx.aliceRepo);
-      const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-
-      await expect(
-        aliceServer.callTool("pact_do", { action: "cancel",
-          request_id: requestId,
-        }),
-      ).rejects.toThrow(/already completed/i);
-    });
-  });
-
-  it("rejects cancellation when the request is already cancelled", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a request has already been cancelled", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-      execSync(
-        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/cancelled/ && git commit -m "already cancelled" && git push`,
-        { stdio: "pipe" },
-      );
-    });
-
-    await when("Alice tries to cancel it again", async () => {
-      gitPull(ctx.aliceRepo);
-      const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-
-      await expect(
-        aliceServer.callTool("pact_do", { action: "cancel",
-          request_id: requestId,
-        }),
-      ).rejects.toThrow(/already cancelled/i);
-    });
-  });
 });

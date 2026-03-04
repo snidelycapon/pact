@@ -99,29 +99,24 @@ export async function handlePactRequest(
     throw new Error("Recipients list must not be empty");
   }
 
-  if (recipientIds.includes(ctx.userId)) {
-    throw new Error("Sender cannot be a recipient");
-  }
-
-  // Pact must exist in either flat-file store or legacy directory.
-  // For variants (e.g., "check-in--weekly"), also check the base type file
-  // since variants inherit from their parent.
+  // Check pact existence — warn but don't reject (the sender might know what they're doing)
   const flatFileExists = await ctx.file.fileExists(`pact-store/${params.request_type}.md`);
   const baseType = params.request_type.includes('--') ? params.request_type.split('--')[0] : null;
   const baseFileExists = baseType ? await ctx.file.fileExists(`pact-store/${baseType}.md`) : false;
   const legacyExists = await ctx.file.fileExists(`pacts/${params.request_type}/PACT.md`);
-  if (!flatFileExists && !baseFileExists && !legacyExists) {
-    throw new Error(`No pact found for request type '${params.request_type}'`);
-  }
+  const pactExists = flatFileExists || baseFileExists || legacyExists;
 
-  // Warn (don't reject) when required context fields are missing
-  let validationWarnings: string[] | undefined;
-  const requiredFields = await getRequiredContextFieldsFromYaml(ctx.file, params.request_type);
+  // Warn (don't reject) on missing pact definition or required context fields
+  const validationWarnings: string[] = [];
+  if (!pactExists) {
+    validationWarnings.push(`No pact definition found for '${params.request_type}' — request sent anyway`);
+  }
+  const requiredFields = pactExists ? await getRequiredContextFieldsFromYaml(ctx.file, params.request_type) : undefined;
   if (requiredFields) {
     const submittedKeys = Object.keys(params.context_bundle);
     const missing = requiredFields.filter((field) => !submittedKeys.includes(field));
-    if (missing.length > 0) {
-      validationWarnings = missing.map((field) => `Missing required field '${field}'`);
+    for (const field of missing) {
+      validationWarnings.push(`Missing required field '${field}'`);
     }
   }
 
@@ -200,7 +195,7 @@ export async function handlePactRequest(
     thread_id: threadId,
     status: "pending",
     message: "Request submitted",
-    validation_warnings: validationWarnings ?? [],
+    validation_warnings: validationWarnings,
   };
 }
 

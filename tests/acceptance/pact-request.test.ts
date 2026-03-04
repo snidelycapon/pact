@@ -209,23 +209,24 @@ describe("pact_do(send): submit a PACT request", () => {
     });
   });
 
-  it("rejects request when request_type has no matching pact directory", async () => {
+  it("sends request with unknown pact type, returning a validation warning", async () => {
     ctx = createTestRepos();
     const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
     await when("Alice submits a request with type 'code-review' (no pact file)", async () => {
-      await expect(
-        server.callTool("pact_do", { action: "send",
-          request_type: "code-review",
-          recipient: "bob",
-          context_bundle: { question: "Missing pact test" },
-        }),
-      ).rejects.toThrow(/no pact found.*code-review/i);
+      const result = (await server.callTool("pact_do", { action: "send",
+        request_type: "code-review",
+        recipient: "bob",
+        context_bundle: { question: "Missing pact test" },
+      })) as { request_id: string; validation_warnings?: string[] };
+      expect(result.request_id).toBeTruthy();
+      expect(result.validation_warnings).toBeDefined();
+      expect(result.validation_warnings!.some((w: string) => /code-review/i.test(w))).toBe(true);
     });
 
-    await thenAssert("no file is created", async () => {
+    await thenAssert("request file IS created (dumb pipe)", async () => {
       const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
+      expect(pending).toHaveLength(1);
     });
   });
 

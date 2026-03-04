@@ -1,16 +1,13 @@
 /**
- * Handler for the pact_respond tool.
+ * Handler for the pact respond action.
  *
- * Validates the request exists and the current user is a recipient,
- * writes a response envelope to responses/, moves the request from
- * pending/ to completed/ via git mv, and commits atomically.
- *
- * Responder identity comes from local user config, not a shared registry.
+ * Writes a response file to responses/. Does NOT change the request's
+ * status or move it between directories — that's the agent's job via
+ * the `edit` action. PACT is a dumb pipe.
  */
 
 import type { GitPort, ConfigPort, FilePort } from "../ports.ts";
-import { RequestEnvelopeSchema } from "../schemas.ts";
-import { normalizeId } from "../normalize.ts";
+import { findRequest } from "./find-request.ts";
 
 export interface PactRespondParams {
   request_id: string;
@@ -29,67 +26,22 @@ export async function handlePactRespond(
   params: PactRespondParams,
   ctx: PactRespondContext,
 ): Promise<{ status: string; request_id: string; message: string }> {
-  // 1. Validate required fields
   if (!params.request_id) throw new Error("Missing required field: request_id");
   if (!params.response_bundle) throw new Error("Missing required field: response_bundle");
 
-  // 2. Pull latest
+  // 1. Pull latest
   await ctx.git.pull();
 
-  // 3. Find the request - check pending, active, then completed
-  const filename = `${params.request_id}.json`;
-  const { sourceDir, alreadyCompleted } = await findRequestDir(ctx.file, filename, params.request_id);
-
-  // 4. Read request envelope, validate schema, verify current user is recipient
-  const raw = await ctx.file.readJSON<unknown>(`${sourceDir}/${filename}`);
-  const parsed = RequestEnvelopeSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error(`Malformed request envelope for ${params.request_id}: ${parsed.error.issues.map((i) => i.message).join(", ")}`);
-  }
-  const envelope = parsed.data;
+  // 2. Find the request in any status directory
+  const found = await findRequest(params.request_id, ctx.file);
+  const envelope = found.envelope;
   const isGroupEnvelope = envelope.recipients && envelope.recipients.length > 0;
 
-  // Build the set of IDs this user can respond as: their own ID + subscriptions
+  // 3. Get responder identity from local config
   const userConfig = await ctx.config.readUserConfig();
-  const myIds = new Set<string>([ctx.userId, ...userConfig.subscriptions]);
-
-  const recipientIds: string[] = [];
-  if (envelope.recipient?.user_id) {
-    recipientIds.push(normalizeId(envelope.recipient.user_id));
-  }
-  if (envelope.recipients) {
-    for (const r of envelope.recipients) {
-      recipientIds.push(normalizeId(r.user_id));
-    }
-  }
-  const isRecipient = recipientIds.some((id) => myIds.has(id));
-  if (!isRecipient) {
-    throw new Error(`You are not the recipient of request ${params.request_id}`);
-  }
-
-  // 4b. For completed requests: only allow if group envelope and caller hasn't responded yet
-  if (alreadyCompleted) {
-    if (!isGroupEnvelope) {
-      throw new Error(`Request ${params.request_id} is already completed`);
-    }
-    const alreadyResponded = await ctx.file.fileExists(
-      `responses/${params.request_id}/${ctx.userId}.json`,
-    );
-    if (alreadyResponded) {
-      throw new Error(`You have already responded to request ${params.request_id}`);
-    }
-  }
-
-  // 5. Update status to "completed" before moving (US-015)
-  if (!alreadyCompleted) {
-    const updatedEnvelope = { ...raw as Record<string, unknown>, status: "completed" };
-    await ctx.file.writeJSON(`${sourceDir}/${filename}`, updatedEnvelope);
-  }
-
-  // 6. Get responder identity from local config (already loaded above)
   const responder = { user_id: userConfig.user_id, display_name: userConfig.display_name };
 
-  // 7. Write response file (per-respondent directory for group envelopes, flat for legacy)
+  // 4. Write response file (per-respondent directory for group envelopes, flat for legacy)
   const response = {
     request_id: params.request_id,
     responder,
@@ -101,50 +53,13 @@ export async function handlePactRespond(
     : `responses/${params.request_id}.json`;
   await ctx.file.writeJSON(responsePath, response);
 
-  // 8. Git mv request to completed (skip if already there)
-  const filesToCommit = [responsePath];
-  if (!alreadyCompleted) {
-    await ctx.git.mv(`${sourceDir}/${filename}`, `requests/completed/${filename}`);
-    filesToCommit.push(`requests/completed/${filename}`);
-  }
-
-  // 9. Atomic commit (response write + request move if applicable)
-  await ctx.git.add(filesToCommit);
+  // 5. Commit and push (response only — no status change)
+  await ctx.git.add([responsePath]);
   const senderUserId = envelope.sender.user_id;
   await ctx.git.commit(
     `[pact] response: ${params.request_id} (${envelope.request_type}) ${ctx.userId} -> ${senderUserId}`,
   );
-
-  // 10. Push
   await ctx.git.push();
 
-  return { status: "completed", request_id: params.request_id, message: "Response submitted" };
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-/** Search pending, active, and completed directories for a request file. */
-async function findRequestDir(
-  file: FilePort,
-  filename: string,
-  requestId: string,
-): Promise<{ sourceDir: string; alreadyCompleted: boolean }> {
-  const pendingFiles = await file.listDirectory("requests/pending");
-  if (pendingFiles.includes(filename)) {
-    return { sourceDir: "requests/pending", alreadyCompleted: false };
-  }
-
-  const activeFiles = await file.listDirectory("requests/active");
-  if (activeFiles.includes(filename)) {
-    return { sourceDir: "requests/active", alreadyCompleted: false };
-  }
-
-  const completedFiles = await file.listDirectory("requests/completed");
-  if (completedFiles.includes(filename)) {
-    return { sourceDir: "requests/completed", alreadyCompleted: true };
-  }
-
-  throw new Error(`Request ${requestId} not found in any directory`);
+  return { status: found.status, request_id: params.request_id, message: "Response submitted" };
 }

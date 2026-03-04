@@ -190,7 +190,7 @@ response_bundle:
   // Error Paths
   // =========================================================================
 
-  it("pact_request rejects a request type with no pact directory", async () => {
+  it("pact_request sends request with unknown pact type, returning a validation warning", async () => {
     ctx = createTestRepos();
 
     await when("Alice tries to submit a 'code-review' request (pact does not exist)", async () => {
@@ -198,18 +198,19 @@ response_bundle:
 
       const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      await expect(
-        aliceServer.callTool("pact_do", { action: "send",
-          request_type: "code-review",
-          recipient: "bob",
-          context_bundle: { question: "No pact test" },
-        }),
-      ).rejects.toThrow(/no pact found.*code-review/i);
+      const result = (await aliceServer.callTool("pact_do", { action: "send",
+        request_type: "code-review",
+        recipient: "bob",
+        context_bundle: { question: "No pact test" },
+      })) as { request_id: string; validation_warnings?: string[] };
+      expect(result.request_id).toBeTruthy();
+      expect(result.validation_warnings).toBeDefined();
+      expect(result.validation_warnings!.some((w: string) => /code-review/i.test(w))).toBe(true);
     });
 
-    await thenAssert("no request file is created", async () => {
+    await thenAssert("request file IS created (dumb pipe)", async () => {
       const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
+      expect(pending).toHaveLength(1);
     });
   });
 
@@ -237,24 +238,23 @@ response_bundle:
     });
   });
 
-  it("pact validation happens before envelope is written", async () => {
+  it("request with unknown pact type still creates envelope (with warning)", async () => {
     ctx = createTestRepos();
 
-    await when("Alice submits a request with invalid pact AND invalid recipient", async () => {
-      // The pact check should happen early, before any file writes
+    await when("Alice submits a request with unknown pact type", async () => {
       const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-      await expect(
-        aliceServer.callTool("pact_do", { action: "send",
-          request_type: "nonexistent-pact",
-          recipient: "bob",
-          context_bundle: { question: "Order of validation test" },
-        }),
-      ).rejects.toThrow(/no pact found/i);
+      const result = (await aliceServer.callTool("pact_do", { action: "send",
+        request_type: "nonexistent-pact",
+        recipient: "bob",
+        context_bundle: { question: "Order of validation test" },
+      })) as { request_id: string; validation_warnings?: string[] };
+      expect(result.request_id).toBeTruthy();
+      expect(result.validation_warnings).toBeDefined();
 
-      // No file should exist
+      // File SHOULD exist now (dumb pipe sends regardless)
       const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
+      expect(pending).toHaveLength(1);
     });
   });
 });

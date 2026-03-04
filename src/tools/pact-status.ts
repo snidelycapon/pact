@@ -93,13 +93,9 @@ export async function handlePactStatus(
     const request = parseRequestEnvelope(raw, params.request_id);
     const attachmentPaths = resolveAttachmentPaths(tryParseEnvelope(raw, params.request_id), ctx.repoPath);
 
-    // For completed requests, also load responses
-    if (status === "completed") {
-      const responseData = await loadResponseData(ctx.file, params.request_id);
-      return buildResult(status, request, attachmentPaths, warning, responseData);
-    }
-
-    return buildResult(status, request, attachmentPaths, warning);
+    // Always try to load responses (respond no longer auto-moves to completed)
+    const responseData = await loadResponseData(ctx.file, params.request_id, true);
+    return buildResult(status, request, attachmentPaths, warning, responseData);
   }
 
   throw new Error(`Request ${params.request_id} not found in any directory`);

@@ -131,28 +131,27 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
     });
   });
 
-  it("rejects send when sender is in recipients array", async () => {
+  it("allows send when sender is in recipients array (apathy)", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
 
-    let error: any;
+    let requestId: string;
 
     await when("Alice includes herself in the recipients array", async () => {
-      try {
-        await aliceServer.callTool("pact_do", {
-          action: "send",
-          request_type: "sanity-check",
-          recipients: ["alice", "bob"],
-          context_bundle: { question: "Can I send to myself?" },
-        });
-      } catch (e) {
-        error = e;
-      }
+      const result = (await aliceServer.callTool("pact_do", {
+        action: "send",
+        request_type: "sanity-check",
+        recipients: ["alice", "bob"],
+        context_bundle: { question: "Can I send to myself?" },
+      })) as { request_id: string };
+      requestId = result.request_id;
     });
 
-    await thenAssert("send fails because sender cannot be a recipient", () => {
-      expect(error).toBeDefined();
+    await thenAssert("request is created successfully", () => {
+      expect(requestId).toBeTruthy();
+      const pending = listDir(ctx.aliceRepo, "requests/pending");
+      expect(pending).toHaveLength(1);
     });
   });
 
@@ -160,14 +159,13 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
   // Error: Non-recipient responding
   // =========================================================================
 
-  it("rejects response from user not in recipients array", async () => {
+  it("allows response from user not in recipients array (apathy)", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
     const carolServer = createPactServer({ repoPath: ctx.carolRepo, userId: "carol" });
 
     let requestId: string;
-    let error: any;
 
     await given("Alice sends a request to Bob only", async () => {
       const result = (await aliceServer.callTool("pact_do", {
@@ -179,22 +177,18 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
       requestId = result.request_id;
     });
 
-    await when("Carol (not a recipient) tries to respond", async () => {
+    await when("Carol (not a recipient) responds", async () => {
       gitPull(ctx.carolRepo);
-      try {
-        await carolServer.callTool("pact_do", {
-          action: "respond",
-          request_id: requestId,
-          response_bundle: { answer: "I was not asked" },
-        });
-      } catch (e) {
-        error = e;
-      }
+      const result = (await carolServer.callTool("pact_do", {
+        action: "respond",
+        request_id: requestId,
+        response_bundle: { answer: "I was not asked but can still respond" },
+      })) as { status: string };
+      expect(result.status).toBe("pending");
     });
 
-    await thenAssert("response is rejected because Carol is not a recipient", () => {
-      expect(error).toBeDefined();
-      expect(String(error)).toMatch(/not.*recipient|not.*authorized/i);
+    await thenAssert("Carol's response is written", async () => {
+      expect(fileExists(ctx.carolRepo, `responses/${requestId}/carol.json`)).toBe(true);
     });
   });
 
@@ -202,14 +196,13 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
   // Error: Duplicate response
   // =========================================================================
 
-  it("rejects duplicate response from same recipient", async () => {
+  it("allows duplicate response from same recipient (apathy, overwrites)", async () => {
     ctx = createGroupTestRepos();
 
     const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
     const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
 
     let requestId: string;
-    let error: any;
 
     await given("Alice sends a group request and Bob already responded", async () => {
       const result = (await aliceServer.callTool("pact_do", {
@@ -228,20 +221,18 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
       });
     });
 
-    await when("Bob tries to respond a second time", async () => {
-      try {
-        await bobServer.callTool("pact_do", {
-          action: "respond",
-          request_id: requestId,
-          response_bundle: { answer: "Second response" },
-        });
-      } catch (e) {
-        error = e;
-      }
+    await when("Bob responds a second time", async () => {
+      const result = (await bobServer.callTool("pact_do", {
+        action: "respond",
+        request_id: requestId,
+        response_bundle: { answer: "Second response" },
+      })) as { status: string };
+      expect(result.status).toBe("pending");
     });
 
-    await thenAssert("duplicate response is rejected", () => {
-      expect(error).toBeDefined();
+    await thenAssert("Bob's response file reflects the latest response", async () => {
+      const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}/bob.json`);
+      expect(response.response_bundle.answer).toBe("Second response");
     });
   });
 
@@ -292,7 +283,7 @@ describe("Group addressing error paths and backward compat (pact-y30)", () => {
         action: "check_status",
         request_id: "req-20260223-100000-alice-old2",
       })) as any;
-      expect(status.status).toBe("completed");
+      expect(status.status).toBe("pending");
       expect(status.response.response_bundle.answer).toBe("Old format response");
     });
   });

@@ -10,6 +10,7 @@ import { handlePactRequest } from "./tools/pact-request.ts";
 import { handlePactRespond } from "./tools/pact-respond.ts";
 import { handlePactCancel } from "./tools/pact-cancel.ts";
 import { handlePactAmend } from "./tools/pact-amend.ts";
+import { handlePactEdit } from "./tools/pact-edit.ts";
 import { handlePactStatus } from "./tools/pact-status.ts";
 import { handlePactInbox } from "./tools/pact-inbox.ts";
 import { handlePactThread } from "./tools/pact-thread.ts";
@@ -34,6 +35,7 @@ const ACTION_MAP: Record<string, ActionHandler> = {
   respond: handlePactRespond as ActionHandler,
   cancel: handlePactCancel as ActionHandler,
   amend: handlePactAmend as ActionHandler,
+  edit: handlePactEdit as ActionHandler,
   check_status: handlePactStatus as ActionHandler,
   inbox: handlePactInbox as ActionHandler,
   view_thread: handlePactThread as ActionHandler,

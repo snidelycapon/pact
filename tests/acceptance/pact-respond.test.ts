@@ -4,17 +4,18 @@
  * Traces to: US-004
  *
  * Tests exercise the pact_respond driving port (tool handler) against
- * real local git repos. Scenarios verify:
- *   - Successful response with file creation + request move
+ * real local git repos. Apathy principle: respond ONLY writes a response
+ * file — it does not move requests or enforce recipient authorization.
+ *
+ * Scenarios verify:
+ *   - Successful response file creation (request stays in pending)
  *   - Response envelope structure (responder, timestamp, bundle)
- *   - Atomic commit (response write + request move in one commit)
- *   - Rejection when request is already completed
- *   - Rejection when responder is not the designated recipient
+ *   - Atomic commit (response write in one commit)
  *   - Rejection when request does not exist
  *   - Git push with rebase retry
- *   - Preserves thread_id and attachments during lifecycle move (US-002a)
+ *   - Preserves thread_id and attachments on request envelope (US-002a)
  *
- * Error/edge scenarios: 5 of 11 total (45%)
+ * Error/edge scenarios: 2 of 8 total (25%)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -31,7 +32,6 @@ import {
 import { given, when, thenAssert } from "./helpers/gwt";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
 
@@ -46,7 +46,7 @@ describe("pact_respond: submit a response to a request", () => {
   // Happy Path
   // =========================================================================
 
-  it("writes response, moves request to completed, commits and pushes", async () => {
+  it("writes response file, commits and pushes", async () => {
     ctx = createTestRepos();
     const requestId = "req-20260221-143022-alice-a1b2";
     let result: any;
@@ -69,16 +69,13 @@ describe("pact_respond: submit a response to a request", () => {
         },
       });
 
-      expect((result as any).status).toBe("completed");
+      expect((result as any).status).toBe("pending");
     });
 
-    await thenAssert("request moves from pending to completed", async () => {
+    await thenAssert("request stays in pending (respond does not move requests)", async () => {
       const pending = listDir(ctx.bobRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
-
-      const completed = listDir(ctx.bobRepo, "requests/completed");
-      expect(completed).toHaveLength(1);
-      expect(completed[0]).toBe(`${requestId}.json`);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]).toBe(`${requestId}.json`);
     });
 
     await thenAssert("response file is created with correct envelope", async () => {
@@ -99,13 +96,12 @@ describe("pact_respond: submit a response to a request", () => {
     await thenAssert("changes reach the remote (Alice can pull them)", async () => {
       gitPull(ctx.aliceRepo);
 
-      expect(listDir(ctx.aliceRepo, "requests/pending")).toHaveLength(0);
-      expect(listDir(ctx.aliceRepo, "requests/completed")).toHaveLength(1);
+      expect(listDir(ctx.aliceRepo, "requests/pending")).toHaveLength(1);
       expect(fileExists(ctx.aliceRepo, `responses/${requestId}.json`)).toBe(true);
     });
   });
 
-  it("response write and request move happen in a single atomic commit", async () => {
+  it("response write happens in a single atomic commit", async () => {
     ctx = createTestRepos();
     const requestId = "req-20260221-143022-alice-a1b2";
 
@@ -122,18 +118,15 @@ describe("pact_respond: submit a response to a request", () => {
       });
     });
 
-    await thenAssert("both changes appear in a single commit", async () => {
+    await thenAssert("response file appears in the commit", async () => {
       const msg = lastCommitMessage(ctx.bobRepo);
       expect(msg).toMatch(/\[pact\] response:.*sanity-check.*bob -> alice/);
 
-      // Verify single commit: diff of last commit should show both the move and the new file
       const diffStat = execSync(
         `cd "${ctx.bobRepo}" && git diff --name-status HEAD~1 HEAD`,
         { encoding: "utf-8" },
       );
-      // Should contain: R (rename/move) for request, A (add) for response
       expect(diffStat).toContain("responses/");
-      expect(diffStat).toContain("requests/completed/");
     });
   });
 
@@ -218,7 +211,7 @@ describe("pact_respond: submit a response to a request", () => {
   // Protocol Extensions: thread_id and attachments survive lifecycle (US-002a)
   // =========================================================================
 
-  it("preserves thread_id and attachments in request envelope after respond moves it to completed", async () => {
+  it("preserves thread_id and attachments in request envelope after respond", async () => {
     ctx = createTestRepos();
     const requestId = "req-20260221-143022-alice-a1b2";
     const threadId = "req-20260221-100000-alice-0001";
@@ -255,111 +248,17 @@ describe("pact_respond: submit a response to a request", () => {
       });
     });
 
-    await thenAssert("the completed request envelope still has thread_id and attachments", async () => {
-      const completed = readRepoJSON<any>(ctx.bobRepo, `requests/completed/${requestId}.json`);
-      expect(completed.thread_id).toBe(threadId);
-      expect(completed.attachments).toHaveLength(1);
-      expect(completed.attachments[0].filename).toBe("crash.log");
-    });
-  });
-
-  // =========================================================================
-  // Status Consistency (US-015)
-  // =========================================================================
-
-  it("sets envelope status to completed when moving request to completed directory", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-160000-alice-us15";
-
-    await given("a pending request from Alice exists, addressed to Bob", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-    });
-
-    await when("Bob responds to the request", async () => {
-      gitPull(ctx.bobRepo);
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-      await bobServer.callTool("pact_do", { action: "respond",
-        request_id: requestId,
-        response_bundle: { answer: "Looks good" },
-      });
-    });
-
-    await thenAssert("the completed request envelope has status 'completed', not 'pending'", async () => {
-      const completed = readRepoJSON<any>(ctx.bobRepo, `requests/completed/${requestId}.json`);
-      expect(completed.status).toBe("completed");
+    await thenAssert("the pending request envelope still has thread_id and attachments", async () => {
+      const pending = readRepoJSON<any>(ctx.bobRepo, `requests/pending/${requestId}.json`);
+      expect(pending.thread_id).toBe(threadId);
+      expect(pending.attachments).toHaveLength(1);
+      expect(pending.attachments[0].filename).toBe("crash.log");
     });
   });
 
   // =========================================================================
   // Error Paths
   // =========================================================================
-
-  it("rejects response when request is already completed", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a request has already been responded to and is in completed", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-      // Move to completed manually
-      execSync(
-        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/completed/ && git commit -m "already done" && git push`,
-        { stdio: "pipe" },
-      );
-      // Write a response file too
-      writeFileSync(
-        join(ctx.aliceRepo, "responses", `${requestId}.json`),
-        JSON.stringify({ request_id: requestId, response_bundle: { answer: "done" } }),
-      );
-      execSync(`cd "${ctx.aliceRepo}" && git add -A && git commit -m "response" && git push`, {
-        stdio: "pipe",
-      });
-    });
-
-    await when("Bob tries to respond again", async () => {
-      gitPull(ctx.bobRepo);
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-
-      await expect(
-        bobServer.callTool("pact_do", { action: "respond",
-          request_id: requestId,
-          response_bundle: { answer: "duplicate" },
-        }),
-      ).rejects.toThrow(/already completed/i);
-    });
-
-    await thenAssert("no new response file is written", async () => {
-      // The existing response should be unchanged
-      const response = readRepoJSON<any>(ctx.bobRepo, `responses/${requestId}.json`);
-      expect(response.response_bundle.answer).toBe("done");
-    });
-  });
-
-  it("rejects response when current user is not the designated recipient", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-bob-c3d4";
-
-    await given("a request from Bob is addressed to Alice (not Bob)", async () => {
-      seedPendingRequest(ctx.bobRepo, requestId, "alice", "bob");
-      gitPull(ctx.aliceRepo);
-    });
-
-    await when("Bob tries to respond to his own request (he is the sender, not recipient)", async () => {
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-
-      await expect(
-        bobServer.callTool("pact_do", { action: "respond",
-          request_id: requestId,
-          response_bundle: { answer: "I'll answer my own question" },
-        }),
-      ).rejects.toThrow(/not the recipient/i);
-    });
-
-    await thenAssert("no response is written and request stays in pending", async () => {
-      const pending = listDir(ctx.bobRepo, "requests/pending");
-      expect(pending).toContain(`${requestId}.json`);
-      expect(fileExists(ctx.bobRepo, `responses/${requestId}.json`)).toBe(false);
-    });
-  });
 
   it("rejects response when request ID does not exist", async () => {
     ctx = createTestRepos();
@@ -423,7 +322,7 @@ describe("pact_respond: submit a response to a request", () => {
         response_bundle: { answer: "Handled by subscriber" },
       });
 
-      expect((result as any).status).toBe("completed");
+      expect((result as any).status).toBe("pending");
     });
 
     await thenAssert("response is written with Bob's identity", async () => {
@@ -432,30 +331,8 @@ describe("pact_respond: submit a response to a request", () => {
       expect(response.response_bundle.answer).toBe("Handled by subscriber");
     });
 
-    await thenAssert("request moves to completed", async () => {
-      expect(listDir(ctx.bobRepo, "requests/pending")).toHaveLength(0);
-      expect(listDir(ctx.bobRepo, "requests/completed")).toHaveLength(1);
-    });
-  });
-
-  it("rejects response from a user not subscribed to the addressed list", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260225-140000-alice-sub2";
-
-    await given("Alice sends a request addressed to '+backend-team'", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "+backend-team", "alice");
-    });
-
-    await when("Bob (no subscriptions) tries to respond", async () => {
-      gitPull(ctx.bobRepo);
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-
-      await expect(
-        bobServer.callTool("pact_do", { action: "respond",
-          request_id: requestId,
-          response_bundle: { answer: "Should be rejected" },
-        }),
-      ).rejects.toThrow(/not the recipient/i);
+    await thenAssert("request stays in pending", async () => {
+      expect(listDir(ctx.bobRepo, "requests/pending")).toHaveLength(1);
     });
   });
 
@@ -481,7 +358,7 @@ describe("pact_respond: submit a response to a request", () => {
         response_bundle: { answer: "Rebase retry test" },
       });
 
-      expect((result as any).status).toBe("completed");
+      expect((result as any).status).toBe("pending");
     });
 
     await thenAssert("the response reaches the remote", async () => {

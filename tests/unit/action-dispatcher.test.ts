@@ -1,7 +1,7 @@
 /**
  * Unit tests for action-dispatcher.
  *
- * Validates that dispatchAction correctly routes each of the 7 valid
+ * Validates that dispatchAction correctly routes each of the 10 valid
  * actions to its handler, and throws descriptive errors for unknown,
  * missing, or empty action strings.
  *
@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// We mock all 7 handler modules so dispatchAction calls our stubs
+// We mock all 10 handler modules so dispatchAction calls our stubs
 vi.mock("../../src/tools/pact-request.ts", () => ({
   handlePactRequest: vi.fn().mockResolvedValue({ mocked: "request" }),
 }));
@@ -38,6 +38,9 @@ vi.mock("../../src/tools/pact-subscribe.ts", () => ({
 vi.mock("../../src/tools/pact-unsubscribe.ts", () => ({
   handlePactUnsubscribe: vi.fn().mockResolvedValue({ mocked: "unsubscribe" }),
 }));
+vi.mock("../../src/tools/pact-edit.ts", () => ({
+  handlePactEdit: vi.fn().mockResolvedValue({ mocked: "edit" }),
+}));
 
 import { dispatchAction } from "../../src/action-dispatcher.ts";
 import type { DispatchContext } from "../../src/action-dispatcher.ts";
@@ -50,6 +53,7 @@ import { handlePactInbox } from "../../src/tools/pact-inbox.ts";
 import { handlePactThread } from "../../src/tools/pact-thread.ts";
 import { handlePactSubscribe } from "../../src/tools/pact-subscribe.ts";
 import { handlePactUnsubscribe } from "../../src/tools/pact-unsubscribe.ts";
+import { handlePactEdit } from "../../src/tools/pact-edit.ts";
 
 function makeCtx(): DispatchContext {
   return {
@@ -168,6 +172,15 @@ describe("dispatchAction", () => {
     expect(result).toEqual({ mocked: "amend" });
   });
 
+  it("routes 'edit' to handlePactEdit", async () => {
+    const ctx = makeCtx();
+    const params = { action: "edit", request_id: "req-123", fields: {} };
+    const result = await dispatchAction(params, ctx);
+
+    expect(handlePactEdit).toHaveBeenCalledOnce();
+    expect(result).toEqual({ mocked: "edit" });
+  });
+
   it("routes 'check_status' to handlePactStatus", async () => {
     const ctx = makeCtx();
     const params = { action: "check_status", request_id: "req-123" };
@@ -233,39 +246,39 @@ describe("dispatchAction", () => {
   it("throws exact 'Missing required field: action' message for undefined action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({}, ctx)).rejects.toThrow(
-      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Missing required field: action' message for null action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: null }, ctx)).rejects.toThrow(
-      "Missing required field: action. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
+      "Missing required field: action. Valid actions: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Invalid action' message for empty string action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: "" }, ctx)).rejects.toThrow(
-      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Invalid action' message for numeric action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: 123 }, ctx)).rejects.toThrow(
-      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
+      "Invalid action: must be a non-empty string. Valid actions: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
   it("throws exact 'Unknown action' message for unknown action", async () => {
     const ctx = makeCtx();
     await expect(dispatchAction({ action: "deploy" }, ctx)).rejects.toThrow(
-      "Unknown action 'deploy'. Valid actions: send, respond, cancel, amend, check_status, inbox, view_thread, subscribe, unsubscribe",
+      "Unknown action 'deploy'. Valid actions: send, respond, cancel, amend, edit, check_status, inbox, view_thread, subscribe, unsubscribe",
     );
   });
 
-  it("includes all 9 valid actions in error message for unknown action", async () => {
+  it("includes all 10 valid actions in error message for unknown action", async () => {
     const ctx = makeCtx();
     try {
       await dispatchAction({ action: "nope" }, ctx);
@@ -276,6 +289,7 @@ describe("dispatchAction", () => {
       expect(msg).toContain("respond");
       expect(msg).toContain("cancel");
       expect(msg).toContain("amend");
+      expect(msg).toContain("edit");
       expect(msg).toContain("check_status");
       expect(msg).toContain("inbox");
       expect(msg).toContain("view_thread");

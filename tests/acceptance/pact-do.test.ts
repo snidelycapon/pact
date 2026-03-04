@@ -214,7 +214,7 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it("dispatches respond action and completes a request", async () => {
+  it("dispatches respond action and writes response", async () => {
     ctx = createTestRepos();
 
     await given("Bob has a pending request from Alice", async () => {
@@ -236,14 +236,13 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
       });
     });
 
-    await thenAssert("the response confirms completion", () => {
-      expect(result.status).toBe("completed");
+    await thenAssert("the response confirms the action", () => {
+      expect(result.status).toBe("pending");
       expect(result.request_id).toBe("req-20260222-100000-alice-a1b2");
     });
 
-    await thenAssert("the request is moved to completed", () => {
-      expect(fileExists(ctx.bobRepo, "requests/completed/req-20260222-100000-alice-a1b2.json")).toBe(true);
-      expect(fileExists(ctx.bobRepo, "requests/pending/req-20260222-100000-alice-a1b2.json")).toBe(false);
+    await thenAssert("the request stays in pending", () => {
+      expect(fileExists(ctx.bobRepo, "requests/pending/req-20260222-100000-alice-a1b2.json")).toBe(true);
     });
   });
 
@@ -320,7 +319,7 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
     });
 
     await thenAssert("the amendment is confirmed with count", () => {
-      expect(result.status).toBe("amended");
+      expect(result.status).toBe("pending");
       expect(result.request_id).toBe("req-20260222-100000-alice-a1b2");
       expect(result.amendment_count).toBeGreaterThan(0);
     });
@@ -485,19 +484,20 @@ describe("pact_do: perform actions through collapsed tool surface", () => {
     });
   });
 
-  it("passes through pact validation error when request type has no matching pact", async () => {
+  it("sends request with unknown pact type, returning a validation warning", async () => {
     ctx = createTestRepos();
 
     await when("Alice sends a request with a non-existent pact type via pact_do", async () => {
       const server = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-      await expect(
-        server.callTool("pact_do", {
-          action: "send",
-          request_type: "nonexistent-pact",
-          recipient: "bob",
-          context_bundle: { question: "Pact validation test" },
-        }),
-      ).rejects.toThrow(/no pact found.*nonexistent-pact/i);
+      const result = (await server.callTool("pact_do", {
+        action: "send",
+        request_type: "nonexistent-pact",
+        recipient: "bob",
+        context_bundle: { question: "Pact validation test" },
+      })) as { request_id: string; validation_warnings?: string[] };
+      expect(result.request_id).toBeTruthy();
+      expect(result.validation_warnings).toBeDefined();
+      expect(result.validation_warnings!.some((w: string) => /nonexistent-pact/i.test(w))).toBe(true);
     });
   });
 });

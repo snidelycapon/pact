@@ -124,21 +124,17 @@ describe("Walking Skeleton: complete round-trip", () => {
           recommendation: "Apply finally-block cleanup, reference ZD-4102 fix",
         },
       }) as { status: string };
-      expect(response.status).toBe("completed");
+      expect(response.status).toBe("pending");
     });
 
     // --- Then: request moved to completed, response file exists ---
 
-    await thenAssert("request is in completed directory and response file exists", async () => {
+    await thenAssert("request stays in pending and response file exists", async () => {
       gitPull(ctx.aliceRepo);
 
-      // Request moved from pending to completed
       const pending = listDir(ctx.aliceRepo, "requests/pending");
-      expect(pending).toHaveLength(0);
-
-      const completed = listDir(ctx.aliceRepo, "requests/completed");
-      expect(completed).toHaveLength(1);
-      expect(completed[0]).toContain(requestId);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]).toContain(requestId);
 
       // Response file exists
       const responseFile = `responses/${requestId}.json`;
@@ -160,7 +156,7 @@ describe("Walking Skeleton: complete round-trip", () => {
       const status = await aliceServer.callTool("pact_do", { action: "check_status",
         request_id: requestId,
       }) as any;
-      expect(status.status).toBe("completed");
+      expect(status.status).toBe("pending");
       expect(status.response.responder.display_name).toBe("bob");
       expect(status.response.response_bundle.answer).toBe(
         "YES - same pattern as ZD-4102",
@@ -239,7 +235,7 @@ describe("Walking Skeleton: complete round-trip", () => {
     const status = await aliceSessionB.callTool("pact_do", { action: "check_status",
       request_id: requestId,
     }) as any;
-    expect(status.status).toBe("completed");
+    expect(status.status).toBe("pending");
     expect(status.response.response_bundle.answer).toBe("Confirmed");
   });
 });

@@ -7,11 +7,10 @@
  * real local git repos. Scenarios verify:
  *   - Sender can amend a pending request (amendment appended)
  *   - Multiple amendments append without overwriting
- *   - Non-sender is blocked from amending
- *   - Completed request cannot be amended
- *   - Cancelled request cannot be amended
  *
- * Test Budget: 5 behaviors x 2 = 10 max (using 5)
+ * Error scenarios: 0 of 2 (apathy: no enforcement of sender or status)
+ *
+ * Test Budget: 5 behaviors x 2 = 10 max (using 2)
  */
 
 import { describe, it, expect, afterEach } from "vitest";
@@ -24,7 +23,6 @@ import {
   type TestRepoContext,
 } from "./helpers/setup-test-repos";
 import { given, when, thenAssert } from "./helpers/gwt";
-import { execSync } from "node:child_process";
 import { createPactServer } from "../../src/server.ts";
 
 describe("pact_amend: amend a pending request", () => {
@@ -59,7 +57,7 @@ describe("pact_amend: amend a pending request", () => {
     });
 
     await thenAssert("result confirms amendment", async () => {
-      expect(result.status).toBe("amended");
+      expect(result.status).toBe("pending");
       expect(result.request_id).toBe(requestId);
       expect(result.amendment_count).toBe(1);
     });
@@ -127,78 +125,4 @@ describe("pact_amend: amend a pending request", () => {
     });
   });
 
-  // =========================================================================
-  // Error Paths
-  // =========================================================================
-
-  it("rejects amendment when caller is not the sender", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a pending request from Alice to Bob exists", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-    });
-
-    await when("Bob (the recipient, not sender) tries to amend", async () => {
-      gitPull(ctx.bobRepo);
-      const bobServer = createPactServer({ repoPath: ctx.bobRepo, userId: "bob" });
-
-      await expect(
-        bobServer.callTool("pact_do", { action: "amend",
-          request_id: requestId,
-          fields: { customer: "Changed by Bob" },
-        }),
-      ).rejects.toThrow(/only the sender/i);
-    });
-  });
-
-  it("rejects amendment when request is already completed", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a completed request exists", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-      execSync(
-        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/completed/ && git commit -m "complete it" && git push`,
-        { stdio: "pipe" },
-      );
-    });
-
-    await when("Alice tries to amend the completed request", async () => {
-      gitPull(ctx.aliceRepo);
-      const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-
-      await expect(
-        aliceServer.callTool("pact_do", { action: "amend",
-          request_id: requestId,
-          fields: { customer: "Too late" },
-        }),
-      ).rejects.toThrow(/already completed/i);
-    });
-  });
-
-  it("rejects amendment when request is already cancelled", async () => {
-    ctx = createTestRepos();
-    const requestId = "req-20260221-143022-alice-a1b2";
-
-    await given("a cancelled request exists", async () => {
-      seedPendingRequest(ctx.aliceRepo, requestId, "bob", "alice");
-      execSync(
-        `cd "${ctx.aliceRepo}" && git mv requests/pending/${requestId}.json requests/cancelled/ && git commit -m "cancel it" && git push`,
-        { stdio: "pipe" },
-      );
-    });
-
-    await when("Alice tries to amend the cancelled request", async () => {
-      gitPull(ctx.aliceRepo);
-      const aliceServer = createPactServer({ repoPath: ctx.aliceRepo, userId: "alice" });
-
-      await expect(
-        aliceServer.callTool("pact_do", { action: "amend",
-          request_id: requestId,
-          fields: { customer: "Too late" },
-        }),
-      ).rejects.toThrow(/already cancelled/i);
-    });
-  });
 });
