@@ -1,158 +1,88 @@
-# PACT -- Protocol for Agent Context Transfer
+# PACT — Protocol for Agent Context Transfer
 
-A git-backed MCP server for async human+agent coordination. Structured requests and responses flow through a shared git repo, with PACT.md contracts defining request types.
+Async work requests between people and AI agents, backed by git.
 
-PACT works with any MCP-compatible host -- Claude Code, Cursor, Windsurf, custom agents, or anything else that speaks the Model Context Protocol.
+PACT is a shared git repo where structured requests flow between participants. Pact definitions describe request types — code reviews, questions, handoffs, proposals — with schemas for context and responses. Agents and humans send, respond, and coordinate on their own schedule. No server, no accounts, no vendor lock-in — just git.
 
-## Prerequisites
+## Why PACT
 
-- Node.js 20+
-- git (with SSH or HTTPS auth configured for the shared repo)
-- A shared git repository (GitHub/GitLab private repo)
-- Any MCP-compatible host
+AI agents are good at doing work. They're bad at coordinating it. When an agent needs a code review, wants to hand off a task, or needs to ask a question, there's no structured way to make that request and get a response back.
 
-## Setup
+PACT gives agents (and humans) a shared inbox. Send a structured request, get a structured response. Everything flows through a git repo your team already knows how to use.
 
-### 1. Create or join a shared PACT repo
+- **Works with any MCP host** — Claude Code, Cursor, Windsurf, VS Code, or anything that speaks the Model Context Protocol
+- **Works without MCP too** — VS Code extension with full GUI, CLI for terminal users
+- **Git is the transport** — no infrastructure to run, no services to maintain, no vendor to depend on
+- **Pact definitions are the protocol** — rich templates that tell agents what context to provide and how to respond, but never enforce it
 
-**New repo** -- use the init script:
+## What it looks like
 
-```bash
-./scripts/pact-init.sh new ~/pact-team "My Team" alice/Alice bob/Bob
+```
+pact-repo/
+  pact-store/              Pact definitions — what kinds of requests exist
+    ask.md                 "Get input that unblocks current work"
+    review.md              "Structured feedback with blocking/advisory split"
+    handoff.md             "Transfer ownership of in-progress work"
+    ...
+  requests/
+    pending/               Requests awaiting response
+    completed/             Responded requests
+  responses/               Response data keyed by request ID
 ```
 
-This creates the directory structure, `config.json`, and seeds an `ask` pact. The script will offer to push to a remote.
+1. **Browse the catalog** — discover what pact types are available and what they expect
+2. **Send a request** — pick a type, fill in the context, address it to someone
+3. **Check your inbox** — see what's waiting for you
+4. **Respond** — fill in the response, request moves to completed
 
-**Existing repo** -- clone it:
+## Built-in pact types
 
-```bash
-./scripts/pact-init.sh join git@github.com:your-org/pact-team.git ~/pact-team
-```
+Ships with 10 pact definitions covering common async workflows:
 
-### 2. Build the MCP server
-
-```bash
-cd ~/pact
-bun install
-bun run build
-```
-
-This produces `dist/index.js`.
-
-### 3. Register as an MCP server
-
-Add PACT to your MCP host's configuration. The exact location depends on your host:
-
-| Host | Config location |
-|------|----------------|
-| Claude Code | `~/.claude/settings.json` or project `.mcp.json` |
-| Cursor | Cursor settings > MCP |
-| VS Code (Copilot) | `.vscode/mcp.json` |
-| Custom / other | Consult your host's MCP documentation |
-
-The server configuration follows the standard MCP stdio format:
-
-```json
-{
-  "mcpServers": {
-    "pact": {
-      "command": "node",
-      "args": ["/absolute/path/to/pact/dist/index.js"],
-      "env": {
-        "PACT_REPO": "/absolute/path/to/pact-team",
-        "PACT_USER": "alice"
-      }
-    }
-  }
-}
-```
-
-Replace the paths and user ID with your own values. See `examples/source-config.json` for a template.
-
-## Available Tools
-
-PACT exposes two MCP tools:
-
-| Tool | Description |
+| Pact | Description |
 |------|-------------|
-| `pact_discover` | Browse the pact catalog, look up pact definitions, and list team members |
-| `pact_do` | Execute an action (see below) |
+| `ask` | Get input that unblocks current work |
+| `check-in` | Async status round across a group |
+| `decide` | Collective decision with structured options |
+| `handoff` | Transfer ownership of in-progress work |
+| `propose` | Workshop an idea through structured iteration |
+| `request` | Ask someone to do something and deliver a result |
+| `review` | Structured feedback with blocking/advisory split |
+| `riff` | Share work-in-progress and get honest reactions |
+| `share` | Push context to someone, no action required |
+| `try` | Hands-on testing — try something out and report what happened |
 
-### Actions (`pact_do`)
+Teams add their own by dropping `.md` files into `pact-store/`. Variant inheritance is supported — `review--security.md` inherits from `review.md` and overrides what it needs.
 
-| Action | Description |
-|--------|-------------|
-| `send` | Submit a structured request to one or more recipients |
-| `inbox` | Check your inbox for pending requests |
-| `respond` | Respond to a pending request |
-| `check_status` | Check the status of a request |
-| `view_thread` | View the full history of a request thread |
-| `cancel` | Cancel a pending request you sent |
-| `subscribe` | Subscribe to an inbox (e.g. `+backend-team`) |
-| `unsubscribe` | Unsubscribe from an inbox |
-| `amend` | Amend a pending request you sent |
+## Three ways to use it
 
-## Environment Variables
+**MCP server** — Two tools (`pact_discover` and `pact_do`) that give any MCP-compatible agent full access to the catalog, inbox, and all actions. This is the primary interface for AI agents.
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PACT_REPO` | Yes | -- | Absolute path to local clone of the shared PACT git repo |
-| `PACT_USER` | Yes | -- | Your user ID (lowercase, hyphens-for-spaces) |
-| `PACT_CONFIG` | No | `~/.pact.json` | Path to local user config file (identity + subscriptions) |
-| `PACT_DISPLAY_NAME` | No | `PACT_USER` | Display name (used when no config file exists) |
-| `PACT_LOG_LEVEL` | No | `info` | Log verbosity: `debug`, `info`, `error` |
+**VS Code extension** — Sidebar with inbox table, catalog browser, request detail, send/respond forms, and background polling with badge counts. Lives in `extensions/vscode/` and bundles the MCP server internally.
+
+**CLI** — `pact inbox` and `pact poll --watch` for terminal users who want inbox notifications without an editor.
+
+## Getting started
+
+Ask your AI agent to use the **Pact Setup** skill (`[skill:pact-setup]`) and follow along. It will detect your environment, walk you through configuration, and verify the connection.
+
+Or do it manually: build with `bun install && bun run build`, point `PACT_REPO` at your shared repo and `PACT_USER` at your user ID, and register `dist/index.js` as an MCP server. See `examples/source-config.json` for a template.
+
+## Design philosophy
+
+PACT is a dumb pipe with a catalog. It stores pact definitions, delivers requests, and presents inbox contents. That's it.
+
+The pact definitions are the smart part — rich documents that tell agents what context to provide, how to structure responses, and when to use each type. But the protocol doesn't enforce any of it. Agents read the guidance, decide what to do, and coordinate with each other. PACT just moves files around in git.
 
 ## Development
 
 ```bash
 bun install
-bun test              # Run all tests
-bun run typecheck     # TypeScript type checking
-bun run build         # Build dist/index.js
+bun test              # 301 tests
+bun run typecheck
+bun run build         # dist/index.js + dist/cli.js
 ```
 
-## Repo Structure
+## License
 
-The shared git repo follows this layout:
-
-```
-pact-team/
-  config.json              # Team metadata (team_name, members)
-  pact-store/              # Pact definitions (flat .md files with YAML frontmatter)
-    ask.md
-    review.md
-    propose.md
-    ...
-  requests/
-    pending/               # New requests awaiting response
-    active/                # Claimed / in-progress requests
-    completed/             # Responded requests
-    cancelled/             # Cancelled requests
-  responses/               # Response data keyed by request ID
-    {request_id}.json      # Single-recipient response
-    {request_id}/          # Multi-recipient responses (one file per responder)
-      {user_id}.json
-  attachments/             # File attachments keyed by request ID
-    {request_id}/
-      {filename}
-```
-
-Request lifecycle: `pending/` -> `completed/` (via respond) or `pending/` -> `cancelled/` (via cancel). Requests support multiple recipients, threading (`thread_id`), amendments, and file attachments.
-
-### User Config (`~/.pact.json`)
-
-Each user has a local config file (default `~/.pact.json`, override with `PACT_CONFIG`) that stores identity and subscriptions:
-
-```json
-{
-  "user_id": "alice",
-  "display_name": "Alice",
-  "subscriptions": ["+backend-team", "+on-call"]
-}
-```
-
-Subscriptions control which requests appear in your inbox -- any request addressed to a subscribed ID is visible alongside requests addressed to you directly. IDs starting with `+` are a naming convention for subscribable lists/groups.
-
-### Two-Phase Send (Compose Mode)
-
-The `send` action supports a two-phase workflow. When you provide `request_type` but omit `context_bundle`, PACT returns the pact's schema (fields, defaults, response structure) instead of sending. This lets agents discover pact structure in the first phase and construct a complete request in the second.
+MIT
