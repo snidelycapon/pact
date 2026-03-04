@@ -58,7 +58,7 @@ Teams add their own by dropping `.md` files into `pact-store/`. Variant inherita
 
 **MCP server** — Two tools (`pact_discover` and `pact_do`) that give any MCP-compatible agent full access to the catalog, inbox, and all actions. This is the primary interface for AI agents.
 
-**VS Code extension** — Sidebar with inbox table, catalog browser, request detail, send/respond forms, and background polling with badge counts. Lives in `extensions/vscode/` and bundles the MCP server internally.
+**VS Code extension** — Sidebar with inbox table, catalog browser, request detail, send/respond forms, and background polling with badge counts. Lives in `integrations/vscode/` and bundles the MCP server internally.
 
 **CLI** — `pact inbox` and `pact poll --watch` for terminal users who want inbox notifications without an editor.
 
