@@ -118,7 +118,7 @@ Ask someone to do something and deliver a result.
 `;
 
 const REQUEST_BACKEND_VARIANT = `---
-name: "request:backend"
+name: "request--backend"
 extends: request
 description: Backend team request with service context
 scope: team
@@ -785,7 +785,7 @@ response_bundle:
     await given("pact-store has request base and backend variant with response_bundle fields", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "request.md", content: REQUEST_PACT },
-        { path: "backend/request:backend.md", content: REQUEST_BACKEND_VARIANT },
+        { path: "backend/request--backend.md", content: REQUEST_BACKEND_VARIANT },
       ]);
     });
 
@@ -797,7 +797,7 @@ response_bundle:
     });
 
     await thenAssert("variant uses child response_bundle since child has fields", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       expect(variant).toBeDefined();
       // Child has response_bundle fields (status, result, deploy_notes), so child's should be used
       expect(variant.response_bundle.required).toContain("deploy_notes");

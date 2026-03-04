@@ -63,7 +63,7 @@ Flat-file pact store, extended metadata, and pact inheritance.
 - Pacts in `pact-store/backend/*.md` are found by recursive glob
 
 ### M2-1: Inheritance resolution — child merges with parent
-- `request:backend` extends `request`
+- `request--backend` extends `request`
 - Child overrides: description, scope, registered_for
 - Context fields merge (parent + child)
 - Required list replaced by child

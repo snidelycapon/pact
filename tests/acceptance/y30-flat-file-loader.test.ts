@@ -86,7 +86,7 @@ Ask someone to do something and deliver a result.
 `;
 
 const REQUEST_BACKEND_VARIANT = `---
-name: "request:backend"
+name: "request--backend"
 extends: request
 description: Backend team request with service context
 scope: team
@@ -300,7 +300,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     await given("pact-store has pacts in nested subdirectories", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "ask.md", content: ASK_PACT },
-        { path: "backend/request:backend.md", content: REQUEST_BACKEND_VARIANT },
+        { path: "backend/request--backend.md", content: REQUEST_BACKEND_VARIANT },
         { path: "request.md", content: REQUEST_PACT },
       ]);
     });
@@ -314,7 +314,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
 
     await thenAssert("pacts from subdirectories are included in the catalog", () => {
       const names = result.pacts.map((p: any) => p.name);
-      expect(names).toContain("request:backend");
+      expect(names).toContain("request--backend");
     });
   });
 
@@ -328,7 +328,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     await given("pact-store has a request base pact and a backend variant", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "request.md", content: REQUEST_PACT },
-        { path: "backend/request:backend.md", content: REQUEST_BACKEND_VARIANT },
+        { path: "backend/request--backend.md", content: REQUEST_BACKEND_VARIANT },
       ]);
     });
 
@@ -340,7 +340,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     });
 
     await thenAssert("the variant appears as a fully resolved entry", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       expect(variant).toBeDefined();
       // Child overrides
       expect(variant.description).toBe("Backend team request with service context");
@@ -349,7 +349,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     });
 
     await thenAssert("variant context_bundle merges child fields over parent", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       // Child's required replaces parent's
       expect(variant.context_bundle.required).toEqual(["what", "service", "done_when"]);
       // Parent's fields are inherited
@@ -361,13 +361,13 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     });
 
     await thenAssert("variant response_bundle is inherited from parent", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       expect(variant.response_bundle.required).toEqual(["status", "result"]);
       expect(variant.response_bundle.fields).toHaveProperty("status");
     });
 
     await thenAssert("variant defaults merge child over parent", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       // Child overrides claimable
       expect(variant.defaults.claimable).toBe(true);
       // Parent values inherited
@@ -376,7 +376,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     });
 
     await thenAssert("the extends field is consumed and not present in output", () => {
-      const variant = result.pacts.find((p: any) => p.name === "request:backend");
+      const variant = result.pacts.find((p: any) => p.name === "request--backend");
       expect(variant.extends).toBeUndefined();
     });
   });
@@ -387,7 +387,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     await given("pact-store has a base pact and its variant", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "request.md", content: REQUEST_PACT },
-        { path: "backend/request:backend.md", content: REQUEST_BACKEND_VARIANT },
+        { path: "backend/request--backend.md", content: REQUEST_BACKEND_VARIANT },
       ]);
     });
 
@@ -401,7 +401,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     await thenAssert("both base and variant appear in the flat catalog", () => {
       const names = result.pacts.map((p: any) => p.name);
       expect(names).toContain("request");
-      expect(names).toContain("request:backend");
+      expect(names).toContain("request--backend");
       expect(result.pacts).toHaveLength(2);
     });
   });
@@ -414,7 +414,7 @@ describe("Flat-file pact store and discovery (pact-y30)", () => {
     ctx = createTestRepos();
 
     const orphanVariant = `---
-name: "request:orphan"
+name: "request--orphan"
 extends: nonexistent-parent
 description: Orphan variant
 scope: team
@@ -435,7 +435,7 @@ response_bundle:
     await given("pact-store has a variant that references a nonexistent parent", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "ask.md", content: ASK_PACT },
-        { path: "request:orphan.md", content: orphanVariant },
+        { path: "request--orphan.md", content: orphanVariant },
       ]);
     });
 
@@ -448,7 +448,7 @@ response_bundle:
 
     await thenAssert("the orphan variant is excluded from catalog", () => {
       const names = result.pacts.map((p: any) => p.name);
-      expect(names).not.toContain("request:orphan");
+      expect(names).not.toContain("request--orphan");
     });
 
     await thenAssert("valid pacts are still returned", () => {
@@ -500,8 +500,8 @@ response_bundle:
     ctx = createTestRepos();
 
     const grandchild = `---
-name: "request:backend:urgent"
-extends: "request:backend"
+name: "request--backend--urgent"
+extends: "request--backend"
 description: Urgent backend request
 scope: team
 when_to_use:
@@ -521,8 +521,8 @@ response_bundle:
     await given("pact-store has a grandchild trying to extend a child variant", () => {
       seedFlatFilePacts(ctx.aliceRepo, [
         { path: "request.md", content: REQUEST_PACT },
-        { path: "backend/request:backend.md", content: REQUEST_BACKEND_VARIANT },
-        { path: "backend/request:backend:urgent.md", content: grandchild },
+        { path: "backend/request--backend.md", content: REQUEST_BACKEND_VARIANT },
+        { path: "backend/request--backend--urgent.md", content: grandchild },
       ]);
     });
 
@@ -535,13 +535,13 @@ response_bundle:
 
     await thenAssert("the grandchild variant is excluded (single-level only)", () => {
       const names = result.pacts.map((p: any) => p.name);
-      expect(names).not.toContain("request:backend:urgent");
+      expect(names).not.toContain("request--backend--urgent");
     });
 
     await thenAssert("base and first-level variant are still returned", () => {
       const names = result.pacts.map((p: any) => p.name);
       expect(names).toContain("request");
-      expect(names).toContain("request:backend");
+      expect(names).toContain("request--backend");
     });
   });
 

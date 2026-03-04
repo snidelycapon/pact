@@ -203,8 +203,8 @@ pact-store/
   decide.md
   review.md
   backend/
-    request:backend.md
-    review:backend.md
+    request--backend.md
+    review--backend.md
 ```
 
 ---

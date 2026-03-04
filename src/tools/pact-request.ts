@@ -103,10 +103,14 @@ export async function handlePactRequest(
     throw new Error("Sender cannot be a recipient");
   }
 
-  // Pact must exist in either flat-file store or legacy directory
+  // Pact must exist in either flat-file store or legacy directory.
+  // For variants (e.g., "check-in--weekly"), also check the base type file
+  // since variants inherit from their parent.
   const flatFileExists = await ctx.file.fileExists(`pact-store/${params.request_type}.md`);
+  const baseType = params.request_type.includes('--') ? params.request_type.split('--')[0] : null;
+  const baseFileExists = baseType ? await ctx.file.fileExists(`pact-store/${baseType}.md`) : false;
   const legacyExists = await ctx.file.fileExists(`pacts/${params.request_type}/PACT.md`);
-  if (!flatFileExists && !legacyExists) {
+  if (!flatFileExists && !baseFileExists && !legacyExists) {
     throw new Error(`No pact found for request type '${params.request_type}'`);
   }
 

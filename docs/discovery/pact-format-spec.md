@@ -1,8 +1,8 @@
 # Pact Format Specification
 
-**Date**: 2026-02-22 (updated 2026-02-23)
+**Date**: 2026-02-22 (updated 2026-03-03)
 **Task**: pact-sz7, pact-bmk (inheritance folded in)
-**Evidence**: 4 existing pacts, pact-loader.ts runtime analysis, Vercel AGENTS.md token efficiency research, code-mode discovery wave, DISCUSS wave for pact-fmt
+**Evidence**: 10 shipping pacts, pact-loader.ts runtime analysis, Vercel AGENTS.md token efficiency research, code-mode discovery wave, DISCUSS wave for pact-fmt
 
 ---
 
@@ -32,6 +32,8 @@ version: <semver, default "1.0.0">
 scope: <global|org|repo|team>
 registered_for: [<scope-qualifier>, ...]
 
+subject_hint: <short prompt for composing the request subject line>
+
 when_to_use:
   - <situation where this pact is the right choice>
   - <another situation>
@@ -57,6 +59,11 @@ response_bundle:
       type: <string>
       description: <terse field purpose>
 
+defaults:
+  response_mode: <all|any|none_required>
+  visibility: <private|shared>
+  claimable: <true|false>
+
 attachments:
   - slot: <attachment-name>
     required: <true|false>
@@ -80,7 +87,7 @@ hooks:
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
-| `name` | yes | string | Kebab-case identifier. Matches filename stem (`ask.md` → `ask`). Used as `request_type` in protocol. For variants: `request:backend` (colon-separated base:variant). |
+| `name` | yes | string | Kebab-case identifier. Matches filename stem (`ask.md` → `ask`). Used as `request_type` in protocol. For variants: `request--backend` (double-dash-separated `base--variant`). |
 | `extends` | no | string | Parent pact name. The loader resolves the chain and presents the merged result. See [Inheritance](#inheritance). |
 | `description` | yes | string | Single sentence. Appears in discovery catalog. Optimize for scan — agents pick pacts by reading descriptions. |
 | `version` | no | semver | Defaults to `1.0.0`. Increment on breaking changes to bundle schemas. |
@@ -98,6 +105,7 @@ Scoping controls what `pact_discover` returns. A `scope: team` pact with `regist
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
+| `subject_hint` | recommended | string | Hint for composing the request's `subject` line. Shown to agents/UIs when sending. E.g., `"Brief summary of the question"`. |
 | `when_to_use` | yes | string[] | Situations where this pact is the right choice. Agents use this to select between pacts. Write as decision criteria, not marketing. |
 | `multi_round` | no | boolean | `true` if the pact supports `thread_id` continuation. Default `false`. Signals to agents that the conversation may span multiple request/response cycles. |
 
@@ -128,6 +136,17 @@ Both `context_bundle` and `response_bundle` share the same structure:
 
 **`enum` and `default`**: Optional constraints within field definitions. `enum` lists allowed values. `default` documents what the system assumes when the field is omitted.
 
+### Defaults
+
+```yaml
+defaults:
+  response_mode: all       # all | any | none_required
+  visibility: private      # private | shared
+  claimable: true           # true | false
+```
+
+Defaults are a freeform `Record<string, unknown>`. The three keys above are the standard conventions, but you can add domain-specific defaults. Agents read them and decide how to act. PACT does not enforce defaults at runtime.
+
 ### Attachments
 
 ```yaml
@@ -157,6 +176,27 @@ Lifecycle events: `on_send`, `on_respond`, `on_amend`, `on_cancel`. Values are h
 
 ---
 
+## Request Envelope Fields
+
+When a request is sent via `pact_do(action: "send")`, the protocol wraps the pact's bundle in a request envelope. These fields are protocol-level, outside the pact definition:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `request_id` | string | Auto-generated unique ID. |
+| `thread_id` | string? | For multi-round pacts — groups related requests. |
+| `subject` | string? | Short summary of this specific request. Displayed in inbox listings. The pact's `subject_hint` guides agents on composing this. |
+| `request_type` | string | The pact name (e.g., `ask`, `review`, `check-in--weekly`). |
+| `sender` | UserRef | `{ user_id, display_name? }` from env vars. |
+| `recipient` / `recipients` | UserRef / UserRef[] | Who receives the request. |
+| `group_ref` | string? | Group identifier for group requests. |
+| `status` | string | Request lifecycle state (managed by protocol). |
+| `created_at` | string | ISO timestamp. |
+| `deadline` | string? | When a response is needed. |
+| `context_bundle` | Record | The sender's bundle — freeform object per the pact definition. |
+| `attachments` | Attachment[]? | `{ filename, description }` entries. |
+
+---
+
 ## Inheritance
 
 Pacts can extend a parent pact using the `extends` field. This enables teams to create domain-specific variants of base pacts without duplicating the entire definition.
@@ -166,9 +206,9 @@ Pacts can extend a parent pact using the `extends` field. This enables teams to 
 A child pact only specifies what's different from its parent. The loader resolves the chain at read time and presents a single, complete, merged result. Agents never see the layering — they see a fully resolved pact.
 
 ```yaml
-# pact-store/request:backend.md
+# pact-store/backend/request--backend.md
 ---
-name: request:backend
+name: request--backend
 extends: request
 description: Backend team request with service context conventions
 scope: team
@@ -187,8 +227,6 @@ context_bundle:
 # Backend Request
 
 Extends the base `request` pact with backend-specific context fields.
-Service and runbook context helps the recipient's agent understand
-the operational environment.
 ```
 
 ### Resolution Rules
@@ -203,6 +241,7 @@ The merge is a shallow override at the section level:
 | `version` | Child overrides parent |
 | `scope` | Child overrides parent |
 | `registered_for` | Child overrides parent |
+| `subject_hint` | Child overrides parent (inherits if child omits) |
 | `when_to_use` | Child replaces parent's list entirely |
 | `multi_round` | Child overrides parent |
 | `context_bundle` | Child's `fields` merged over parent's `fields` (add/override). Child's `required` replaces parent's `required`. |
@@ -216,17 +255,17 @@ The key principle: **child specifies only what changes.** For `defaults`, this m
 
 ### Naming Convention
 
-Variants use colon-separated names: `base:variant`.
+Variants use double-dash-separated names: `base--variant`. The `--` separator is filesystem-safe, URL-safe, and YAML-safe (unlike `:` which is problematic on Windows and in many tools).
 
 ```
 request              ← base pact (scope: global)
-request:backend      ← backend team variant
-request:security     ← security team variant
+request--backend     ← backend team variant
+request--security    ← security team variant
 ask                  ← base pact (scope: global)
-ask:architecture     ← architecture-focused questions
+ask--architecture    ← architecture-focused questions
 ```
 
-The colon is a naming convention for human and agent readability. It has no semantic meaning to the protocol — `request:backend` is just a string used as `request_type`. The `extends` field in frontmatter is what creates the actual parent-child relationship.
+The `--` is a naming convention for human and agent readability. It has no semantic meaning to the protocol — `request--backend` is just a string used as `request_type`. The `extends` field in frontmatter is what creates the actual parent-child relationship.
 
 ### Catalog Presentation
 
@@ -234,10 +273,9 @@ The colon is a naming convention for human and agent readability. It has no sema
 
 ```
 request|general action request, deliver a specific result|global
-request:backend|backend team request with service context|team:backend
-request:security|security team request with threat model context|team:security
+request--backend|backend team request with service context|team:backend
 ask|get input that unblocks current work|global
-ask:architecture|architecture-focused questions with system context|org
+ask--architecture|architecture-focused questions with system context|org
 ```
 
 When an agent or the protocol needs to present a specific pact's instructions (composing, reading an inbox item, etc.), the loader returns the **fully resolved result** — the merge already applied. The consumer never needs to know about or traverse the inheritance chain.
@@ -248,7 +286,7 @@ Single-level inheritance (child → parent) only. No grandchild chains. If a tea
 
 ### Requests Are Typed by the Variant
 
-A request sent as `request:backend` is `request:backend` forever. The recipient's agent receives the resolved `request:backend` instructions to understand how to handle it. PACT does not interpret, convert, or fall back to the base pact — it delivers exactly what was sent.
+A request sent as `request--backend` is `request--backend` forever. The recipient's agent receives the resolved `request--backend` instructions to understand how to handle it. PACT does not interpret, convert, or fall back to the base pact — it delivers exactly what was sent.
 
 ---
 
@@ -272,10 +310,10 @@ Applying Vercel's insight (compressed index + retrieval = full performance), eac
 ```
 name|description|scope|context_required→response_required
 ask|get input that unblocks current work|global|question→answer
-ask:architecture|architecture questions with system context|org|question,system_area→answer
-request|ask someone to do something and deliver a result|global|what,done_when→status,result
-request:backend|backend team request with service context|team:backend|what,service,done_when→status,result
-review|get structured feedback with blocking/advisory split|global|artifact,what_to_focus_on→overall,must_change,suggestions
+propose|workshop an idea through iteration|global|proposal→assessment
+review|structured feedback with blocking/advisory split|global|artifact,focus_areas→verdict,must_change,suggestions
+riff|share WIP and get reactions, ideas, or remixes|global|the_thing,going_for→impressions
+try|hands-on testing — try it out and report|global|what_to_try→findings
 ```
 
 Base pacts and variants appear as a flat list. Variants show their resolved fields (parent + child merged). Each entry: ~15-25 tokens. 100 entries: ~2,000 tokens. **94% reduction** vs loading full pact files.
@@ -301,15 +339,16 @@ context_bundle:
     background: { type: string, description: "Context the recipient needs" }
 ```
 
-From this alone, an agent knows: "I must include `question` (string). I may include `background` (string) for additional context." The body's Markdown tables and examples are supplementary for human pact authors and for edge cases.
+From this alone, an agent knows: "I must include `question` (string). I may include `background` (string) for additional context." The body's examples and notes are supplementary for human pact authors and for edge cases.
 
 ### Writing Token-Efficient Pacts
 
 1. **Descriptions**: One sentence. No filler. "Structured PR review with blocking/advisory feedback" not "Request a code review on a branch, PR, or changeset where the sender provides context..."
 2. **Field descriptions**: Terse imperative. "PR URL to review" not "The URL of the pull request that needs to be reviewed"
 3. **`when_to_use`**: Decision criteria, not marketing. "Finished a branch and want review before merge" not "When you want to get feedback from your team on your amazing code"
-4. **Body**: Examples > explanation. A worked request/response pair teaches more than paragraphs of prose.
-5. **Avoid redundancy**: Don't repeat frontmatter field descriptions in body tables. The body adds nuance, not duplication.
+4. **`subject_hint`**: Short and instructive. "Brief summary of the question" not "Please provide a detailed summary of what you are asking about"
+5. **Body**: Examples > explanation. A worked request/response pair teaches more than paragraphs of prose.
+6. **Avoid redundancy**: Don't repeat frontmatter field descriptions in body tables. The body adds nuance, not duplication.
 
 ---
 
@@ -324,8 +363,9 @@ The body is free-form Markdown. These sections are conventional but not required
 
 ## Example
 
-<A complete worked request/response pair showing realistic field values.
- This is the highest-value body section — agents learn from examples.>
+<A complete worked request/response pair showing realistic field values,
+ including a subject line. This is the highest-value body section —
+ agents learn from examples.>
 
 ## Multi-Round Flow
 
@@ -353,7 +393,7 @@ scope: global
 # No registered_for — available everywhere
 ```
 
-Ships with PACT. Available to all users in all contexts. Examples: `ask`, `sanity-check`.
+Ships with PACT. Available to all users in all contexts. The 10 base pacts (`ask`, `propose`, `share`, `request`, `handoff`, `check-in`, `decide`, `review`, `riff`, `try`) are all global.
 
 ### Org-wide
 
@@ -387,97 +427,37 @@ Visible only in a specific repo context. Example: `security-review` only in the 
 
 ---
 
-## Migration Path
-
-### From: Directory-per-pact (current)
-
-```
-pacts/
-  ask/
-    PACT.md          ← Markdown tables define fields
-    schema.json      ← JSON Schema defines types
-  code-review/
-    PACT.md
-    schema.json
-```
-
-### To: Flat files (new)
-
-```
-pact-store/
-  ask.md                  ← global default (base pact)
-  propose.md              ← global default (base pact)
-  share.md                ← global default (base pact)
-  request.md              ← global default (base pact)
-  handoff.md              ← global default (base pact)
-  check-in.md             ← global default (base pact)
-  decide.md               ← global default (base pact)
-  review.md               ← global default (base pact)
-  backend/                ← team folder (organizational, not semantic)
-    request:backend.md    ← variant extending request
-    review:backend.md     ← variant extending review
-```
-
-### What changes
-
-| Aspect | Old Format | New Format |
-|--------|-----------|------------|
-| Field definitions | Markdown tables in body + schema.json | YAML frontmatter `context_bundle` / `response_bundle` |
-| Type information | schema.json (JSON Schema) | Frontmatter field `type` + `enum` |
-| Scoping | Implicit (repo-local) | Explicit `scope` + `registered_for` in frontmatter |
-| Discovery | Directory listing of `pacts/` | Recursive glob `**/*.md` + frontmatter parsing |
-| Multi-round | Documented in body prose | `multi_round: true` in frontmatter |
-| Attachments | Documented in body prose | `attachments` slots in frontmatter |
-| Hooks | Not supported | `hooks` in frontmatter |
-| Loader path | `pacts/{name}/PACT.md` | `{store_root}/**/{name}.md` |
-
-### Loader changes
-
-`pact-loader.ts` already supports YAML frontmatter as primary parse path. Migration requires:
-1. Change path resolution from `pacts/{name}/PACT.md` to `{store_root}/**/*.md` glob
-2. Drop `readSchemaIfValid()` fallback (schema.json no longer needed)
-3. Add `scope` and `registered_for` to `PactMetadata` interface
-4. Add filtering by scope context in `pact-discover.ts`
-
----
-
 ## Default Pacts (Base Layer)
 
-8 global pacts ship with PACT as the base layer teams can use directly or extend via inheritance:
+10 global pacts ship with PACT as the base layer teams can use directly or extend via inheritance:
 
-| Pact | Pattern | Multi-round | Notes |
-|------|---------|-------------|-------|
-| `ask` | Get input that unblocks current work | no | Simplest pact. |
-| `propose` | Workshop an idea through structured iteration | yes | Parallel feedback (groups) or ping-pong (1-to-1). |
-| `share` | Push context to someone's agent, no action required | no | defaults.response_mode: none_required. |
-| `request` | Ask someone to do something and deliver a result | no | defaults.claimable available for group open-requests. |
-| `handoff` | Transfer ownership of in-progress work with full context | no | Relay chain pattern for groups. |
-| `check-in` | Async status round across a group | no | defaults.response_mode: all, defaults.visibility: shared. |
-| `decide` | Collective decision with structured options | no | defaults.response_mode: all, defaults.visibility: private. |
-| `review` | Get structured feedback with blocking/advisory split | yes | defaults.visibility: private for independent reviews. |
+| Pact | Pattern | Multi-round | Key defaults |
+|------|---------|-------------|--------------|
+| `ask` | Get input that unblocks current work | no | — |
+| `propose` | Workshop an idea through structured iteration | yes | — |
+| `share` | Push context, no action required | no | `response_mode: none_required` |
+| `request` | Ask someone to do something and deliver a result | no | `claimable: true` |
+| `handoff` | Transfer ownership of in-progress work | no | — |
+| `check-in` | Async status round across a group | no | `response_mode: all`, `visibility: shared` |
+| `decide` | Collective decision with structured options | no | `response_mode: all`, `visibility: private` |
+| `review` | Structured feedback with blocking/advisory split | yes | `visibility: private` |
+| `riff` | Share WIP, get honest reactions and remixes | yes | `response_mode: all`, `visibility: shared` |
+| `try` | Hands-on testing — try it and report back | yes | `response_mode: all` |
 
-The old pacts (`code-review`, `sanity-check`, `design-pact`) become examples of team-created variants:
-- `code-review` → variant of `review` (e.g. `review:code`)
-- `sanity-check` → variant of `ask` (e.g. `ask:sanity-check`)
-- `design-pact` → subsumed by `propose`
-
----
-
-## Loader Changes
-
-`pact-loader.ts` migration:
-1. Path resolution from `pacts/{name}/PACT.md` to `{store_root}/**/*.md` glob
-2. Drop `readSchemaIfValid()` fallback (schema.json no longer needed)
-3. Drop Markdown table fallback — all pacts must use YAML frontmatter
-4. Add `scope`, `registered_for`, `extends`, `defaults` to `PactMetadata` interface
-5. Resolve inheritance at load time: if `extends` is present, load parent, merge per resolution rules, return resolved result
-6. Add filtering by scope context in `pact-discover.ts`
-7. Catalog output returns resolved entries (agent never sees raw inheritance chain)
+Teams create their own variants by extending base pacts. See [Inheritance](#inheritance) for details.
 
 ---
 
-## Open Questions
+## Loader Implementation
 
-1. **Pact store location config**: `PACT_STORE` env var vs config.json field vs convention (`./pact-store/`). Needs decision.
-2. **Version compatibility**: When a pact's `version` increments with breaking changes, how do in-flight requests on the old version behave? Likely: version is informational only (no runtime enforcement).
-3. **Index generation**: The compressed catalog format needs a generator — either at pact store write time (pre-computed) or at discovery time (computed on scan). Trade-off: staleness vs latency.
+`pact-loader.ts` supports two discovery paths:
+
+1. **Flat-file store** (primary): Recursive glob of `pact-store/**/*.md`. Parses YAML frontmatter, resolves single-level inheritance, returns merged results.
+2. **Legacy directory format** (fallback): `pacts/{name}/PACT.md` with optional `schema.json`. Used only when `pact-store/` doesn't exist.
+
+Key behaviors:
+- Missing/malformed files return `undefined` (never throws)
+- Orphan variants (parent not found) silently excluded
+- Deep inheritance (grandchild) silently excluded
+- `extends` field consumed during resolution, not present in output
+- `subject_hint` inherits from parent if child omits it

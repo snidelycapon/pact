@@ -451,14 +451,28 @@ function parseRegisteredFor(raw: unknown): string[] | undefined {
 /**
  * Load a single pact from the flat-file pact store by name.
  *
- * Looks up `pact-store/{name}.md` directly. Returns undefined when
- * the file doesn't exist or lacks valid YAML frontmatter.
+ * Looks up `pact-store/{name}.md` directly. For variant pacts (those
+ * with an `extends` field), resolves single-level inheritance against
+ * the parent pact so callers get the fully-merged metadata.
+ *
+ * Returns undefined when the file doesn't exist, lacks valid YAML
+ * frontmatter, or is an orphan/deep-inheritance variant.
  */
 export async function loadFlatFilePactByName(
   file: FilePort,
   name: string,
 ): Promise<PactMetadata | undefined> {
-  return parseFlatFilePact(file, `pact-store/${name}.md`);
+  const pact = await parseFlatFilePact(file, `pact-store/${name}.md`);
+  if (!pact) return undefined;
+
+  // Resolve single-level inheritance for variants
+  if (pact.extends) {
+    const parent = await parseFlatFilePact(file, `pact-store/${pact.extends}.md`);
+    if (!parent || parent.extends) return undefined; // orphan or deep inheritance
+    return mergeChildOverParent(parent, pact);
+  }
+
+  return pact;
 }
 
 /**
@@ -466,8 +480,8 @@ export async function loadFlatFilePactByName(
  * YAML frontmatter. Replaces pact-parser's getRequiredContextFields
  * for YAML-based PACT.md files.
  *
- * Checks flat-file pact-store/ first, then falls back to legacy
- * pacts/{name}/PACT.md directory format.
+ * Checks flat-file pact-store/ first (with inheritance resolution for
+ * variants), then falls back to legacy pacts/{name}/PACT.md directory format.
  *
  * Returns undefined when no pact is found or it lacks valid frontmatter.
  */
@@ -475,8 +489,8 @@ export async function getRequiredContextFieldsFromYaml(
   file: FilePort,
   pactName: string,
 ): Promise<string[] | undefined> {
-  // Try flat-file store first
-  const flatMeta = await parseFlatFilePact(file, `pact-store/${pactName}.md`);
+  // Try flat-file store first (resolves inheritance for variants)
+  const flatMeta = await loadFlatFilePactByName(file, pactName);
   if (flatMeta) {
     return flatMeta.context_bundle.required.length > 0
       ? flatMeta.context_bundle.required

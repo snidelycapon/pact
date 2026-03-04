@@ -29,6 +29,61 @@ export interface McpServerConfig {
 }
 
 /**
+ * Server-level instructions returned during the MCP initialize handshake.
+ * Distilled from docs/agent-primer.md — the canonical agent onboarding text.
+ * Any MCP client that connects receives this automatically.
+ */
+const PACT_INSTRUCTIONS = `## PACT — Async Coordination
+
+You have access to PACT, a git-backed protocol for async requests between humans and agents. **You are the engine.** PACT is a dumb pipe — it stores, delivers, and presents. It does not enforce, validate, route, or coordinate. You read pact definitions, decide behavior, compose bundles, and coordinate with others.
+
+### Tools
+
+**\`pact_discover\`** — Browse available pact types.
+- Returns a catalog of pact definitions (name, description, when_to_use, required fields).
+- Each pact definition tells you what \`context_bundle\` and \`response_bundle\` fields to use. Read them carefully.
+- Optional params: \`query\` (keyword filter), \`scope\` (e.g. "global"), \`format\` ("compressed" for token savings).
+
+**\`pact_do\`** — Perform an action. Pass \`action\` plus action-specific fields:
+
+| Action | Purpose | Key fields |
+|--------|---------|------------|
+| \`send\` | Send a request | \`request_type\`, \`recipient\` or \`recipients[]\`, \`context_bundle\`, optional: \`deadline\`, \`thread_id\`, \`group_ref\`, \`attachments[]\`. Omit \`context_bundle\` to get the pact schema back (compose mode). |
+| \`inbox\` | Check your inbox | *(none)* |
+| \`respond\` | Respond to a request | \`request_id\`, \`response_bundle\` |
+| \`check_status\` | Check a sent request | \`request_id\` |
+| \`view_thread\` | View conversation history | \`thread_id\` |
+| \`amend\` | Update a pending request | \`request_id\`, \`fields\`, optional: \`note\` |
+| \`cancel\` | Cancel a pending request | \`request_id\`, optional: \`reason\` |
+| \`subscribe\` | Subscribe to a group inbox | \`recipient\` (the group ID, e.g. \`backend-team\`). Omit to list current subscriptions. |
+| \`unsubscribe\` | Unsubscribe from a group inbox | \`recipient\` (the group ID to remove). Omit to list current subscriptions. |
+
+### Workflow
+
+1. **Discover** — Call \`pact_discover\` to see what pact types are available.
+2. **Pick a pact** — Read the pact's \`when_to_use\` and field definitions. Choose the right one.
+3. **Compose (optional)** — If you need the full pact schema, call \`pact_do\` with \`action: "send"\` and \`request_type\` but omit \`context_bundle\`. PACT returns the pact's fields, defaults, and response structure so you can construct the bundle correctly.
+4. **Send** — Address any user or group by their ID string. Compose \`context_bundle\` per the pact, then \`pact_do\` with \`action: "send"\`.
+5. **Check inbox** — Periodically call \`pact_do\` with \`action: "inbox"\`. You see requests addressed to your user ID or any inbox you're subscribed to.
+6. **Respond** — Read the request, compose \`response_bundle\` per the pact definition, then \`pact_do\` with \`action: "respond"\`.
+
+### Addressing & Subscriptions
+
+- **Send to anyone.** Address requests to any ID string — a person (\`cory\`), a role (\`on-call\`), a group (\`backend-team\`). PACT delivers without validation.
+- **IDs are normalized.** Lowercase, hyphens-for-spaces. \`Cory\` → \`cory\`, \`Backend Team\` → \`backend-team\`.
+- **Your inbox = your user ID + subscriptions.** Your primary inbox is your \`PACT_USER\`. You can subscribe to additional inboxes (e.g. \`backend-team\`) via the \`subscribe\` action. All subscribed inboxes are checked together.
+- **Subscribers can respond.** If you received a request via subscription, you can respond to it — you don't need to be named directly.
+- **No team registry.** PACT has no concept of "who exists." Discover teammates through your organization's tools (GitHub, Slack, org wiki, etc.) or just address them by convention.
+
+### Key Rules
+
+- **Bundles are freeform.** \`context_bundle\` and \`response_bundle\` are \`Record<string, unknown>\`. The pact definition describes what fields to include — follow it, but the protocol won't reject you if you don't.
+- **Frontmatter is guidance.** Fields like \`response_mode\`, \`visibility\`, \`claimable\`, and \`defaults\` in pact definitions are advice for you to interpret and honor. PACT does not enforce them.
+- **No access control.** Git has no file-level ACL. Everyone with repo access can see everything. Treat \`visibility: private\` as a convention you respect, not a security boundary.
+- **Check your inbox proactively.** PACT won't notify you. You need to check.
+- **Be a good citizen.** Respond to requests addressed to you. Include the fields the pact asks for. Follow the pact's guidance on multi-round, deadlines, and coordination.`;
+
+/**
  * Creates and returns an McpServer with the 2 collapsed PACT tools registered.
  * Adapters are created lazily on first tool call.
  */
@@ -36,7 +91,10 @@ export function createMcpServer(config: McpServerConfig): McpServer {
   if (!config.repoPath) throw new Error("repoPath is required");
   if (!config.userId) throw new Error("userId is required");
 
-  const server = new McpServer({ name: "PACT", version: "1.0.0" });
+  const server = new McpServer(
+    { name: "PACT", version: "1.0.0" },
+    { instructions: PACT_INSTRUCTIONS },
+  );
 
   // Lazily-initialized adapters (git validates directory at construction)
   let git: GitAdapter | undefined;

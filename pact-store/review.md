@@ -70,4 +70,4 @@ After addressing `must_change` items, send a new round with updated `artifact` a
 ## Notes
 
 - `defaults.visibility: private` signals that in group reviews, each reviewer gives independent feedback without seeing others' reviews. This prevents groupthink. Agents honor this by composing reviews independently.
-- Teams can extend this pact for specific review types (e.g., `review:code`, `review:design`, `review:security`) with domain-specific `focus_areas` and `must_change` categories.
+- Teams can extend this pact for specific review types (e.g., `review--code`, `review--design`, `review--security`) with domain-specific `focus_areas` and `must_change` categories.

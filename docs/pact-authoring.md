@@ -36,21 +36,20 @@ pact-store/
   ask.md                    # Global pacts (no subdirectory)
   review.md
   propose.md
+  riff.md
+  try.md
   ...
-  support/                  # Scoped variants in subdirectories
-    handoff:escalation.md
-    request:investigate.md
-  ttrpg/
-    check-in:turn.md
-    propose:faction.md
+  backend/                  # Scoped variants in subdirectories
+    request--backend.md
+    review--backend.md
 ```
 
 Global pacts go at the root. Scoped variants go in subdirectories named after their scope. The subdirectory name should match the `scope` field in the frontmatter.
 
 ### Naming Convention
 
-- **Global pacts**: Single verb — `ask`, `review`, `propose`, `handoff`, `request`, `share`, `check-in`, `decide`.
-- **Variants**: `parent:specialization` — `check-in:sprint`, `handoff:escalation`, `propose:faction`.
+- **Global pacts**: Single verb or hyphenated phrase — `ask`, `review`, `propose`, `handoff`, `request`, `share`, `check-in`, `decide`, `riff`, `try`.
+- **Variants**: `parent--specialization` — `check-in--weekly`, `request--backend`, `review--security`.
 - The filename matches the `name` field in frontmatter, with `.md` appended.
 
 ---
@@ -78,6 +77,10 @@ version: "1.0.0"                   # Semantic version as a string.
 scope: global                       # Scope tag for filtering via pact_discover.
                                     # Use "global" for base pacts.
                                     # Use the subdirectory name for variants.
+
+subject_hint: "Brief summary..."    # Hint shown to the sender for composing the
+                                    # request subject line. Agents and UIs use this
+                                    # to prompt for a good subject.
 
 when_to_use:                        # Agent decision guidance. String or array of strings.
   - When condition A applies        # pact_discover returns this so agents can pick
@@ -125,6 +128,11 @@ response_bundle:
 verdict: { type: string, enum: [approve, request-changes, comment], description: "..." }
 ```
 
+**Defaults within fields**: Use inline `default` to document assumed values when a field is omitted:
+```yaml
+urgency: { type: string, enum: [normal, high, drop-everything], default: normal, description: "..." }
+```
+
 ### Defaults
 
 ```yaml
@@ -162,6 +170,23 @@ registered_for:                     # List of group refs this pact is registered
 
 ---
 
+## Request-Level Fields
+
+When sending a request via `pact_do(action: "send")`, these fields are set at the protocol level, *outside* the pact definition:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subject` | string (optional) | Short summary of the specific request. Shows in inbox listings and notifications. The pact's `subject_hint` guides agents on what to write here. |
+| `recipient` / `recipients` | string / string[] | Who to send to. |
+| `deadline` | string (optional) | When a response is needed. |
+| `thread_id` | string (optional) | For multi-round pacts — continues an existing thread. |
+| `group_ref` | string (optional) | Group identifier for group requests. |
+| `attachments` | array (optional) | File attachments per the pact's `attachments` slots. |
+
+The `subject` field is particularly important — it's what recipients see first in their inbox. Every base pact includes a `subject_hint` to guide agents on composing a good subject line.
+
+---
+
 ## Inheritance (`extends`)
 
 Variants specialize a global pact for a specific domain. Inheritance is **single-level only** — a variant can extend a global, but a variant cannot extend another variant.
@@ -190,6 +215,7 @@ When the pact-loader resolves inheritance, it merges child over parent:
 | `version` | Child if set, else parent |
 | `description` | Child if non-empty, else parent |
 | `when_to_use` | Child if non-empty, else parent |
+| `subject_hint` | Child if set, else parent |
 | `context_bundle.fields` | **Shallow merge** — parent fields + child fields, child wins on conflict |
 | `context_bundle.required` | **Child replaces parent entirely** |
 | `response_bundle` | Child's if it has any fields or required, else parent's wholesale |
@@ -223,6 +249,7 @@ Everything after the closing `---` of the frontmatter is the Markdown body. It's
 
 **Request:**
 \```yaml
+subject: "Concrete, descriptive subject line"
 context_bundle:
   field: "concrete, realistic value"
 \```
@@ -248,11 +275,13 @@ Examples are the most impactful part of a pact definition. They teach agents by 
 - Use realistic, specific content (real-sounding names, real-sounding technical problems).
 - Show all required fields and at least one optional field.
 - Demonstrate the *judgment* involved — the response should show reasoning, not just data.
+- Include a realistic `subject` line that matches the `subject_hint`.
 
 **Bad examples:**
 - Placeholder values (`"Lorem ipsum"`, `"TODO"`, `"example value"`).
 - Only required fields with no optionals.
 - Responses that are mechanical / don't demonstrate judgment.
+- Missing `subject` in the request example.
 
 For `multi_round: true` pacts, show at least one round of iteration (Round 1 request + response).
 
@@ -305,6 +334,40 @@ Use scope to organize pacts into coherent sets that a team or context would brow
 
 ---
 
+## Default Pacts (Base Layer)
+
+10 global pacts ship with PACT as the base layer teams can use directly or extend via inheritance:
+
+| Pact | Pattern | Multi-round | Notes |
+|------|---------|-------------|-------|
+| `ask` | Get input that unblocks current work | no | Simplest pact. One question, one answer. |
+| `propose` | Workshop an idea through structured iteration | yes | Parallel feedback (groups) or ping-pong (1-to-1). |
+| `share` | Push context to someone, no action required | no | `defaults.response_mode: none_required`. |
+| `request` | Ask someone to do something and deliver a result | no | `defaults.claimable: true` for group open-requests. |
+| `handoff` | Transfer ownership of in-progress work | no | Relay chain pattern for groups. |
+| `check-in` | Async status round across a group | no | `defaults.response_mode: all`, `defaults.visibility: shared`. |
+| `decide` | Collective decision with structured options | no | `defaults.response_mode: all`, `defaults.visibility: private`. |
+| `review` | Structured feedback with blocking/advisory split | yes | `defaults.visibility: private` for independent reviews. |
+| `riff` | Share WIP and get honest reactions, ideas, or remixes | yes | Creative peer feedback. `defaults.visibility: shared`. |
+| `try` | Hands-on testing — try it out and report what happened | yes | Peer testing. `defaults.response_mode: all`. |
+
+### Pact Selection Guide
+
+| Situation | Use |
+|---|---|
+| "Quick question, need an answer" | `ask` |
+| "I have an idea, help me refine it" | `propose` |
+| "FYI, no action needed" | `share` |
+| "Please do this thing and deliver a result" | `request` |
+| "I'm done with this, you take over" | `handoff` |
+| "Everyone report your status" | `check-in` |
+| "Which option should we go with?" | `decide` |
+| "Review this before I ship it" | `review` |
+| "How does this look? Thoughts?" | `riff` |
+| "Try running this and tell me what happens" | `try` |
+
+---
+
 ## Anti-Patterns
 
 | Anti-pattern | Why it's wrong | What to do instead |
@@ -315,6 +378,71 @@ Use scope to organize pacts into coherent sets that a team or context would brow
 | **Field replacement** | Variant replaces all parent required fields | Write a new global pact, don't abuse extends |
 | **Vendor lock-in** | Fields reference specific tools (Helm, Zendesk, Jira) | Use generic field names; put tool-specific details in string fields |
 | **Kitchen sink** | 10+ fields in context_bundle | Split into multiple pacts or reduce to essential judgment inputs |
+| **Missing subject_hint** | No guidance for composing subject lines | Every pact should include `subject_hint` |
+
+---
+
+## Complete Example: Writing a New Global Pact
+
+Here's the full structure of a well-formed global pact:
+
+```yaml
+---
+name: ask
+description: Get input that unblocks current work
+version: "1.0.0"
+scope: global
+
+subject_hint: "Brief summary of the question"
+
+when_to_use:
+  - You have a specific question that blocks your current task
+  - You need another person or agent's perspective to proceed
+  - The question doesn't fit a more structured pact like review or decide
+
+multi_round: false
+
+context_bundle:
+  required: [question]
+  fields:
+    question: { type: string, description: "The question — be specific and actionable" }
+    background: { type: string, description: "Context the recipient needs to answer well" }
+    options_considered: { type: array, description: "What you already considered and why it's insufficient" }
+
+response_bundle:
+  required: [answer]
+  fields:
+    answer: { type: string, description: "Direct answer to the question" }
+    reasoning: { type: string, description: "Why this answer, briefly" }
+    caveats: { type: string, description: "Conditions or exceptions to the answer" }
+---
+
+# Ask
+
+## Example
+
+**Request:**
+\```yaml
+subject: "Redis vs PG advisory locks for rate limiter"
+context_bundle:
+  question: "Should we use Redis or PostgreSQL advisory locks for the distributed rate limiter?"
+  background: "We need sub-10ms lock acquisition. Current stack is PostgreSQL 16 + Node.js. No Redis instance yet."
+  options_considered: ["PG advisory locks are simpler but unsure about 5k req/s", "Redis is proven but adds ops overhead"]
+\```
+
+**Response:**
+\```yaml
+response_bundle:
+  answer: "PostgreSQL advisory locks. At 5k req/s they perform well and avoid adding Redis."
+  reasoning: "pg_advisory_lock benchmarks show <2ms acquisition up to 10k concurrent."
+  caveats: "Revisit if you need cross-database coordination or exceed 10k req/s."
+\```
+
+## Notes
+
+- If the answer needs iteration, use `propose` instead.
+- If you need multiple people's independent input, use `decide` with the question framed as options.
+```
 
 ---
 
@@ -323,8 +451,9 @@ Use scope to organize pacts into coherent sets that a team or context would brow
 1. **Coordination, not command.** Does the response require judgment?
 2. **Async-compatible.** Is it OK if the response comes hours later?
 3. **Fields earn their place.** Every field carries non-derivable judgment input.
-4. **Example is realistic.** Would a real human/agent send this?
-5. **Notes explain the "why."** Defaults have rationale. Alternatives are cross-referenced.
-6. **Scope is correct.** Global pacts use `scope: global`. Variants use their subdirectory name.
-7. **Inheritance is additive.** Variants add fields; they don't replace the parent's core fields.
-8. **Name matches filename.** `name: check-in:turn` lives in `check-in:turn.md`.
+4. **`subject_hint` is set.** Agents know how to compose the subject line.
+5. **Example is realistic.** Would a real human/agent send this? Does it include a `subject`?
+6. **Notes explain the "why."** Defaults have rationale. Alternatives are cross-referenced.
+7. **Scope is correct.** Global pacts use `scope: global`. Variants use their subdirectory name.
+8. **Inheritance is additive.** Variants add fields; they don't replace the parent's core fields.
+9. **Name matches filename.** `name: check-in--weekly` lives in `check-in--weekly.md`.
