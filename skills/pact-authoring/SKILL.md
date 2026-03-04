@@ -178,7 +178,6 @@ response_bundle:
 - When to use this vs alternatives.
 - Why defaults are set the way they are.
 - Cross-references to related pacts.
-```
 
 ### Example Quality
 
