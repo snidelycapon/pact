@@ -93,3 +93,5 @@ bun run build         # dist/index.js + dist/cli.js
 ## License
 
 MIT
+
+Made with ❤️ in 🇨🇦
