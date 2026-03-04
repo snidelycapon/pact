@@ -2,18 +2,20 @@
 
 Structured async work requests, backed by git.
 
-You need a code review. You open your editor, pick "review" from the catalog, fill in the context, and send it to a teammate. They get it in their inbox — maybe in VS Code, maybe in Claude Code, maybe in a terminal between meetings. They do the work however they do it, with whatever agents and tools they have set up, and the response comes back structured the way your team agreed on.
+You're in the middle of some work. You need a code review, a second opinion, or a sanity check. You tell your agent to send a review pact to a colleague. It already has the context from what you've been working on — it drafts the request, presents it to you for a look, and syncs it over. On the other side, your colleague sees a clear subject and request type. Their agent sees a structured context bundle with everything it needs to help them respond. The handoff between your workspace and theirs just happened without anyone copy-pasting, context-switching, or writing a summary from scratch.
 
-PACT is a shared git repo where work requests flow between people and their workspaces. Each person brings their own editor, their own agents, their own way of working. PACT doesn't see any of that — it sees a request go out and a response come back. What happens on each side is each person's business.
+PACT is a shared git repo that moves structured work requests between people and their workspaces. Each request has two layers: the parts for the human (subject, request type, what's being asked) and the parts for the agent (context bundle, response schema, guidance). Together, they make sure that when work crosses from one person's brain-and-machine setup into another's, nothing important gets lost in translation.
 
 ## Why PACT
 
-Teams coordinate through Slack threads, PR comments, and status meetings. None of those carry structured context. None of them give the recipient a clear picture of what's expected. And none of them bridge the gap between different tools and workflows.
+People work with agents now. Each person has their own editor, their own agents, their own way of getting things done — a workspace that's part human judgment and part machine capability. The problem is getting work *between* those workspaces without losing context or creating busywork.
 
-PACT gives your team a shared catalog of request types — code reviews, handoffs, proposals, status check-ins — each with defined fields for context and response. When you send a request, the pact definition tells the recipient what you need: what context you've provided, what you expect back, and guidance for approaching the work. When they respond, you get back exactly the structure you expected, regardless of how they got there.
+Slack threads lose structure. PR comments lose context. Status meetings lose everyone's time. None of them are designed for the way people actually work now — where the agent sitting next to you has all the context, but no way to hand it cleanly to the agent sitting next to your colleague.
 
-- **Workspace-agnostic** — Everyone uses whatever tools and agents they work with. PACT connects the spaces, not the tools.
-- **People drive the work** — Humans decide what needs to happen. How they get it done — with agents, without, whatever — is up to them.
+PACT gives your team a shared catalog of request types — code reviews, handoffs, proposals, status check-ins — each defining what context to provide and what response to expect. The human decides what needs to happen. The agent drafts the request from the work context it already has. The human reviews and sends. On the other side, the recipient's agent has structured context to help them do the work, and the response comes back in the shape everyone agreed on.
+
+- **Workspace-agnostic** — PACT connects workspaces, not tools. Everyone uses whatever editor, agents, and workflow they already have.
+- **Agent-native** — Requests carry structured context bundles designed for agents to consume, alongside human-readable subjects and descriptions.
 - **Git is the transport** — No infrastructure, no accounts, no vendor. Pull to sync, push to deliver.
 
 ## Pact definitions
@@ -54,10 +56,10 @@ pact-repo/
   responses/               Response data keyed by request ID
 ```
 
-1. **Browse the catalog** — see what request types your team has defined
-2. **Send a request** — pick a type, fill in the context, address it to someone
-3. **Check your inbox** — see what's waiting for you
-4. **Respond** — do the work, fill in the response, done
+1. **Browse the catalog** — your agent shows you what request types your team has defined
+2. **Send a request** — tell your agent what you need and who to send it to; it drafts the request from your work context
+3. **Check your inbox** — see what's waiting for you, with your agent ready to help
+4. **Respond** — your agent has the structured context to help you do the work; approve the response and it syncs back
 
 ## Interfaces
 
@@ -77,7 +79,7 @@ Or do it manually: build with `bun install && bun run build`, point `PACT_REPO` 
 
 PACT is a dumb pipe with a catalog. It stores pact definitions, delivers requests, and presents inbox contents. That's it.
 
-The pact definitions encode how your team works. But the protocol doesn't enforce any of it. People read the request, decide how to handle it, and send back a response. PACT just moves files around in git.
+The pact definitions encode how your team works. But the protocol doesn't enforce any of it. Each person and their workspace decide how to handle what comes in. PACT just moves files around in git.
 
 ## Development
 

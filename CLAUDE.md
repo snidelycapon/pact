@@ -21,7 +21,7 @@ PACT does not have opinions about how it's used. It does not recommend, route, s
 
 ## Architecture Reminders
 
-- ~2,200 LOC TypeScript, ports-and-adapters, modular monolith
+- ~3,800 LOC TypeScript, ports-and-adapters, modular monolith
 - 2 MCP tools (`pact_discover`, `pact_do`), 9 actions (send, inbox, respond, check_status, view_thread, cancel, amend, subscribe, unsubscribe)
 - Git is the transport. Files on disk are the state. Commits are atomic operations.
 - Pact definitions are the only "smart" part — they're rich documents that tell agents how to behave. The protocol just serves them.
