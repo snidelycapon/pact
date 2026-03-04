@@ -1,0 +1,2 @@
+# Bundled MCP server — suppress diffs and language stats
+resources/pact-mcp-server/index.js linguist-generated -diff

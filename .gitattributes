@@ -1,3 +1,6 @@
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
+
+# Bundled MCP server in VSCode extension — suppress diffs
+extensions/vscode/resources/pact-mcp-server/index.js linguist-generated -diff

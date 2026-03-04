@@ -1,0 +1,8 @@
+{
+  "source": "/Users/cory/pact",
+  "commit": "dff37b9cfab374f2e663cadd2f896c4e5278b308",
+  "builtAt": "2026-03-04T16:02:27Z",
+  "bundleSize": 1570733,
+  "bundleLines": 44276,
+  "command": "npx esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --banner:js='shebang+createRequire'"
+}

@@ -1,0 +1,16 @@
+.gitignore
+.git/**
+node_modules/**
+src/**
+webview/components/**
+webview/tsconfig.json
+test/**
+*.ts
+tsconfig.json
+esbuild.config.mjs
+**/*.map
+*.vsix
+.mcp.json
+.claude/**
+scripts/**
+*.code-workspace

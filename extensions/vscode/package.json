@@ -1,0 +1,273 @@
+{
+  "name": "vscode-pact",
+  "displayName": "PACT",
+  "description": "Async work requests via git — inbox, catalog, send & respond to pacts",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "pact-dev",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pact",
+          "title": "PACT",
+          "icon": "resources/pact-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pact": [
+        {
+          "id": "pact.dashboard",
+          "name": "Dashboard",
+          "type": "webview",
+          "when": "pact.configured"
+        },
+        {
+          "id": "pact.inboxTable",
+          "name": "Inbox",
+          "type": "webview",
+          "when": "pact.configured"
+        },
+        {
+          "id": "pact.inbox",
+          "name": "Inbox (Tree)",
+          "visibility": "collapsed",
+          "when": "pact.configured"
+        },
+        {
+          "id": "pact.detail",
+          "name": "Request Detail",
+          "type": "webview",
+          "when": "pact.hasSelectedRequest"
+        },
+        {
+          "id": "pact.catalog",
+          "name": "Catalog"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "pact.inbox",
+        "contents": "PACT is not configured yet.\n\nSet your PACT repository path and user ID to get started.\n\n[Configure PACT](command:pact.configure)\n\n[Open Setup Guide](command:workbench.action.openWalkthrough?%22pact-dev.vscode-pact%23pact.setup%22)",
+        "when": "!pact.configured"
+      }
+    ],
+    "commands": [
+      {
+        "command": "pact.refresh",
+        "title": "PACT: Refresh Inbox",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pact.send",
+        "title": "PACT: Send Request",
+        "icon": "$(mail)"
+      },
+      {
+        "command": "pact.respond",
+        "title": "PACT: Respond to Request",
+        "icon": "$(reply)"
+      },
+      {
+        "command": "pact.copyId",
+        "title": "PACT: Copy Request ID",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "pact.copyContext",
+        "title": "PACT: Copy Context Bundle",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "pact.subscribe",
+        "title": "PACT: Manage Subscriptions"
+      },
+      {
+        "command": "pact.configure",
+        "title": "PACT: Configure"
+      },
+      {
+        "command": "pact.selectRequest",
+        "title": "PACT: Select Request"
+      },
+      {
+        "command": "pact.sendType",
+        "title": "PACT: Send This Type",
+        "icon": "$(mail)"
+      },
+      {
+        "command": "pact.refreshCatalog",
+        "title": "PACT: Refresh Catalog",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pact.showMenu",
+        "title": "PACT: Quick Menu"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pact.refresh",
+          "when": "view == pact.inbox || view == pact.inboxTable",
+          "group": "navigation"
+        },
+        {
+          "command": "pact.send",
+          "when": "view == pact.inbox || view == pact.inboxTable",
+          "group": "navigation"
+        },
+        {
+          "command": "pact.refreshCatalog",
+          "when": "view == pact.catalog",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pact.respond",
+          "when": "view == pact.inbox && viewItem =~ /^(pending|active)-request$/",
+          "group": "inline"
+        },
+        {
+          "command": "pact.copyId",
+          "when": "view == pact.inbox && viewItem =~ /request$/",
+          "group": "inline"
+        },
+        {
+          "command": "pact.copyContext",
+          "when": "view == pact.inbox && viewItem =~ /request$/",
+          "group": "pact@1"
+        },
+        {
+          "command": "pact.sendType",
+          "when": "view == pact.catalog && viewItem == catalog-pact-type",
+          "group": "inline"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "pact.setup",
+        "title": "Get Started with PACT",
+        "description": "Set up async work requests in your editor",
+        "steps": [
+          {
+            "id": "pact.setup.repo",
+            "title": "Set your PACT repository",
+            "description": "Point to your team's shared PACT git repository.\n\n[Open Settings](command:pact.configure)",
+            "media": {
+              "markdown": "resources/walkthrough/repo.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:pact.repoPath"
+            ]
+          },
+          {
+            "id": "pact.setup.user",
+            "title": "Set your user ID",
+            "description": "Your PACT identity — lowercase, hyphens for spaces (e.g. `alice`, `cory-h`).\n\n[Open Settings](command:pact.configure)",
+            "media": {
+              "markdown": "resources/walkthrough/user.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:pact.userId"
+            ]
+          },
+          {
+            "id": "pact.setup.refresh",
+            "title": "Check your inbox",
+            "description": "Verify the connection by refreshing your inbox.\n\n[Refresh Inbox](command:pact.refresh)",
+            "media": {
+              "markdown": "resources/walkthrough/inbox.md"
+            },
+            "completionEvents": [
+              "onCommand:pact.refresh"
+            ]
+          },
+          {
+            "id": "pact.setup.catalog",
+            "title": "Browse the catalog",
+            "description": "Explore the pact types available to your team.\n\n[Open Catalog](command:pact.refreshCatalog)",
+            "media": {
+              "markdown": "resources/walkthrough/catalog.md"
+            },
+            "completionEvents": [
+              "onCommand:pact.refreshCatalog"
+            ]
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "PACT",
+      "properties": {
+        "pact.repoPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to your PACT git repository"
+        },
+        "pact.userId": {
+          "type": "string",
+          "default": "",
+          "description": "Your PACT user ID (lowercase, hyphens for spaces)"
+        },
+        "pact.displayName": {
+          "type": "string",
+          "default": "",
+          "description": "Your display name (defaults to userId)"
+        },
+        "pact.pollInterval": {
+          "type": "number",
+          "default": 300,
+          "minimum": 30,
+          "description": "Poll interval in seconds (default: 300 = 5 min)"
+        },
+        "pact.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override path to pact MCP server index.js (bundled server used by default)"
+        },
+        "pact.draftMaxAgeDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "description": "Delete draft files older than this many days on startup (default: 7)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "package": "vsce package --no-dependencies",
+    "lint": "tsc --noEmit && tsc --noEmit -p webview/tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/marked": "^5.0.2",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "@tanstack/table-core": "^8.21.3",
+    "lit": "^3.3.2",
+    "marked": "^17.0.3"
+  }
+}
