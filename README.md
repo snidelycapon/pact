@@ -66,7 +66,7 @@ Teams add their own by dropping `.md` files into `pact-store/`. Variant inherita
 
 Ask your AI agent to use the **Pact Setup** skill (`[skill:pact-setup]`) and follow along. It will detect your environment, walk you through configuration, and verify the connection.
 
-Or do it manually: build with `bun install && bun run build`, point `PACT_REPO` at your shared repo and `PACT_USER` at your user ID, and register `dist/index.js` as an MCP server. See `examples/source-config.json` for a template.
+Or do it manually: build with `bun install && bun run build`, point `PACT_REPO` at your shared repo and `PACT_USER` at your user ID, and register `dist/index.js` as an MCP server.
 
 ## Design philosophy
 
