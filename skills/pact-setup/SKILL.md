@@ -33,7 +33,8 @@ cat ~/.pact.json 2>/dev/null
 
 ### Check 3: MCP client config
 Check the relevant MCP client config for an existing PACT server entry:
-- **Claude Code:** `~/.claude/claude_desktop_config.json`
+- **Claude Desktop:** `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+- **Claude Code CLI:** `.mcp.json` in the project root, or `~/.claude.json` for global config
 - **Cursor:** `.cursor/mcp.json` in the project root
 - **Windsurf:** Check Windsurf MCP settings
 - **Craft Agent:** `~/.craft-agent/workspaces/<workspace>/sources/pact/config.json`
@@ -87,7 +88,7 @@ The server entry needs:
 - Args: `["<path-to-pact>/dist/index.js"]`
 - Environment: `PACT_REPO`, `PACT_USER`, optionally `PACT_DISPLAY_NAME`
 
-**Claude Code** (`~/.claude/claude_desktop_config.json`):
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 ```json
 {
   "mcpServers": {

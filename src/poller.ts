@@ -7,6 +7,11 @@
  *
  * Consumers (CLI, Craft Agent, VSCode) call poll() for one-shot
  * checks or start()/stop() for continuous watch mode.
+ *
+ * Note: each poll() triggers a git pull via handlePactInbox. In watch
+ * mode this means one pull per interval. Consumers with their own sync
+ * mechanism (e.g. Craft Agent) may want to inject a no-op GitPort.pull
+ * to avoid redundant fetches.
  */
 
 import { handlePactInbox } from "./tools/pact-inbox.ts";

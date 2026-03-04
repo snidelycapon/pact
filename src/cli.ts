@@ -21,7 +21,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { execSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { FileAdapter } from "./adapters/file-adapter.ts";
 import { GitAdapter } from "./adapters/git-adapter.ts";
 import { ConfigAdapter } from "./adapters/config-adapter.ts";
@@ -50,7 +50,9 @@ function resolveConfig(): CliConfig {
   let displayName = process.env.PACT_DISPLAY_NAME;
   let pollInterval = 60;
 
-  // Fall back to ~/.pact.json
+  // Fall back to ~/.pact.json for CLI connection config (repo, user, poll_interval).
+  // Note: this is NOT the old ~/.pact.json that stored subscriptions — those now
+  // live in the repo at members/{user_id}.json. This file is purely for CLI convenience.
   if (!repoPath || !userId) {
     const configPath = join(homedir(), ".pact.json");
     if (existsSync(configPath)) {
@@ -119,12 +121,13 @@ function formatTime(): string {
 function sendNotification(title: string, body: string): void {
   try {
     if (process.platform === "darwin") {
-      const escaped = body.replace(/"/g, '\\"');
-      execSync(
-        `osascript -e 'display notification "${escaped}" with title "${title}"'`,
-      );
+      // Use execFile with array args — no shell interpolation, safe from injection
+      execFile("osascript", [
+        "-e",
+        `display notification "${body}" with title "${title}"`,
+      ]);
     } else if (process.platform === "linux") {
-      execSync(`notify-send "${title}" "${body}"`);
+      execFile("notify-send", [title, body]);
     }
   } catch {
     // Silent — notifications are best-effort
